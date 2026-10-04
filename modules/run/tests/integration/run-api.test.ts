@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { handleSessionWrite } from "../../../platform/src/api/session.ts";
+import { handleFactoryRead, handleRevisionCreate } from "../../../factory/src/api/factory.ts";
 import type { AppEnv } from "../../../platform/src/env.ts";
 import { ORIGIN, cookieFrom, createTestEnvironment, get, post } from "../../../platform/tests/support/d1.ts";
 import { handleAssessmentCreate, handleAssessmentRead, handleDecisionCreate, handleSignOff } from "../../../diagnose/src/api/diagnose.ts";
@@ -137,6 +138,21 @@ test("a baseline is recorded once, before anything is accepted, and is read back
   assert.equal(entry.company_id, A);
 });
 
+test("what the assessment expected is the figure for this engagement's own idea, whichever idea it is", async () => {
+  const s = await base();
+  const items = s.detail.result.items;
+  assert.ok(items.length >= 3, "the synthetic assessment has at least three ideas");
+  const shown: string[] = [];
+  for (const n of [0, 1, 2]) {
+    const e = await engageFor(s, n);
+    const expected = (await view(e.id, s.a)).expected;
+    const b = items[n].benefit;
+    assert.deepEqual(expected, { measure: b.measure, unit: b.unit, low: b.low, high: b.high }, `idea ${n}: ${items[n].opportunityId}`);
+    shown.push(JSON.stringify(expected));
+  }
+  assert.ok(new Set(shown).size >= 2, "the ideas do not all share one figure, so the test can tell one from another");
+});
+
 test("a baseline cannot be taken once something has been accepted, and nothing is written when it is refused", async () => {
   const p = await planned();
   await accept(p);
@@ -192,7 +208,9 @@ test("each review opens on its day and not before: 30, 90 and 180 days after the
   await written(2, REVIEW_DAYS[1]);
   await written(3, REVIEW_DAYS[2]);
   assert.equal(await count("outcome_events", "kind = 'review'"), 3);
-  assert.equal((await audits("outcome.review")).length, 3);
+  const trail = await audits("outcome.review");
+  assert.equal(trail.length, 3);
+  assert.deepEqual(trail.map((t) => JSON.parse(t.detail)), [1, 2, 3].map((no) => ({ engagement: p.id, review: no })), "each audit entry names the engagement and which review it was");
 });
 
 test("the reviews are timed from the first acceptance, not the latest, when several milestones are accepted at different times", async () => {
@@ -280,6 +298,7 @@ test("what is sent is checked: the number, the kind, the verdict, whether it is 
   await bad({ ...REVIEW, value: 1.5 }, "value");
   await bad({ ...REVIEW, value: "abc" }, "value");
   await bad({ ...REVIEW, value: "" }, "value");
+  for (const text of ["1.5", "1.0", "2.", ".5", "1e3", "-1", "+1", "0x10", "1 2", " ", "12345678901", "\u0661\u0662", "1,000"]) await bad({ ...REVIEW, value: text }, "value");
   await bad({ ...REVIEW, value: undefined }, "value");
   await bad({ ...REVIEW, kind: "other" }, "kind");
   await bad({ ...REVIEW, kind: undefined }, "kind");
@@ -439,6 +458,40 @@ test("the table's own rules hold for whoever writes: ranges, shapes of each kind
   assert.equal(await count("outcome_events"), 1, "a review that breaks no rule is accepted: the refusals above were for the reasons given");
 });
 
+test("two engagements of one company keep their own numbers: each shows its own baseline, reviews and change, and nothing of the other's", async () => {
+  const s = await base();
+  const e1 = await engageFor(s, 0);
+  const e2 = await engageFor(s, 1);
+  const milestones: Record<string, string> = {};
+  for (const e of [e1, e2]) {
+    const m = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${e.id}/milestones`, s.a, MILESTONE), env, A, e.id);
+    milestones[e.id] = ((await m.json()) as { id: string }).id;
+    assert.equal((await deliverEvent(e.id, s.a, { kind: "plan_agreed" })).status, 201);
+  }
+  assert.equal((await outcomes(A, e1.id, s.a, { kind: "baseline", value: 11, note: "one" })).status, 201);
+  assert.equal((await outcomes(A, e2.id, s.a, { kind: "baseline", value: 22, note: "two" })).status, 201);
+  for (const e of [e1, e2]) {
+    assert.equal((await deliverEvent(e.id, s.a, { kind: "delivered", milestoneId: milestones[e.id] })).status, 201);
+    assert.equal((await deliverEvent(e.id, s.a, { kind: "accepted", milestoneId: milestones[e.id] })).status, 201);
+  }
+  const first = (await view(e1.id, s.a)).firstAcceptedAt!;
+  const late = after(first, 400);
+  assert.equal((await outcomes(A, e1.id, s.a, { kind: "review", reviewNo: 1, value: 15, verdict: "met", inUse: "yes", note: "first" }, late)).status, 201);
+  assert.equal((await outcomes(A, e2.id, s.a, { kind: "review", reviewNo: 1, value: 90, verdict: "not_met", inUse: "no", note: "second" }, late)).status, 201);
+  assert.equal((await outcomes(A, e2.id, s.a, { kind: "review", reviewNo: 3, value: 95, verdict: "partly", inUse: "yes" }, late)).status, 201);
+
+  const one = await view(e1.id, s.a, late);
+  const two = await view(e2.id, s.a, late);
+  assert.deepEqual([one.baseline?.value, one.baseline?.note], [11, "one"]);
+  assert.deepEqual([two.baseline?.value, two.baseline?.note], [22, "two"]);
+  assert.deepEqual(one.reviews.map((r) => r.record && [r.record.value, r.record.verdict, r.record.inUse, r.record.note]), [[15, "met", "yes", "first"], null, null]);
+  assert.deepEqual(two.reviews.map((r) => r.record && [r.record.value, r.record.verdict, r.record.inUse, r.record.note]), [[90, "not_met", "no", "second"], null, [95, "partly", "yes", ""]]);
+  assert.equal(one.changeSinceBaseline, 4, "15 less 11");
+  assert.equal(two.changeSinceBaseline, 73, "95 less 22: the latest of its own reviews");
+  assert.equal(await count("outcome_events", `engagement_id = '${e1.id}'`), 2);
+  assert.equal(await count("outcome_events", `engagement_id = '${e2.id}'`), 3);
+});
+
 test("the once-only and the clock rules hold for each engagement on its own: a second engagement of the same company is neither blocked by the first nor opened by it", async () => {
   const s = await base();
   const e1 = await engageFor(s, 0);
@@ -546,6 +599,31 @@ test("the next idea is the first one the owner accepted that has no requirement 
   assert.equal((await view(e1.id, s.a)).next?.opportunityId, items[2]);
   for (let n = 2; n < items.length; n++) await engageFor(s, n);
   assert.equal((await view(e0.id, s.a)).next, null, "every idea has a requirement");
+});
+
+test("the next idea is looked for among the requirements made from the same assessment: one made from a later assessment does not hide it", async () => {
+  const s = await base();
+  const e = await engageFor(s, 0);
+  const before = (await view(e.id, s.a)).next;
+  assert.ok(before, "with other ideas accepted there is a next one");
+
+  // a newer confirmed description gives a second assessment; the owner accepts everything in it and makes a requirement for the
+  // idea that is next in the FIRST assessment, from the second
+  const latest = ((await (await handleFactoryRead(get(`/api/companies/${A}/factory`, s.a), env, A)).json()) as { latestConfirmed: { answers: Record<string, unknown> } }).latestConfirmed;
+  assert.equal((await handleRevisionCreate(req(`/api/companies/${A}/factory/revisions`, s.a, { basedOn: 1, answers: { ...latest.answers, products: "SYNTHETIC changed product list" }, confirm: true }), env, A)).status, 201);
+  const made = await handleAssessmentCreate(req(`/api/companies/${A}/assessments`, s.a), env, A);
+  assert.equal(made.status, 201);
+  const madeId = ((await made.json()) as { id: string }).id;
+  const second = (await (await handleAssessmentRead(get(`/api/companies/${A}/assessments/${madeId}`, s.a), env, A, madeId)).json()) as Detail;
+  assert.notEqual(second.id, s.detail.id);
+  for (const item of second.result.items) assert.equal((await handleDecisionCreate(req(`/api/companies/${A}/assessments/${second.id}/decisions`, s.a, { opportunityId: item.opportunityId, decision: "accept" }), env, A, second.id)).status, 201);
+  assert.equal((await handleSignOff(req(`/api/companies/${A}/assessments/${second.id}/signoff`, s.a), env, A, second.id)).status, 201);
+  const hidden = second.result.items.find((i) => i.opportunityId === before!.opportunityId);
+  assert.ok(hidden, "the idea that is next in the first assessment is in the second as well (the test needs it)");
+  const asked = await handleRequirementCreate(req(`/api/companies/${A}/requirements`, s.a, { assessmentId: second.id, opportunityId: before!.opportunityId, cluster: CLUSTER }), env, A);
+  assert.equal(asked.status, 201);
+
+  assert.deepEqual((await view(e.id, s.a)).next, before, "still next: nothing was asked for it from the assessment this engagement came from");
 });
 
 test("an idea the owner did not accept is never offered as next", async () => {
