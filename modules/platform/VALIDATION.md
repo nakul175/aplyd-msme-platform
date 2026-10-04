@@ -105,7 +105,7 @@ Each change below was made to the working tree, the browser layer was run, and t
 - Playwright's own Node-side cookie jar does not send a `Secure` cookie to `http://127.0.0.1`. The suites therefore read the application through the browser's `fetch`, and attach a cookie by hand where a Node-side request needs one. A test that appears to be signed in through `context.request` is not.
 - A cross-site post from another website is simulated: the other website is served inside the browser by a test route, and every non-application origin is blocked. It shows what the server does with the Origin header a real browser sends. It does not show what other browsers do.
 - The same agent wrote the application, the tests and these mutations. No person and no other agent has reviewed them. Identity and data scope remain protected paths.
-- GitHub Actions has not run the browser layer. The workflow step uses the `chrome` channel and runs `google-chrome --version` first; that the runner image has Chrome is assumed, not verified here.
+- GitHub Actions ran both workflows on pull request #2 at commit 0a5633c on 4 October 2026 (started 17:37 UTC) and they passed; the engineering workflow took 1 minute 27 seconds. That is the first run of the browser layer on a GitHub-hosted runner, with Google Chrome through the `chrome` channel. It is one run on one runner image; how often it passes over many runs is not known.
 - `playwright-core` 1.63.0 was listed by npm on 4 October 2026 and was not tried.
 - One harness test uses `pgrep`. `SIGKILL` on the test process cannot be intercepted, so a Worker can outlive a test process killed that way.
 
@@ -135,7 +135,7 @@ The old session token still returns 200 on the company API after sign-out, becau
 
 ## Limits
 
-- GitHub Actions ran both workflows on pull request #1 at commit a6c806f and again at d5e1fde on 4 October 2026 and they passed. It has not yet run the review-fix commit; its result is added to this file when it has.
+- GitHub Actions ran both workflows on pull request #1 at commit a6c806f and again at d5e1fde on 4 October 2026 and they passed. It also ran at d5b3c12, the review-fix commit, on 4 October 2026 (17:33 UTC) and passed.
 - One reviewer agent, one pass. It found one high and seven medium defects in code its author believed sound, so the next pass will likely find more. No person has read this code. Identity, data scope, migrations and the audit log are protected paths.
 - Same author fixed what the reviewer found and wrote the new tests. The mutation table is the author's own.
 - On 4 October 2026 a headless Chromium (141.0.7390.37, through `playwright-core` 1.56.1) rendered the pages, held the session cookie and sent cross-site posts to the built application in a local Worker; see "Browser layer (slice 1b)" above. That is one engine, one desktop viewport and HTTP on loopback. No other browser, no mobile browser, no HTTPS on a real host name and no hosted environment has been tested. The smoke layer still reads rendered HTML as text.

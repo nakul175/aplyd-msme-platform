@@ -16,7 +16,7 @@ This is slice 1, the walking skeleton. It is application plumbing with no produc
 - Sign-in refuses anywhere `APLYD_ENV` is not exactly local, synthetic or test, and without a good `SESSION_SECRET`. A build carries no environment name; only the development server sets `local`.
 - The interface shows a SYNTHETIC banner and tag.
 - Test runner with layers, per-module baselines and a guard; CI that runs it; a documentation integrity check.
-- A browser test layer (slice 1b): the built application in a local Worker, walked in a real headless Chromium through `playwright-core`. It checks that the pages render with the SYNTHETIC banner, that sign-in through the form leaves an HttpOnly, SameSite=Lax session cookie that script on the page cannot read, that the scope rule and sign-out hold in the browser, and that a cross-site post is refused. First run on 4 October 2026 in Chromium 141.0.7390.37 on Linux; not yet run by GitHub Actions. What it does not prove is in [VALIDATION.md](VALIDATION.md).
+- A browser test layer (slice 1b): the built application in a local Worker, walked in a real headless Chromium through `playwright-core`. It checks that the pages render with the SYNTHETIC banner, that sign-in through the form leaves an HttpOnly, SameSite=Lax session cookie that script on the page cannot read, that the scope rule and sign-out hold in the browser, and that a cross-site post is refused. First run on 4 October 2026 in Chromium 141.0.7390.37 on Linux; GitHub Actions ran it on the same day at commit 0a5633c, with Google Chrome on the runner, and it passed (one run). What it does not prove is in [VALIDATION.md](VALIDATION.md).
 
 ## Not built
 
