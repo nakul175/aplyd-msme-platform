@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "slice 4 procure",
+  "reason": "slice 4 review fixes",
   "suites": {
     "browser/diagnose": 8,
     "integration/diagnose-api": 32,

@@ -95,6 +95,15 @@ test("text is limited in length and may not hold control characters", () => {
   for (const bad of ["a\u0000b", "a\u001bb", "a\u007fb", "a\u0008b"]) assert.ok(!validateAnswers({ products: bad }, { confirm: false }).ok, JSON.stringify(bad));
 });
 
+test("text may not change its own direction or hide characters, but Indian scripts and emoji still go through", () => {
+  for (const bad of ["ab\u202ecd", "ab\u202acd", "ab\u2066cd", "ab\u2069cd", "a\u200bb", "a\u200eb", "a\u200fb", "a\u061cb", "a\u2060b", "a\ufeffb"]) {
+    assert.ok(!validateAnswers({ products: bad }, { confirm: false }).ok, JSON.stringify(bad));
+  }
+  for (const good of ["क्\u200dष और नमस्ते", "ക്\u200cഷ", "family \u{1F468}\u200d\u{1F469}\u200d\u{1F467}", "plain text, ₹1,500"]) {
+    assert.ok(validateAnswers({ products: good }, { confirm: false }).ok, JSON.stringify(good));
+  }
+});
+
 test("answers that are not an object are refused", () => {
   for (const bad of [null, undefined, "x", 7, [], [{ sector: "pharma" }]]) assert.ok(!validateAnswers(bad, { confirm: false }).ok, JSON.stringify(bad));
 });

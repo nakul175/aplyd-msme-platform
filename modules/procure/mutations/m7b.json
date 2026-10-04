@@ -1,0 +1,134 @@
+[
+ {
+  "name": "operator check: role not required",
+  "path": "modules/platform/src/api/authorize.ts",
+  "old": "if (identity.role !== \"operator\" || identity.companyId !== null) {",
+  "new": "if (identity.companyId !== null) {",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "owners see unlisted providers",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "WHERE s.opportunity_id = ? AND s.cluster = ?\n          AND (SELECT e.kind FROM provider_events e WHERE e.provider_id = p.id ORDER BY e.id DESC LIMIT 1) = 'list'",
+  "new": "WHERE s.opportunity_id = ? AND s.cluster = ?",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "form: missing assessment answered with JSON",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "if (!record) return form ? back(\"problem=missing\") : json(404, { error: \"not_found\" });",
+  "new": "if (!record) return json(404, { error: \"not_found\" });",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "form: missing requirement on withdraw answered with JSON",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "return form ? redirect(\"/procure?problem=missing\") : json(404, { error: \"not_found\" });\n}",
+  "new": "return json(404, { error: \"not_found\" });\n}",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "form: overlong requirement id answered with JSON",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "requirementId.length > 64) return form ? redirect(\"/procure?problem=missing\") : json(404, { error: \"not_found\" });",
+  "new": "requirementId.length > 64) return json(404, { error: \"not_found\" });",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "form: missing provider on list answered with JSON",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "if (result.reason === \"not_found\") return form ? redirect(\"/operator?problem=missing\") : json(404, { error: \"not_found\" });\n  return form ? redirect(`/operator?problem=${result.reason}`)",
+  "new": "if (result.reason === \"not_found\") return json(404, { error: \"not_found\" });\n  return form ? redirect(`/operator?problem=${result.reason}`)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "form: missing provider on unlist answered with JSON",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "if (result.reason === \"not_found\") return form ? redirect(\"/operator?problem=missing\") : json(404, { error: \"not_found\" });\n  return form ? redirect(\"/operator?problem=not_listed\")",
+  "new": "if (result.reason === \"not_found\") return json(404, { error: \"not_found\" });\n  return form ? redirect(\"/operator?problem=not_listed\")",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "form: overlong provider id on list answered with JSON",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "providerId.length > 64) return form ? redirect(\"/operator?problem=missing\") : json(404, { error: \"not_found\" });\n\n  const result = await listProvider",
+  "new": "providerId.length > 64) return json(404, { error: \"not_found\" });\n\n  const result = await listProvider",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "form: overlong provider id on unlist answered with JSON",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "providerId.length > 64) return form ? redirect(\"/operator?problem=missing\") : json(404, { error: \"not_found\" });\n\n  const result = await unlistProvider",
+  "new": "providerId.length > 64) return json(404, { error: \"not_found\" });\n\n  const result = await unlistProvider",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "page: /procure has no message for a missing requirement",
+  "path": "app/procure/page.tsx",
+  "old": "  missing: \"That requirement could not be found.\",\n",
+  "new": "",
+  "layers": [
+   "static"
+  ],
+  "only": [
+   "procure/static/problems"
+  ]
+ },
+ {
+  "name": "page: /operator has no message for a missing provider",
+  "path": "app/operator/page.tsx",
+  "old": "  missing: \"That provider could not be found.\",\n",
+  "new": "",
+  "layers": [
+   "static"
+  ],
+  "only": [
+   "procure/static/problems"
+  ]
+ }
+]

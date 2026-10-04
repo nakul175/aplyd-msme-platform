@@ -211,8 +211,11 @@ const put = (target: object, key: string, value: unknown) => Object.defineProper
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-// Control characters other than tab and newline have no place in an answer. A string with NUL or escape codes is refused, not cleaned.
-export const hasControlCharacters = (s: string) => /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(s);
+// Control characters other than tab and newline have no place in an answer, and neither have the characters that change which way text
+// runs or that show nothing at all (the independent reviews of slices 2 and 4 found text with these accepted: it can make one name read
+// as another). A string with any of them is refused, not cleaned. Not refused: the zero-width joiner and non-joiner (U+200D, U+200C),
+// which Hindi and other Indian scripts and emoji sequences need.
+export const hasControlCharacters = (s: string) => /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u061C\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/.test(s);
 
 /**
  * Checks answers against the questionnaire. Unknown keys, wrong types, unlisted options, too many choices and

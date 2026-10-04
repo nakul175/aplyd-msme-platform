@@ -30,10 +30,12 @@ export async function listRequirements(db: D1Database, companyId: string): Promi
   return results.map(toRecord);
 }
 
-export type CreateResult = { ok: true; id: string; created: boolean } | { ok: false; reason: "not_signed_off" | "not_accepted" | "not_found" };
+/** `cluster` is the one stored: when the requirement already existed it is the cluster it was first made in, which may not be the one asked for. */
+export type CreateResult = { ok: true; id: string; created: boolean; cluster: string } | { ok: false; reason: "not_signed_off" | "not_accepted" | "not_found" | "previously_withdrawn" };
 
 /**
- * Stores a requirement for (company, assessment, item), unless one exists, in which case that one is returned. The database
+ * Stores a requirement for (company, assessment, item), unless one exists, in which case that one is returned, with the cluster it
+ * was made in; if that one was withdrawn it is not returned as if it were made (a withdrawn requirement stays withdrawn). The database
  * refuses it unless the assessment is signed off and the owner's standing decision on the item is "accept". The audit entry is
  * written in the same batch and only when a row was added.
  */
@@ -62,13 +64,18 @@ export async function createRequirement(
     if (/FOREIGN KEY/.test(text)) return { ok: false, reason: "not_found" };
     throw error;
   }
-  if (created) return { ok: true, id, created: true };
+  if (created) return { ok: true, id, created: true, cluster };
   const existing = await db
-    .prepare("SELECT id FROM requirements WHERE company_id = ? AND assessment_id = ? AND opportunity_id = ?")
+    .prepare(
+      `SELECT r.id, r.cluster,
+              EXISTS (SELECT 1 FROM requirement_events e WHERE e.requirement_id = r.id AND e.company_id = r.company_id AND e.kind = 'withdraw') AS withdrawn
+         FROM requirements r WHERE r.company_id = ? AND r.assessment_id = ? AND r.opportunity_id = ?`,
+    )
     .bind(companyId, assessmentId, opportunityId)
-    .first<{ id: string }>();
+    .first<{ id: string; cluster: string; withdrawn: number }>();
   if (!existing) throw new Error("a requirement was neither added nor found");
-  return { ok: true, id: existing.id, created: false };
+  if (existing.withdrawn) return { ok: false, reason: "previously_withdrawn" };
+  return { ok: true, id: existing.id, created: false, cluster: existing.cluster };
 }
 
 export type WithdrawResult = { ok: true } | { ok: false; reason: "not_found" | "already_withdrawn" };
