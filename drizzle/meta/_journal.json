@@ -54,15 +54,8 @@
     {
       "idx": 7,
       "version": "6",
-      "when": 1791141192342,
-      "tag": "0007_procure_tables",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1791141197172,
-      "tag": "0008_procure_guards",
+      "when": 1791142266072,
+      "tag": "0007_diagnose_review_fixes",
       "breakpoints": true
     }
   ]
