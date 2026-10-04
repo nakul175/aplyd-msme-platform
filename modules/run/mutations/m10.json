@@ -1,0 +1,942 @@
+[
+ {
+  "name": "trigger neutered: outcome_events_no_update",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_no_update BEFORE UPDATE ON outcome_events\nBEGIN\n  SELECT RAISE(ABORT, 'outcome_events is append-only');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_no_update BEFORE UPDATE ON outcome_events\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger neutered: outcome_events_no_delete",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_no_delete BEFORE DELETE ON outcome_events\nBEGIN\n  SELECT RAISE(ABORT, 'outcome_events is append-only');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_no_delete BEFORE DELETE ON outcome_events\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger neutered: outcome_events_no_replace",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_no_replace BEFORE INSERT ON outcome_events\nWHEN NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM outcome_events WHERE id = NEW.id)\nBEGIN\n  SELECT RAISE(ABORT, 'outcome_events is append-only');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_no_replace BEFORE INSERT ON outcome_events\nWHEN NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM outcome_events WHERE id = NEW.id)\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api",
+   "platform/integration/append-only-keys"
+  ]
+ },
+ {
+  "name": "trigger neutered: outcome_events_one_baseline_only",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_one_baseline_only BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')\nBEGIN\n  SELECT RAISE(ABORT, 'a baseline is recorded once');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_one_baseline_only BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger neutered: outcome_events_one_review_each",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_one_review_each BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)\nBEGIN\n  SELECT RAISE(ABORT, 'this review is recorded once');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_one_review_each BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger neutered: outcome_events_baseline_before_acceptance",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_baseline_before_acceptance BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'baseline'\n AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')\n AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a baseline is recorded before anything is accepted');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_baseline_before_acceptance BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'baseline'\n AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')\n AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger neutered: outcome_events_review_needs_an_acceptance",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_review_needs_an_acceptance BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'review'\n AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)\n AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a review needs an accepted milestone');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_review_needs_an_acceptance BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'review'\n AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)\n AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger neutered: outcome_events_review_is_due",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "CREATE TRIGGER outcome_events_review_is_due BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'review'\n AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)\n AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\n AND COALESCE(julianday(NEW.at) >= julianday((SELECT at FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted' ORDER BY id LIMIT 1))\n                                + CASE NEW.review_no WHEN 1 THEN 30 WHEN 2 THEN 90 WHEN 3 THEN 180 ELSE 0 END, 0) = 0\nBEGIN\n  SELECT RAISE(ABORT, 'this review is not due yet');\nEND;",
+  "new": "CREATE TRIGGER outcome_events_review_is_due BEFORE INSERT ON outcome_events\nWHEN NEW.kind = 'review'\n AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)\n AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\n AND COALESCE(julianday(NEW.at) >= julianday((SELECT at FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted' ORDER BY id LIMIT 1))\n                                + CASE NEW.review_no WHEN 1 THEN 30 WHEN 2 THEN 90 WHEN 3 THEN 180 ELSE 0 END, 0) = 0\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: review due after 29 days",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN 1 THEN 30",
+  "new": "WHEN 1 THEN 29",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: review 2 due after 89 days",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN 2 THEN 90",
+  "new": "WHEN 2 THEN 89",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: review 3 due after 179 days",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN 3 THEN 180",
+  "new": "WHEN 3 THEN 179",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: review 3 due after 181 days",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN 3 THEN 180",
+  "new": "WHEN 3 THEN 181",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: due measured from the latest acceptance, not the first",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "kind = 'accepted' ORDER BY id LIMIT 1))",
+  "new": "kind = 'accepted' ORDER BY id DESC LIMIT 1))",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: due, a time that cannot be read is let through",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": ", 0) = 0\nBEGIN\n  SELECT RAISE(ABORT, 'this review is not due yet')",
+  "new": ", 1) = 0\nBEGIN\n  SELECT RAISE(ABORT, 'this review is not due yet')",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: exactly on the due instant is still early",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "julianday(NEW.at) >= julianday(",
+  "new": "julianday(NEW.at) > julianday(",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: baseline allowed after a delivery too",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a baseline is recorded before",
+  "new": "kind IN ('accepted', 'delivered'))\nBEGIN\n  SELECT RAISE(ABORT, 'a baseline is recorded before",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: one baseline per company, not per engagement",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')",
+  "new": "WHEN NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE company_id = NEW.company_id AND kind = 'baseline')",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: one review per number across engagements",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)",
+  "new": "WHEN NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE kind = 'review' AND review_no = NEW.review_no)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: review needs an acceptance anywhere in the company",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a review needs",
+  "new": "AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE company_id = NEW.company_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a review needs",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: no_replace on outcome_events ignores the id",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM outcome_events WHERE id = NEW.id)",
+  "new": "WHEN NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM outcome_events WHERE id = NEW.id AND 0)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api",
+   "platform/integration/append-only-keys"
+  ]
+ },
+ {
+  "name": "table: value upper bound removed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "BETWEEN 0 AND 1000000000",
+  "new": "BETWEEN 0 AND 9000000000",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: negative value allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "BETWEEN 0 AND 1000000000",
+  "new": "BETWEEN -5 AND 1000000000",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: note length unbounded",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "length(\"outcome_events\".\"note\") <= 500",
+  "new": "length(\"outcome_events\".\"note\") <= 5000",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: a review without a verdict allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\"outcome_events\".\"verdict\" IN ('met', 'partly', 'not_met')",
+  "new": "(\"outcome_events\".\"verdict\" IS NULL OR \"outcome_events\".\"verdict\" IN ('met', 'partly', 'not_met'))",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: review number 4 allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "BETWEEN 1 AND 3",
+  "new": "BETWEEN 1 AND 4",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: a baseline carrying a verdict allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\"outcome_events\".\"kind\" = 'baseline' AND \"outcome_events\".\"review_no\" IS NULL AND \"outcome_events\".\"verdict\" IS NULL AND",
+  "new": "\"outcome_events\".\"kind\" = 'baseline' AND \"outcome_events\".\"review_no\" IS NULL AND",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: engagement key to the company dropped",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\tFOREIGN KEY (`engagement_id`,`company_id`) REFERENCES `engagements`(`id`,`company_id`) ON UPDATE no action ON DELETE no action,\n",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "state: review days 30 -> 31",
+  "path": "modules/run/src/state.ts",
+  "old": "[30, 90, 180]",
+  "new": "[31, 90, 180]",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "run/unit/state",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "state: review days 90 -> 91",
+  "path": "modules/run/src/state.ts",
+  "old": "[30, 90, 180]",
+  "new": "[30, 91, 180]",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "run/unit/state",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "state: review days 180 -> 181",
+  "path": "modules/run/src/state.ts",
+  "old": "[30, 90, 180]",
+  "new": "[30, 90, 181]",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "run/unit/state",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "state: a day is 23 hours",
+  "path": "modules/run/src/state.ts",
+  "old": "const DAY_MS = 86_400_000;",
+  "new": "const DAY_MS = 82_800_000;",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "run/unit/state",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "state: due on the instant counts as not yet",
+  "path": "modules/run/src/state.ts",
+  "old": "input.now.getTime() >= due.getTime()",
+  "new": "input.now.getTime() > due.getTime()",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "run/unit/state",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "state: a recorded slot is judged by the clock first",
+  "path": "modules/run/src/state.ts",
+  "old": "if (input.recorded.includes(no)) return",
+  "new": "if (false) return",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "run/unit/state",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "state: waiting not shown before an acceptance",
+  "path": "modules/run/src/state.ts",
+  "old": "if (input.firstAcceptedAt === null) return",
+  "new": "if (false) return",
+  "layers": [
+   "unit"
+  ],
+  "only": [
+   "run/unit/state"
+  ]
+ },
+ {
+  "name": "state: review number 0 accepted",
+  "path": "modules/run/src/state.ts",
+  "old": "n === 1 || n === 2 || n === 3",
+  "new": "n === 0 || n === 1 || n === 2 || n === 3",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "run/unit/state",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "read: scope check removed",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "await authorizeCompanyRead(request, env, requestedId, \"outcome.read.denied\")",
+  "new": "({ db: env.DB, companyId: requestedId, identity: { userId: \"x\" } } as any)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "write: scope check removed",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "await authorizeCompanyWrite(request, env, requestedId, \"outcome.write.denied\")",
+  "new": "({ db: env.DB, companyId: requestedId, identity: { userId: \"user-synthetic-owner-a\" } } as any)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "read: denial audited under another name",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "\"outcome.read.denied\"",
+  "new": "\"outcome.denied\"",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "write: denial audited under another name",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "\"outcome.write.denied\"",
+  "new": "\"outcome.denied\"",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "value: upper bound off by one",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "n <= MAX_VALUE ? n : null",
+  "new": "n <= MAX_VALUE + 1 ? n : null",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "value: negative allowed",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "n >= 0 && n <= MAX_VALUE",
+  "new": "n >= -5 && n <= MAX_VALUE",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "value: decimals read as whole numbers",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "/^\\d{1,10}$/.test(raw.trim())",
+  "new": "/^[\\d.]{1,10}$/.test(raw.trim())",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "value: fractions allowed",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "Number.isInteger(n) && n >= 0",
+  "new": "n >= 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "note: limit off by one",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "note.length > MAX_NOTE_LENGTH",
+  "new": "note.length >= MAX_NOTE_LENGTH",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "note: control characters allowed",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "|| hasControlCharacters(note)",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "kind: any text accepted as a review",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "if (kind !== \"baseline\" && kind !== \"review\") fields.kind",
+  "new": "if (kind !== \"baseline\" && kind !== \"review\" && false) fields.kind",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "review: number not required",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "if (!isReviewNo(reviewNo)) fields.reviewNo",
+  "new": "if (false) fields.reviewNo",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "review: verdict not required",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "if (typeof verdict !== \"string\" || !(VERDICTS as readonly string[]).includes(verdict)) fields.verdict",
+  "new": "if (false) fields.verdict",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "review: in-use not required",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "if (typeof inUse !== \"string\" || !(IN_USE as readonly string[]).includes(inUse)) fields.inUse",
+  "new": "if (false) fields.inUse",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "baseline: a verdict or review number tolerated",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "} else if (kind === \"baseline\") {",
+  "new": "} else if (false) {",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "review: a JSON string accepted as a number",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "const reviewNo = form && typeof reviewRaw",
+  "new": "const reviewNo = typeof reviewRaw",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "form: a bad value answered with JSON",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "return form ? redirect(\"/run?problem=invalid\") : json(400, { error: \"invalid\", fields });",
+  "new": "return json(400, { error: \"invalid\", fields });",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "form: a missing engagement answered with JSON (long id)",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "return form ? redirect(\"/run?problem=missing\") : json(404, { error: \"not_found\" });\n\n",
+  "new": "return json(404, { error: \"not_found\" });\n\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "form: a missing engagement answered with JSON (not found)",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "if (done.reason === \"not_found\") return form ? redirect(\"/run?problem=missing\") : json(404, { error: \"not_found\" });",
+  "new": "if (done.reason === \"not_found\") return json(404, { error: \"not_found\" });",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "form: a refusal answered with JSON",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "return form ? redirect(`/run?problem=${done.reason}`) : json(409, { error: done.reason });",
+  "new": "return json(409, { error: done.reason });",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "form: success answered with JSON",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "if (done.ok) return form ? redirect(`/run?saved=${kind}`) : json(201, { ok: true });",
+  "new": "if (done.ok) return json(201, { ok: true });",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "json: a refusal answered with 400 not 409",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "json(409, { error: done.reason })",
+  "new": "json(400, { error: done.reason })",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "clock: the real time stamped, not the injected one",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "at: now() }",
+  "new": "at: new Date() }",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: baseline can be taken after an acceptance",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "canRecordBaseline: baselineRow === null && firstAcceptedAt === null",
+  "new": "canRecordBaseline: baselineRow === null",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: first acceptance is the latest one",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": ".sort((a, b) => a.id - b.id)[0]",
+  "new": ".sort((a, b) => b.id - a.id)[0]",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: change shown the wrong way round",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "latest.value - baselineRow.value",
+  "new": "baselineRow.value - latest.value",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: latest review is the lowest number",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "[...reviews].reverse().find((r) => r.record)",
+  "new": "reviews.find((r) => r.record)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: next offers an idea that already has a requirement",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "&& !asked.has(i.opportunityId)",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: next offers an idea that was not accepted",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "s.decision === \"accept\" &&",
+  "new": "s.decision !== \"x\" &&",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: next counts requirements of every assessment",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "r.assessmentId === requirement.assessmentId",
+  "new": "true",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: expected range taken from the first idea",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "view?.result.items.find((i) => i.opportunityId === e.opportunityId) ?? null",
+  "new": "view?.result.items[0] ?? null",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "list not bound to the company",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "WHERE company_id = ? AND engagement_id = ?",
+  "new": "WHERE ? IS NOT NULL AND engagement_id = ?",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "list not bound to the engagement",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "WHERE company_id = ? AND engagement_id = ?",
+  "new": "WHERE company_id = ? AND ? IS NOT NULL",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: engagement not checked against the company",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "WHERE EXISTS (SELECT 1 FROM engagements WHERE id = ? AND company_id = ?)",
+  "new": "WHERE EXISTS (SELECT 1 FROM engagements WHERE id = ? AND ? IS NOT NULL)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: audited under the wrong name",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "`outcome.${shape.kind}`",
+  "new": "`outcome.review`",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: the review number left out of the audit",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "review: shape.reviewNo ?? 0",
+  "new": "review: 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: a second baseline not mapped",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "if (/baseline is recorded once/.test(text)) return { ok: false, reason: \"baseline_exists\" };",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: a late baseline not mapped",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "if (/before anything is accepted/.test(text)) return { ok: false, reason: \"baseline_too_late\" };",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: a second review not mapped",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "if (/review is recorded once/.test(text)) return { ok: false, reason: \"review_exists\" };",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: a review before any acceptance not mapped",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "if (/needs an accepted milestone/.test(text)) return { ok: false, reason: \"nothing_accepted\" };",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: an early review not mapped",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "if (/not due yet/.test(text)) return { ok: false, reason: \"not_due\" };",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: inserted counts as ok whatever happened",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "inserted.meta.changes === 1 ? { ok: true } : { ok: false, reason: \"not_found\" }",
+  "new": "{ ok: true }",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ }
+]

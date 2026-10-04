@@ -85,7 +85,9 @@ test("before the work: the page shows what the assessment expected, offers the s
   assert.match(html, /The number today, before the work/);
   assert.match(html, /It is recorded once and cannot be changed/);
   assert.match(html, /Nothing has been accepted yet\. The reviews start counting from the day you accept your first milestone/);
-  assert.equal((html.match(/Starts when you accept your first milestone/g) ?? []).length, 3, "all three reviews wait");
+  // The framework repeats the page's text inside script tags; what a person sees is the rest.
+  const seen = html.replace(/<script[\s\S]*?<\/script>/g, "");
+  assert.equal((seen.match(/Starts when you accept your first milestone/g) ?? []).length, 3, "all three reviews wait");
   assert.ok(!html.includes("Record review"), "no review form before anything is accepted");
   assert.ok(!/1,?234/.test(html), "the listing fee is nowhere on the page");
 });
