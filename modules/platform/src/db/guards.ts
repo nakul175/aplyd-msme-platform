@@ -16,6 +16,7 @@ export const APPEND_ONLY_TABLES: Record<string, string[]> = {
   engagements: ["engagements_no_update", "engagements_no_delete", "engagements_no_replace"],
   milestones: ["milestones_no_update", "milestones_no_delete", "milestones_no_replace"],
   engagement_events: ["engagement_events_no_update", "engagement_events_no_delete", "engagement_events_no_replace"],
+  outcome_events: ["outcome_events_no_update", "outcome_events_no_delete", "outcome_events_no_replace"],
 };
 
 /** Triggers that enforce a rule about what may be inserted, by table. */
@@ -34,6 +35,13 @@ export const RULE_TRIGGERS: Record<string, string[]> = {
   requirement_events: ["requirement_events_not_after_engagement"],
   engagements: ["engagements_needs_an_open_requirement", "engagements_needs_a_listed_provider"],
   milestones: ["milestones_plan_is_open", "milestones_limit"],
+  outcome_events: [
+    "outcome_events_one_baseline_only",
+    "outcome_events_one_review_each",
+    "outcome_events_baseline_before_acceptance",
+    "outcome_events_review_needs_an_acceptance",
+    "outcome_events_review_is_due",
+  ],
   engagement_events: [
     "engagement_events_closed_is_final",
     "engagement_events_one_close",

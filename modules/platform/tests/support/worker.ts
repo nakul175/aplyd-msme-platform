@@ -30,6 +30,12 @@ export type RunningWorker = {
   killNow: () => void;
   /** Everything the Worker process has printed so far, for diagnosing a failure. */
   output: () => string;
+  /**
+   * Runs SQL against this Worker's own throwaway database, as Wrangler's `d1 execute --local` does. For a test that needs a past
+   * that the application would not let it make (it stamps events with its own clock), by adding rows the way the application would
+   * have added them on an earlier day. The database's triggers still apply. It is not available to the application or to a page.
+   */
+  exec: (sql: string) => void;
 };
 
 export async function startBuiltApp(vars: Record<string, string>): Promise<RunningWorker> {
@@ -88,11 +94,16 @@ export async function startBuiltApp(vars: Record<string, string>): Promise<Runni
     rmSync(work, { recursive: true, force: true });
   };
 
+  const exec = (statement: string) => {
+    const run = spawnSync(process.execPath, [WRANGLER, "d1", "execute", "DB", "--local", "--config", CONFIG, "--persist-to", state, "--command", statement], { env, encoding: "utf8" });
+    if (run.status !== 0) throw new Error(`the statement was refused:\n${run.stdout}\n${run.stderr}`);
+  };
+
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(`${base}/api/health`);
-      if (res.status === 200) return { base, stop, killNow, output: () => log };
+      if (res.status === 200) return { base, stop, killNow, output: () => log, exec };
     } catch {
       /* not up yet */
     }
