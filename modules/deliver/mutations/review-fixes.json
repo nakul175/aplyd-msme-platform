@@ -1,0 +1,182 @@
+[
+ {
+  "name": "state: the delivery cap is ignored",
+  "path": "modules/deliver/src/state.ts",
+  "old": "return deliveries >= MAX_DELIVERIES ? [] : [\"delivered\"];",
+  "new": "return [\"delivered\"];",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "state: cap off by one (one delivery too many offered)",
+  "path": "modules/deliver/src/state.ts",
+  "old": "deliveries >= MAX_DELIVERIES ? []",
+  "new": "deliveries > MAX_DELIVERIES ? []",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "state: cap off by one (last delivery not offered)",
+  "path": "modules/deliver/src/state.ts",
+  "old": "deliveries >= MAX_DELIVERIES ? []",
+  "new": "deliveries >= MAX_DELIVERIES - 1 ? []",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "state: a planned milestone is offered nothing",
+  "path": "modules/deliver/src/state.ts",
+  "old": "case \"planned\":\n      return [\"delivered\"];",
+  "new": "case \"planned\":\n      return [];",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "present: deliveries counted over every milestone of the engagement",
+  "path": "modules/deliver/src/api/engagements.ts",
+  "old": "const deliveries = own.filter((x) => x.kind === \"delivered\").length;",
+  "new": "const deliveries = e.events.filter((x) => x.kind === \"delivered\").length;",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "present: deliveries counts every kind of event",
+  "path": "modules/deliver/src/api/engagements.ts",
+  "old": "const deliveries = own.filter((x) => x.kind === \"delivered\").length;",
+  "new": "const deliveries = own.length;",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "present: the count is not passed to nextKinds",
+  "path": "modules/deliver/src/api/engagements.ts",
+  "old": "nextKinds(state, deliveries)",
+  "new": "nextKinds(state)",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "add milestone: closed is never told apart from locked",
+  "path": "modules/deliver/src/db/engagements.ts",
+  "old": "reason: closed ? \"closed\" : \"plan_locked\"",
+  "new": "reason: \"plan_locked\"",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "add milestone: closed and locked swapped",
+  "path": "modules/deliver/src/db/engagements.ts",
+  "old": "reason: closed ? \"closed\" : \"plan_locked\"",
+  "new": "reason: closed ? \"plan_locked\" : \"closed\"",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "add milestone: the close is looked for in the whole company, not this engagement",
+  "path": "modules/deliver/src/db/engagements.ts",
+  "old": "WHERE engagement_id = ? AND company_id = ? AND kind = 'closed' LIMIT 1\").bind(engagementId, companyId)",
+  "new": "WHERE company_id = ? AND kind = 'closed' LIMIT 1\").bind(companyId)",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "read: the single read does not narrow the plan and events to the engagement",
+  "path": "modules/deliver/src/db/engagements.ts",
+  "old": "const scope = only === null ? \"\" : \" AND engagement_id = ?\";",
+  "new": "const scope = \"\";",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "read: loadEngagement does not pass the engagement on",
+  "path": "modules/deliver/src/db/engagements.ts",
+  "old": "assemble(db, companyId, results, engagementId))",
+  "new": "assemble(db, companyId, results))",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "deliver/unit/state",
+   "deliver/unit/reads",
+   "deliver/integration/deliver-api"
+  ]
+ }
+]

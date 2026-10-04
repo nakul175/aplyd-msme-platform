@@ -20,7 +20,7 @@ const PROBLEMS: Record<string, string> = {
   no_milestones: "Add at least one milestone before you agree the plan.",
   not_agreed: "Agree the plan first. Nothing is delivered, accepted or paid before then.",
   wrong_state: "That cannot be recorded for this milestone in its present state. Reload the page to see what can.",
-  too_many_deliveries: `This milestone has been delivered ${MAX_DELIVERIES} times, as many as can be recorded. Decide on the last one, or close the engagement.`,
+  too_many_deliveries: `This milestone has been delivered ${MAX_DELIVERIES} times, as many as can be recorded. If the last one is still waiting for your decision, decide on it. Once it is rejected, the only step left is to close the engagement.`,
   missing: "That engagement or milestone could not be found.",
 };
 const SAVED: Record<string, string> = {
@@ -182,6 +182,11 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                               <button type="submit">{kind === "delivered" ? `Record that milestone ${m.seq} was delivered` : `Record a payment for milestone ${m.seq}`}</button>
                             </form>
                           ))}
+                        {open && g.planAgreedAt !== null && m.state === "rejected" && m.next.length === 0 ? (
+                          <p className="notice" data-testid={`delivery-cap-${m.seq}`}>
+                            This milestone was rejected after being delivered {m.deliveries} times, as many as can be recorded, so it cannot be delivered again. Close the engagement to end it; everything stays on record.
+                          </p>
+                        ) : null}
                       </li>
                     ))}
                   </ol>

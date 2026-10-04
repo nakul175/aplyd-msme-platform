@@ -1,11 +1,12 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "slice 5 deliver",
+  "reason": "slice 5 review fixes",
   "suites": {
     "browser/deliver": 3,
-    "integration/deliver-api": 23,
-    "smoke/deliver": 7,
+    "integration/deliver-api": 27,
+    "smoke/deliver": 8,
     "static/rules": 9,
-    "unit/state": 6
+    "unit/state": 7,
+    "unit/reads": 3
   }
 }

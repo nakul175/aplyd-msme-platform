@@ -21,7 +21,19 @@ test("what may be recorded next follows the order: delivered, then accepted or r
   assert.deepEqual(nextKinds("paid"), []);
 });
 
-test("every path the state machine allows is one the database's triggers allow, and the reverse: the two are walked together", () => {
+test("at the delivery cap a rejected milestone has nothing left to record, and one before the cap can still be delivered again", () => {
+  assert.deepEqual(nextKinds("rejected", 1), ["delivered"]);
+  assert.deepEqual(nextKinds("rejected", MAX_DELIVERIES - 1), ["delivered"]);
+  assert.deepEqual(nextKinds("rejected", MAX_DELIVERIES), [], "the database refuses a delivery after this");
+  assert.deepEqual(nextKinds("rejected", MAX_DELIVERIES + 3), []);
+  // the cap does not touch the other states: the last delivery can still be accepted or rejected, and an accepted one paid
+  assert.deepEqual(nextKinds("delivered", MAX_DELIVERIES), ["accepted", "rejected"]);
+  assert.deepEqual(nextKinds("accepted", MAX_DELIVERIES), ["payment_recorded"]);
+  assert.deepEqual(nextKinds("paid", MAX_DELIVERIES), []);
+  assert.deepEqual(nextKinds("planned", 0), ["delivered"]);
+});
+
+test("the state table says what the migration's trigger text says about which kind follows which (a reading of the SQL, not a run of the triggers: the integration test runs them)", () => {
   // The rules as the triggers say them, as a table: after which latest kind (or none) each kind may follow.
   const sql = readFileSync(new URL("../../../../drizzle/0011_deliver_guards.sql", import.meta.url), "utf8");
   assert.match(sql, /NEW\.kind = 'delivered'[\s\S]*?LIMIT 1\), 'rejected'\) <> 'rejected'/, "delivered follows nothing or a rejection");
