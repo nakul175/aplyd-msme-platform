@@ -82,14 +82,14 @@ export async function handleRequirementCreate(request: Request, env: AppEnv, req
   if (Object.keys(fields).length) return form ? back("problem=request") : json(400, { error: "invalid", fields });
 
   const record = await loadAssessment(allowed.db, allowed.companyId, assessmentId as string);
-  if (!record) return json(404, { error: "not_found" });
+  if (!record) return form ? back("problem=missing") : json(404, { error: "not_found" });
   const item = record.result.items.find((i) => i.opportunityId === opportunityId);
   if (!item) return form ? back("problem=request") : json(400, { error: "invalid", fields: { opportunityId: "That idea is not in this assessment." } });
 
   const spec: Spec = { title: item.title, summary: item.summary, kind: item.kind, addresses: item.addresses, costs: item.costs, source: item.source, libraryVersion: record.libraryVersion };
   const made = await createRequirement(allowed.db, { companyId: allowed.companyId, userId: allowed.identity.userId, assessmentId: record.id, opportunityId: item.opportunityId, cluster: cluster as string, spec });
   if (!made.ok) {
-    if (made.reason === "not_found") return json(404, { error: "not_found" });
+    if (made.reason === "not_found") return form ? back("problem=missing") : json(404, { error: "not_found" });
     return form ? back(`problem=${made.reason}`) : json(409, { error: made.reason });
   }
   if (form) return back(`made=${encodeURIComponent(made.id)}`);
@@ -107,10 +107,11 @@ export async function handleRequirementWithdraw(request: Request, env: AppEnv, r
   const raw = bodyField(body, "note");
   const note = raw === undefined || raw === null ? "" : typeof raw === "string" ? raw.trim() : null;
   if (note === null || note.length > MAX_NOTE_LENGTH || hasControlCharacters(note)) return form ? redirect("/procure?problem=note") : json(400, { error: "invalid", fields: { note: "Keep the note to text under 500 characters." } });
-  if (requirementId.length === 0 || requirementId.length > 64) return json(404, { error: "not_found" });
+  if (requirementId.length === 0 || requirementId.length > 64) return form ? redirect("/procure?problem=missing") : json(404, { error: "not_found" });
 
   const result = await withdrawRequirement(allowed.db, { companyId: allowed.companyId, userId: allowed.identity.userId, requirementId, note });
   if (result.ok) return form ? redirect("/procure?withdrawn=1") : json(201, { ok: true });
   if (result.reason === "already_withdrawn") return form ? redirect("/procure?problem=withdrawn") : json(409, { error: "already_withdrawn" });
-  return json(404, { error: "not_found" });
+  if (result.reason === "engaged") return form ? redirect("/procure?problem=engaged") : json(409, { error: "engaged" });
+  return form ? redirect("/procure?problem=missing") : json(404, { error: "not_found" });
 }

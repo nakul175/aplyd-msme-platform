@@ -55,6 +55,11 @@ export default async function Home() {
           <a href="/procure">What you need</a>
         </p>
       ) : null}
+      {identity.companyId && identity.role === "owner" ? (
+        <p>
+          <a href="/deliver">Delivery</a>
+        </p>
+      ) : null}
       {identity.role === "operator" && identity.companyId === null ? (
         <p>
           <a href="/operator">Providers and the listing fee</a>

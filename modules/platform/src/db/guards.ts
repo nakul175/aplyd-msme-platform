@@ -13,6 +13,9 @@ export const APPEND_ONLY_TABLES: Record<string, string[]> = {
   provider_services: ["provider_services_no_update", "provider_services_no_delete", "provider_services_no_replace"],
   provider_events: ["provider_events_no_update", "provider_events_no_delete", "provider_events_no_replace"],
   listing_terms: ["listing_terms_no_update", "listing_terms_no_delete", "listing_terms_no_replace"],
+  engagements: ["engagements_no_update", "engagements_no_delete", "engagements_no_replace"],
+  milestones: ["milestones_no_update", "milestones_no_delete", "milestones_no_replace"],
+  engagement_events: ["engagement_events_no_update", "engagement_events_no_delete", "engagement_events_no_replace"],
 };
 
 /** Triggers that enforce a rule about what may be inserted, by table. */
@@ -28,6 +31,20 @@ export const RULE_TRIGGERS: Record<string, string[]> = {
   ],
   requirements: ["requirements_needs_signed_off_assessment", "requirements_needs_accepted_item"],
   provider_events: ["provider_events_list_carries_the_fee_in_force", "provider_events_list_needs_a_service", "provider_events_alternate"],
+  requirement_events: ["requirement_events_not_after_engagement"],
+  engagements: ["engagements_needs_an_open_requirement", "engagements_needs_a_listed_provider"],
+  milestones: ["milestones_plan_is_open", "milestones_limit"],
+  engagement_events: [
+    "engagement_events_closed_is_final",
+    "engagement_events_one_close",
+    "engagement_events_one_plan_agreement",
+    "engagement_events_plan_needs_a_milestone",
+    "engagement_events_work_needs_an_agreed_plan",
+    "engagement_events_delivery_follows_nothing_or_a_rejection",
+    "engagement_events_decision_needs_a_delivery",
+    "engagement_events_payment_needs_an_acceptance",
+    "engagement_events_delivery_limit",
+  ],
 };
 
 export const ALL_APPEND_ONLY_TRIGGERS: string[] = Object.values(APPEND_ONLY_TABLES).flat();
