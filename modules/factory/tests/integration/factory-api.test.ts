@@ -308,7 +308,7 @@ test("the seed can be applied twice without error and without a second copy", as
 
 // ------------------------------------------------------------------------------------ the independent review's findings (slice 2)
 
-test("a form that cannot be saved goes back to the page with a message and names the questions, never a page of JSON; nothing is saved and nothing sent is echoed", async () => {
+test("a form that cannot be saved goes back to the page with a message and names the questions, never a page of JSON; a refused form saves nothing, and a field the questionnaire does not have is ignored, never echoed", async () => {
   const cookie = await ownerB();
   const go = async (fields: [string, string][]) => {
     const res = await formPost(B, cookie, fields);
@@ -324,11 +324,14 @@ test("a form that cannot be saved goes back to the page with a message and names
   // a note that is too long, and a note with a control character
   assert.equal(await go([["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"], ["note", "x".repeat(501)]]), "/factory?problem=note");
   assert.equal(await go([["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"], ["note", "a\u0000b"]]), "/factory?problem=note");
-  // a question name the questionnaire does not have is never named back
-  const unknown = await go([["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"], ["a.<script>alert(1)</script>", "x"]]);
-  assert.ok(unknown !== null && !/script|alert/i.test(unknown), `nothing sent is echoed: ${unknown}`);
   assert.equal(await count(B), 0);
   assert.equal((await audits("factory.revision.created")).filter((a) => a.company_id === B).length, 0);
+  // A form field the questionnaire does not have is not read at all (only the questionnaire's own names are looked for), so it can
+  // neither fail the save nor be named back; the rest is saved as sent.
+  const unknown = await go([["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"], ["a.<script>alert(1)</script>", "x"]]);
+  assert.equal(unknown, "/factory?saved=1");
+  assert.equal(await count(B), 1);
+  assert.ok(!/script|alert/i.test((await db.prepare("SELECT answers FROM factory_revisions WHERE company_id = ?").bind(B).first<{ answers: string }>())!.answers), "the unknown field was not stored");
 });
 
 test("the same refusals reach a program as JSON, as before", async () => {
@@ -427,4 +430,24 @@ test("the limit written into migration 0014 is the one the application states", 
   const { MAX_REVISIONS_PER_COMPANY } = await import("../../src/db/revisions.ts");
   const sql = readFileSync(new URL("../../../../drizzle/0014_review_fixes.sql", import.meta.url), "utf8");
   assert.match(sql, new RegExp(`>= ${MAX_REVISIONS_PER_COMPANY}\\b`));
+});
+
+test("a note of a revision is at most 500 characters in the table, as it is in the handler, and counted in characters", async () => {
+  const row = "(company_id, revision_no, created_at, created_by, confirmed, questionnaire_version, answers, note)";
+  const insert = (no: number, note: string) => db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', ${no}, 'x', 'user-synthetic-owner-b', 0, 1, '{}', ?)`).bind(note).run();
+  await assert.rejects(insert(1, "n".repeat(501)), /at most 500 characters/);
+  await assert.rejects(insert(1, "é".repeat(501)), /at most 500 characters/, "characters, not bytes");
+  assert.equal(await count(B), 0);
+  await insert(1, "n".repeat(500));
+  await insert(2, "é".repeat(500));
+  assert.equal(await count(B), 2);
+});
+
+test("the same mistakes always send the form back to the same address: the questions are named in alphabetical order, whatever order they were sent or checked in", async () => {
+  const cookie = await ownerB();
+  const go = async (fields: [string, string][]) => (await formPost(B, cookie, fields)).headers.get("location");
+  const one = await go([["based_on", "0"], ["intent", "save"], ["a.year_started", "abc"], ["a.employees", "no_such_option"], ["a.shifts", "no_such_option"]]);
+  const two = await go([["based_on", "0"], ["intent", "save"], ["a.shifts", "no_such_option"], ["a.employees", "no_such_option"], ["a.year_started", "abc"]]);
+  assert.equal(one, "/factory?problem=invalid&fields=employees,shifts,year_started");
+  assert.equal(two, one);
 });

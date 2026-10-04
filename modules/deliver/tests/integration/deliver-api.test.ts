@@ -255,8 +255,11 @@ test("a milestone is delivered at most MAX_DELIVERIES times: a delivery and a re
   assert.equal((await event(A, id, a, { kind: "payment_recorded", milestoneId: second, amountInr: 10000 })).status, 201, "the payment is still possible");
   assert.equal(await count("engagement_events", `milestone_id = '${second}'`), 2 * MAX_DELIVERIES + 1, "29 events: the most a milestone holds");
   assert.equal((await event(A, id, a, { kind: "closed" })).status, 201);
-  const sql = readFileSync(new URL("../../../../drizzle/0011_deliver_guards.sql", import.meta.url), "utf8");
-  assert.equal(Number(/engagement_events_delivery_limit[\s\S]*?>= (\d+)/.exec(sql)?.[1]), MAX_DELIVERIES);
+  // The trigger in force is the one migration 0014 recreated (0011 made it, and applied migrations are not edited).
+  for (const file of ["0011_deliver_guards.sql", "0014_review_fixes.sql"]) {
+    const sql = readFileSync(new URL(`../../../../drizzle/${file}`, import.meta.url), "utf8");
+    assert.equal(Number(/CREATE TRIGGER engagement_events_delivery_limit[\s\S]*?>= (\d+)/.exec(sql)?.[1]), MAX_DELIVERIES, file);
+  }
 });
 
 test("a close is looked for in the engagement asked about, not in the company: with one engagement closed, another's agreed plan is still told it is locked", async () => {
@@ -750,4 +753,110 @@ test("what the page may offer next follows the plan: nothing before the plan is 
   assert.deepEqual(await nexts(), [["delivered"], ["delivered"]]);
   assert.equal((await event(A, p.id, p.a, { kind: "closed" })).status, 201);
   assert.deepEqual(await nexts(), [[], []], "nothing is offered after the close");
+});
+
+// --- Rules the database now keeps for itself (migration 0014): each is tried with a row that breaks nothing else, so the message
+// that refuses it is the rule's own.
+const OWNER = "user-synthetic-owner-a";
+
+test("the database refuses a milestone the plan would never hold: a fraction, a text in place of a number, a date that is not one, a name or a test of only blanks", async () => {
+  const p = await planned([MILESTONE]);
+  let n = 0;
+  const insert = (over: Partial<Record<"seq" | "title" | "test" | "due" | "amount", unknown>> = {}) => {
+    const v = { seq: 2, title: "a name", test: "a test", due: "2026-12-01", amount: 1000, ...over };
+    n += 1;
+    return db
+      .prepare("INSERT INTO milestones (id, engagement_id, company_id, seq, title, acceptance_test, due_on, agreed_inr, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'x', ?)")
+      .bind(`m-direct-${n}`, p.id, A, v.seq, v.title, v.test, v.due, v.amount, OWNER)
+      .run();
+  };
+  const before = await count("milestones");
+  await assert.rejects(insert({ seq: 1.5 }), /whole numbers/, "a place in the plan of 1.5");
+  await assert.rejects(insert({ amount: 1000.5 }), /whole numbers/, "a price of 1000.5 rupees");
+  await assert.rejects(insert({ amount: "a lot" }), /whole numbers/, "a price that is words");
+  for (const due of ["2026-02-30", "2026-13-01", "2026-00-10", "2026-06-31", "2027-02-29", "9999-99-99", "0000-00-00"]) {
+    await assert.rejects(insert({ due }), /real date/, `${due} is not a date`);
+  }
+  for (const due of ["1999-12-31", "2101-01-01"]) await assert.rejects(insert({ due }), /real date/, `${due} is outside 2000 to 2100`);
+  const blanks = [" ", "   ", "\t", "\n", " \t\n\r ", "\u000b\u000c"];
+  for (const blank of blanks) {
+    await assert.rejects(insert({ title: blank }), /a name and a test/, `a name of ${JSON.stringify(blank)}`);
+    await assert.rejects(insert({ test: blank }), /a name and a test/, `a test of ${JSON.stringify(blank)}`);
+  }
+  assert.equal(await count("milestones"), before, "none of them was written");
+
+  // what is allowed: the edges of the date range, a leap day, a name with blanks around it, and the largest price.
+  await insert({ seq: 2, due: "2000-01-01" });
+  await insert({ seq: 3, due: "2100-12-31" });
+  await insert({ seq: 4, due: "2028-02-29" });
+  await insert({ seq: 5, title: "  a name with blanks around it  ", test: " x " });
+  await insert({ seq: 6, amount: 100000000 });
+  assert.equal(await count("milestones"), before + 5);
+});
+
+test("the database refuses a payment with no amount or a fraction of a rupee, and takes a whole amount however it is written", async () => {
+  const p = await agreed([MILESTONE]);
+  const [first] = p.ids;
+  assert.equal((await event(A, p.id, p.a, { kind: "delivered", milestoneId: first })).status, 201);
+  assert.equal((await event(A, p.id, p.a, { kind: "accepted", milestoneId: first })).status, 201);
+  const pay = (amount: unknown, note = "") =>
+    db
+      .prepare("INSERT INTO engagement_events (engagement_id, company_id, at, user_id, kind, milestone_id, amount_inr, note) VALUES (?, ?, 'x', ?, 'payment_recorded', ?, ?, ?)")
+      .bind(p.id, A, OWNER, first, amount, note)
+      .run();
+  const before = await count("engagement_events");
+  await assert.rejects(pay(null), /a payment has an amount/, "the shape check passes a NULL, so the trigger is what refuses it");
+  await assert.rejects(pay(1.5), /whole number of rupees/, "1.5 rupees passes BETWEEN 1 AND 100000000");
+  await assert.rejects(pay(40000.25), /whole number of rupees/);
+  await assert.rejects(pay(0), /CHECK/, "a CHECK still refuses zero");
+  await assert.rejects(pay(100000001), /CHECK/, "and a payment above the largest one");
+  assert.equal(await count("engagement_events"), before);
+  // 40000.0 is the whole number 40000 once the column has stored it
+  await pay(40000.0);
+  assert.equal(await count("engagement_events"), before + 1);
+  assert.equal((await db.prepare("SELECT typeof(amount_inr) AS t, amount_inr AS a FROM engagement_events WHERE kind = 'payment_recorded'").first<{ t: string; a: number }>())?.t, "integer");
+});
+
+test("a note of an engagement event is at most 500 characters in the table, as it is in the handler", async () => {
+  const p = await agreed([MILESTONE]);
+  const [first] = p.ids;
+  const long = "n".repeat(501);
+  const exact = "n".repeat(500);
+  const deliver = (note: string) =>
+    db.prepare("INSERT INTO engagement_events (engagement_id, company_id, at, user_id, kind, milestone_id, note) VALUES (?, ?, 'x', ?, 'delivered', ?, ?)").bind(p.id, A, OWNER, first, note).run();
+  await assert.rejects(deliver(long), /at most 500 characters/);
+  assert.equal(await count("engagement_events", "kind = 'delivered'"), 0);
+  await deliver(exact);
+  assert.equal(await count("engagement_events", "kind = 'delivered'"), 1);
+});
+
+test("a delivery refused for the limit is refused for it only, and one that awaits a decision is refused for that only: the two rules do not overlap", async () => {
+  const p = await agreed([MILESTONE]);
+  const [first] = p.ids;
+  const deliver = () =>
+    db.prepare("INSERT INTO engagement_events (engagement_id, company_id, at, user_id, kind, milestone_id) VALUES (?, ?, 'x', ?, 'delivered', ?)").bind(p.id, A, OWNER, first).run();
+  for (let k = 1; k < MAX_DELIVERIES; k += 1) {
+    assert.equal((await event(A, p.id, p.a, { kind: "delivered", milestoneId: first })).status, 201);
+    assert.equal((await event(A, p.id, p.a, { kind: "rejected", milestoneId: first })).status, 201);
+  }
+  // the last delivery is made and waits for the owner's decision: it is the rule about order that refuses a second one
+  assert.equal((await event(A, p.id, p.a, { kind: "delivered", milestoneId: first })).status, 201);
+  await assert.rejects(deliver(), /delivered once, or again after it was rejected/, "waiting for a decision");
+  await assert.rejects(deliver(), (error: unknown) => !/too many deliveries/.test(String(error)), "the limit does not answer while a delivery awaits a decision");
+  // once it is rejected, only the limit refuses
+  assert.equal((await event(A, p.id, p.a, { kind: "rejected", milestoneId: first })).status, 201);
+  await assert.rejects(deliver(), /too many deliveries of this milestone/);
+  await assert.rejects(deliver(), (error: unknown) => !/delivered once/.test(String(error)), "the rule about order does not answer at the limit");
+});
+
+test("an engagement is refused for one reason only: a withdrawn requirement is told so whether or not the provider is listed, and an open one is told about the provider", async () => {
+  const { a, op, providerId, requirementId } = await setup();
+  const asEngagement = () =>
+    db.prepare("INSERT INTO engagements (id, company_id, requirement_id, provider_id, created_at, created_by) VALUES ('e-direct', ?, ?, ?, 'x', ?)").bind(A, requirementId, providerId, OWNER).run();
+  assert.equal((await handleProviderUnlist(req(`/api/operator/providers/${providerId}/unlist`, op, {}), env, providerId)).status, 201);
+  await assert.rejects(asEngagement(), /needs a listed provider/, "open requirement, unlisted provider");
+  assert.equal((await handleRequirementWithdraw(req(`/api/companies/${A}/requirements/${requirementId}/withdraw`, a, {}), env, A, requirementId)).status, 201);
+  await assert.rejects(asEngagement(), /needs an open requirement/, "withdrawn requirement and unlisted provider: the requirement is the reason");
+  await assert.rejects(asEngagement(), (error: unknown) => !/listed provider/.test(String(error)), "the provider rule does not answer when the requirement already does");
+  assert.equal(await count("engagements"), 0);
 });

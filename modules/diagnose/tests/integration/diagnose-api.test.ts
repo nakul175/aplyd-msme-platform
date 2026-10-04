@@ -586,3 +586,32 @@ test("an assessment is not affected by a later change in the factory description
   await make(A, cookie);
   assert.equal((await db.prepare("SELECT result FROM assessments WHERE id = ?").bind(first.id).first<{ result: string }>())!.result, stored);
 });
+
+// --- Rules the database now keeps for itself (migration 0014)
+test("a decision with no decision in it is refused by the table: the shape check passes a NULL, so a trigger refuses it", async () => {
+  const { id, cookie, detail } = await makeOne();
+  const item = detail.result.items[0].opportunityId;
+  const insert = (decision: string | null, note = "") =>
+    db.prepare("INSERT INTO assessment_events (assessment_id, company_id, at, user_id, kind, opportunity_id, decision, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'decision', ?, ?, ?)").bind(id, A, item, decision, note).run();
+  await assert.rejects(insert(null), /accept, defer or reject/);
+  await assert.rejects(insert("maybe"), /CHECK/, "a word that is not a decision is still the CHECK's");
+  assert.equal(await count("assessment_events"), 0, "nothing was written");
+  await insert("defer");
+  assert.equal(await count("assessment_events"), 1);
+  // the sign-off still counts only decisions that decide: with a decision on every item it is allowed
+  await decideAll(A, detail, cookie);
+  assert.equal((await signOff(A, id, cookie)).status, 201);
+});
+
+test("a note of an assessment event is at most 500 characters in the table, as it is in the handler", async () => {
+  const { id, detail } = await makeOne();
+  const item = detail.result.items[0].opportunityId;
+  const insert = (note: string) =>
+    db.prepare("INSERT INTO assessment_events (assessment_id, company_id, at, user_id, kind, opportunity_id, decision, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'decision', ?, 'accept', ?)").bind(id, A, item, note).run();
+  await assert.rejects(insert("n".repeat(501)), /at most 500 characters/);
+  await assert.rejects(insert("é".repeat(501)), /at most 500 characters/, "characters, not bytes");
+  assert.equal(await count("assessment_events"), 0);
+  await insert("n".repeat(500));
+  await insert("é".repeat(500));
+  assert.equal(await count("assessment_events"), 2);
+});

@@ -791,3 +791,58 @@ test("a form post that cannot be done goes back to the page with a message, neve
   assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?listed=1");
   assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?problem=already_listed");
 });
+
+// --- Rules the database now keeps for itself (migration 0014)
+test("what a provider serves is fixed from its first listing: a service cannot be added to a listed or an unlisted provider by a direct insert, but can to one never listed", async () => {
+  const op = await operator();
+  await setFee(op, { feeInr: 100 });
+  const pid = await addProvider(op, "Alpha");
+  const add = (id: string) => db.prepare("INSERT INTO provider_services (provider_id, opportunity_id, cluster) VALUES (?, ?, ?)").bind(id, KIND, OTHER_CLUSTER).run();
+  await add(pid); // never listed: the registry may still be written to directly (the application does not)
+  assert.equal(await count("provider_services", "provider_id = ?", pid), 2);
+  await listIt(op, pid);
+  await assert.rejects(db.prepare("INSERT INTO provider_services (provider_id, opportunity_id, cluster) VALUES (?, ?, ?)").bind(pid, KIND, "synthetic-cluster-3").run(), /fixed once it has been listed/);
+  await unlistIt(op, pid);
+  await assert.rejects(db.prepare("INSERT INTO provider_services (provider_id, opportunity_id, cluster) VALUES (?, ?, ?)").bind(pid, KIND, "synthetic-cluster-3").run(), /fixed once it has been listed/, "unlisting does not reopen it");
+  assert.equal(await count("provider_services", "provider_id = ?", pid), 2);
+});
+
+
+test("a fee in the table is a whole number of rupees: 0.5 and words pass the check on the table, and a trigger refuses them", async () => {
+  const op = await operator();
+  const insert = (fee: unknown) => db.prepare("INSERT INTO listing_terms (at, user_id, fee_inr) VALUES ('x', 'user-synthetic-operator', ?)").bind(fee).run();
+  await assert.rejects(insert(0.5), /whole number of rupees/, "0.5 is greater than zero");
+  await assert.rejects(insert(1500.75), /whole number of rupees/);
+  await assert.rejects(insert("free"), /whole number of rupees/, "a text is greater than zero too");
+  await assert.rejects(insert(0), /CHECK/, "zero is still the CHECK's");
+  assert.equal(await count("listing_terms"), 0, "nothing was written");
+  await insert(1500.0); // stored as the whole number 1500
+  assert.equal((await db.prepare("SELECT typeof(fee_inr) AS t FROM listing_terms").first<{ t: string }>())?.t, "integer");
+  assert.equal((await setFee(op, { feeInr: 1600 })).status, 201, "the application still sets a fee");
+});
+
+test("a note is at most 500 characters in each table that has one in the buying path, as it is in every handler", async () => {
+  const a = await ownerA();
+  const detail = await signedOff(A, a);
+  const { id: requirementId } = (await (await makeReq(A, a, body(detail))).json()) as { id: string };
+  const op = await operator();
+  await setFee(op, { feeInr: 100 });
+  const pid = await addProvider(op, "Alpha");
+  const long = "n".repeat(501);
+  const exact = "n".repeat(500);
+  const note = /at most 500 characters/;
+  await assert.rejects(db.prepare("INSERT INTO listing_terms (at, user_id, fee_inr, note) VALUES ('x', 'user-synthetic-operator', 200, ?)").bind(long).run(), note, "listing terms");
+  await assert.rejects(db.prepare("INSERT INTO provider_events (provider_id, at, user_id, kind, terms_version, fee_inr, note) VALUES (?, 'x', 'user-synthetic-operator', 'list', 1, 100, ?)").bind(pid, long).run(), note, "provider events");
+  await assert.rejects(db.prepare("INSERT INTO requirement_events (requirement_id, company_id, at, user_id, kind, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'withdraw', ?)").bind(requirementId, A, long).run(), note, "requirement events");
+  assert.equal(await count("listing_terms"), 1);
+  assert.equal(await count("provider_events"), 0);
+  assert.equal(await count("requirement_events"), 0);
+  // 500 is allowed in each
+  await db.prepare("INSERT INTO provider_events (provider_id, at, user_id, kind, terms_version, fee_inr, note) VALUES (?, 'x', 'user-synthetic-operator', 'list', 1, 100, ?)").bind(pid, exact).run();
+  await db.prepare("INSERT INTO requirement_events (requirement_id, company_id, at, user_id, kind, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'withdraw', ?)").bind(requirementId, A, exact).run();
+  // last: a new fee version changes the fee that a listing must carry
+  await db.prepare("INSERT INTO listing_terms (at, user_id, fee_inr, note) VALUES ('x', 'user-synthetic-operator', 200, ?)").bind(exact).run();
+  assert.equal(await count("listing_terms"), 2);
+  assert.equal(await count("provider_events"), 1);
+  assert.equal(await count("requirement_events"), 1);
+});

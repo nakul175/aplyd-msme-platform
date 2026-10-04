@@ -112,8 +112,8 @@ export async function handleRevisionCreate(request: Request, env: AppEnv, reques
 
   const valid = validateAnswers(submission.answers, { confirm: false });
   if (!valid.ok) {
-    // The page names the questions by their keys, which are checked against the questionnaire: nothing the sender wrote is echoed back.
-    const keys = Object.keys(valid.errors).filter((k) => LABEL_KEYS.has(k));
+    // The page names the questions by their keys, which are checked against the questionnaire: nothing the sender wrote is echoed back, and the keys are sorted so the same mistakes always give the same address.
+    const keys = Object.keys(valid.errors).filter((k) => LABEL_KEYS.has(k)).sort();
     return submission.form ? back(`problem=invalid${keys.length ? `&fields=${keys.join(",")}` : ""}`) : json(400, { error: "invalid", fields: valid.errors });
   }
 
