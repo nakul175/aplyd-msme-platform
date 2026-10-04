@@ -434,7 +434,8 @@ test("the table's own rules hold for whoever writes: ranges, shapes of each kind
   // the length of a note
   await assert.rejects(baseline(1, "x".repeat(501)), /CHECK/);
   // each kind has its own shape
-  await assert.rejects(insert("kind, value, verdict, in_use", ["baseline", 1, "met", "yes"]), /CHECK/, "a baseline has no verdict");
+  await assert.rejects(insert("kind, value, verdict, in_use", ["baseline", 1, "met", "yes"]), /CHECK/, "a baseline has no verdict (and no in-use answer)");
+  await assert.rejects(insert("kind, value, verdict", ["baseline", 1, "met"]), /CHECK/, "a baseline with a verdict and nothing else of a review's");
   await assert.rejects(insert("kind, value, review_no", ["baseline", 1, 1]), /CHECK/, "a baseline has no review number");
   await assert.rejects(insert("kind, value, in_use", ["baseline", 1, "yes"]), /CHECK/, "a baseline does not say whether it is in use");
   await assert.rejects(insert("kind, value", ["other", 1]), /CHECK/, "a kind that is neither");
