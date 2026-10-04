@@ -18,7 +18,14 @@ export const APPEND_ONLY_TABLES: Record<string, string[]> = {
 /** Triggers that enforce a rule about what may be inserted, by table. */
 export const RULE_TRIGGERS: Record<string, string[]> = {
   assessments: ["assessments_needs_confirmed_description"],
-  assessment_events: ["assessment_events_decision_names_an_item", "assessment_events_signed_off_is_final", "assessment_events_signoff_needs_every_decision"],
+  assessment_events: [
+    "assessment_events_decision_names_an_item",
+    "assessment_events_signed_off_is_final",
+    "assessment_events_signoff_needs_every_decision",
+    "assessment_events_one_signoff_only",
+    "assessment_events_decision_limit",
+    "assessment_events_signoff_needs_an_item",
+  ],
   requirements: ["requirements_needs_signed_off_assessment", "requirements_needs_accepted_item"],
   provider_events: ["provider_events_list_carries_the_fee_in_force", "provider_events_list_needs_a_service", "provider_events_alternate"],
 };

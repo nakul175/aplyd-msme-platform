@@ -8,13 +8,19 @@ import type { AppEnv } from "../../../platform/src/env.ts";
 import { loadLatest } from "../../../factory/src/db/revisions.ts";
 import { hasControlCharacters } from "../../../factory/src/questionnaire.ts";
 import { appendDecision, appendSignOff, createAssessment, listAssessments, loadAssessment } from "../db/assessments.ts";
-import type { AssessmentRecord } from "../db/assessments.ts";
+import type { AssessmentRecord, SignOffResult } from "../db/assessments.ts";
 import { digestOf, standingDecisions } from "../digest.ts";
 import { diagnose } from "../engine.ts";
 
 export const MAX_NOTE_LENGTH = 500;
 export const DECISIONS = ["accept", "defer", "reject"] as const;
 export type DecisionValue = (typeof DECISIONS)[number];
+
+/** What the page says to a signed-in person who is not an owner: a member of a company is told what they can do, not that they have no company. */
+export const notOwnerMessage = (isMemberOfACompany: boolean): string =>
+  isMemberOfACompany
+    ? "This page is for the owner of the company. You are signed in as a member of it, and only the owner can make and sign off an assessment."
+    : "This page is for the owner of a company. Your account is not linked to one.";
 
 /** What a viewer needs: the assessment, the decision standing on each item, the history, and the sign-off with a check of its digest. */
 export async function presentAssessment(a: AssessmentRecord) {
@@ -104,7 +110,9 @@ export async function handleDecisionCreate(request: Request, env: AppEnv, reques
   if (result.ok) return form ? back(`saved=${encodeURIComponent(opportunityId as string)}`) : json(201, { ok: true });
   if (result.reason === "signed_off") return form ? back("problem=signed") : json(409, { error: "signed_off" });
   if (result.reason === "unknown_item") return form ? back("problem=decision") : json(400, { error: "invalid", fields: { opportunityId: "That item is not in this assessment." } });
-  return json(404, { error: "not_found" });
+  if (result.reason === "too_many") return form ? back("problem=too_many") : json(409, { error: "too_many_decisions" });
+  // Another company's assessment and one that does not exist look the same, for a form as for the API.
+  return form ? redirect("/diagnose?problem=missing") : json(404, { error: "not_found" });
 }
 
 /** POST the sign-off: the owner says they have read the assessment and every decision on it is theirs. Needs a decision on every item. */
@@ -120,13 +128,20 @@ export async function handleSignOff(request: Request, env: AppEnv, requestedId: 
   if (typeof note === "object") return form ? back("problem=note") : json(400, { error: "invalid", fields: { note: note.error } });
 
   const record = await loadAssessment(allowed.db, allowed.companyId, assessmentId);
-  if (!record) return json(404, { error: "not_found" });
+  if (!record) return form ? redirect("/diagnose?problem=missing") : json(404, { error: "not_found" });
   const decisions = record.events.filter((e) => e.kind === "decision");
   const digest = await digestOf(record.id, record.result, standingDecisions(record.result, decisions));
   const result = await appendSignOff(allowed.db, { companyId: allowed.companyId, userId: allowed.identity.userId, assessmentId, note, digest, decisionCount: decisions.length });
+  return signOffAnswer(result, form, assessmentId, digest);
+}
+
+/** What a person is told about the outcome of a sign-off: a page for a form post, JSON for anything else. Apart from the sign-off itself, no outcome answers a form post with JSON. */
+export function signOffAnswer(result: SignOffResult, form: boolean, assessmentId: string, digest: string): Response {
+  const back = (query: string) => redirect(`/diagnose?a=${encodeURIComponent(assessmentId)}&${query}`);
   if (result.ok) return form ? back("signed=1") : json(201, { ok: true, digest });
   if (result.reason === "undecided") return form ? back("problem=undecided") : json(409, { error: "undecided" });
   if (result.reason === "already_signed_off") return form ? back("problem=signed") : json(409, { error: "already_signed_off" });
-  if (result.reason === "changed") return json(409, { error: "changed", detail: "A decision was added while this was being signed. Read it again." });
-  return json(404, { error: "not_found" });
+  if (result.reason === "no_items") return form ? back("problem=no_items") : json(409, { error: "no_items" });
+  if (result.reason === "changed") return form ? back("problem=changed") : json(409, { error: "changed", detail: "A decision was added while this was being signed. Read it again." });
+  return form ? redirect("/diagnose?problem=missing") : json(404, { error: "not_found" });
 }

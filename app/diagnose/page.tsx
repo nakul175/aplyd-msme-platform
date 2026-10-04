@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { headers } from "next/headers";
-import { presentAssessment, DECISIONS, MAX_NOTE_LENGTH } from "../../modules/diagnose/src/api/diagnose.ts";
+import { presentAssessment, DECISIONS, MAX_NOTE_LENGTH, notOwnerMessage } from "../../modules/diagnose/src/api/diagnose.ts";
 import { listAssessments, loadAssessment, loadLatestAssessmentId } from "../../modules/diagnose/src/db/assessments.ts";
 import type { Item } from "../../modules/diagnose/src/engine.ts";
 import { MAX_ITEMS, POINTS } from "../../modules/diagnose/src/engine.ts";
@@ -29,6 +29,10 @@ const PROBLEMS: Record<string, string> = {
   signed: "This assessment is already signed off, so it cannot be changed.",
   undecided: "Every idea needs your decision before you can sign off.",
   note: "Keep the note under 500 characters.",
+  changed: "A decision was added while you were signing off, so nothing was signed. Look at the ideas again and sign off once you have read them.",
+  too_many: "This assessment holds as many decisions as it can. Sign it off, or confirm a newer description and make a new assessment.",
+  no_items: "There is nothing in this assessment to sign off. Describe your problems again, confirm the description, and make a new assessment.",
+  missing: "That assessment could not be found.",
 };
 
 function Money({ item }: { item: Item }) {
@@ -70,7 +74,7 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
     return (
       <>
         <h1>What to do about it</h1>
-        <p className="muted">This page is for the owner of a company. Your account is not linked to one.</p>
+        <p className="muted">{notOwnerMessage(identity.companyId !== null)}</p>
         <p>
           <a href="/">Back</a>
         </p>

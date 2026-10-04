@@ -130,6 +130,18 @@ test("writes another website started are refused, and a plain-text post is refus
   assert.equal(plain.status, 415);
 });
 
+test("each reason a form post is sent back to the page is explained on it", async () => {
+  const cookie = await signIn("owner-a@synthetic.invalid");
+  assert.match(await page(cookie, "/diagnose?problem=changed"), /A decision was added while you were signing off, so nothing was signed/);
+  assert.match(await page(cookie, "/diagnose?problem=too_many"), /holds as many decisions as it can/);
+  assert.match(await page(cookie, "/diagnose?problem=no_items"), /nothing in this assessment to sign off/);
+  assert.match(await page(cookie, "/diagnose?problem=missing"), /That assessment could not be found/);
+  assert.ok(!(await page(cookie, "/diagnose?problem=made_up")).includes('data-testid="problem"'), "an unknown key shows nothing");
+  const missing = await form(cookie, `/api/companies/${A}/assessments/not-there/signoff`);
+  assert.equal(missing.status, 303, "a form post for nothing is sent back to the page");
+  assert.equal(missing.headers.get("location"), "/diagnose?problem=missing");
+});
+
 test("Diagnose pages and API answers carry the security headers, and the health check sees every guard", async () => {
   const cookie = await signIn("owner-a@synthetic.invalid");
   const responses = [

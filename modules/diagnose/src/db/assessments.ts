@@ -82,7 +82,10 @@ export async function createAssessment(
   return { ok: true, id: existing.id, created: false };
 }
 
-export type DecisionResult = { ok: true } | { ok: false; reason: "not_found" | "unknown_item" | "signed_off" };
+/** The most decisions one assessment can hold. The same number is in migration 0007 (a test keeps them equal): every decision is permanent. */
+export const MAX_DECISIONS = 200;
+
+export type DecisionResult = { ok: true } | { ok: false; reason: "not_found" | "unknown_item" | "signed_off" | "too_many" };
 
 export async function appendDecision(
   db: D1Database,
@@ -104,11 +107,12 @@ export async function appendDecision(
     const text = String(error);
     if (/signed off/.test(text)) return { ok: false, reason: "signed_off" };
     if (/must name an item/.test(text)) return { ok: false, reason: "unknown_item" };
+    if (/too many decisions/.test(text)) return { ok: false, reason: "too_many" };
     throw error;
   }
 }
 
-export type SignOffResult = { ok: true } | { ok: false; reason: "not_found" | "undecided" | "already_signed_off" | "changed" };
+export type SignOffResult = { ok: true } | { ok: false; reason: "not_found" | "undecided" | "already_signed_off" | "changed" | "no_items" };
 
 /**
  * Appends the sign-off. `decisionCount` is the number of decision events the digest was computed over; if another decision
@@ -134,7 +138,8 @@ export async function appendSignOff(
   } catch (error) {
     const text = String(error);
     if (/every item needs a decision/.test(text)) return { ok: false, reason: "undecided" };
-    if (/UNIQUE/.test(text)) return { ok: false, reason: "already_signed_off" };
+    if (/no items cannot be signed off/.test(text)) return { ok: false, reason: "no_items" };
+    if (/already signed off|UNIQUE/.test(text)) return { ok: false, reason: "already_signed_off" };
     throw error;
   }
   const exists = await db.prepare("SELECT 1 AS present FROM assessments WHERE id = ? AND company_id = ?").bind(assessmentId, companyId).first();
