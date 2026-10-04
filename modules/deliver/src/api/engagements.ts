@@ -14,6 +14,8 @@ import type { EngagementStatus, EventKind, MilestoneKind, MilestoneState } from 
 
 export type PresentedMilestone = MilestoneRecord & {
   state: MilestoneState;
+  /** How many times it has been recorded as delivered (the database allows MAX_DELIVERIES). */
+  deliveries: number;
   /** What the owner may record next on it right now (nothing before the plan is agreed or after the close). */
   next: MilestoneKind[];
   paidInr: number | null;
@@ -44,7 +46,8 @@ export function presentEngagement(e: EngagementRecord): PresentedEngagement {
     const own = e.events.filter((x) => x.milestoneId === m.id);
     const state = milestoneState(own.map((x) => x.kind as MilestoneKind));
     const payment = own.find((x) => x.kind === "payment_recorded");
-    return { ...m, state, next: planAgreed && !closed ? nextKinds(state) : [], paidInr: payment?.amountInr ?? null, history: own.map((x) => ({ at: x.at, kind: x.kind, note: x.note })) };
+    const deliveries = own.filter((x) => x.kind === "delivered").length;
+    return { ...m, state, deliveries, next: planAgreed && !closed ? nextKinds(state, deliveries) : [], paidInr: payment?.amountInr ?? null, history: own.map((x) => ({ at: x.at, kind: x.kind, note: x.note })) };
   });
   return {
     id: e.id,

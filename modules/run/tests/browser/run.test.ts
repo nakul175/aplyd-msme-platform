@@ -47,9 +47,11 @@ async function agreedPlan(page: Page): Promise<{ engagementId: string; milestone
   await page.goto("/");
   return page.evaluate(async (company) => {
     const json = (body: unknown) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    // Every response is read to its end: a body left unread is reported by the browser as an aborted request.
     const ok = async (r: Response, what: string) => {
-      if (r.status >= 300) throw new Error(`${what}: ${r.status} ${await r.text()}`);
-      return r;
+      const text = await r.text();
+      if (r.status >= 300) throw new Error(`${what}: ${r.status} ${text}`);
+      return { json: async () => JSON.parse(text) as unknown };
     };
     const made = (await (await ok(await fetch(`/api/companies/${company}/assessments`, json({})), "assessment")).json()) as { id: string };
     const detail = (await (await fetch(`/api/companies/${company}/assessments/${made.id}`)).json()) as { result: { items: { opportunityId: string }[] } };

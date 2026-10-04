@@ -102,6 +102,19 @@ test("the operator sets one fee, adds a provider and lists it; the owner then se
     assert.ok(await listed.getByText("Listed", { exact: true }).isVisible());
     assert.ok(await listed.getByText("Fee ₹1,500").isVisible());
     assert.match(await op.getByTestId("pools").innerText(), /No pool has reached five companies/);
+    assert.equal(await op.getByTestId("fee-differs").count(), 0, "one listed provider pays one fee");
+
+    // A fee change after a listing leaves the first provider at its fee; when a second is listed at the new one, the page says they differ.
+    await op.getByLabel("Set the fee, in rupees").fill("2500");
+    await Promise.all([op.waitForURL((u) => u.searchParams.get("fee") === "1"), op.getByRole("button", { name: "Save as a new version" }).click()]);
+    await op.getByLabel("Name", { exact: true }).fill("Beta Works");
+    await op.getByLabel(FIRST_IDEA).check();
+    await op.getByLabel("SYNTHETIC cluster 1").check();
+    await Promise.all([op.waitForURL((u) => u.searchParams.has("made")), op.getByRole("button", { name: "Add provider" }).click()]);
+    await Promise.all([op.waitForURL((u) => u.searchParams.get("listed") === "1"), op.getByTestId("provider-Beta Works").getByRole("button", { name: "List Beta Works" }).click()]);
+    assert.ok(await op.getByTestId("provider-Beta Works").getByText("Fee ₹2,500").isVisible());
+    assert.ok(await op.getByTestId("provider-Alpha Works").getByText("Fee ₹1,500").isVisible(), "the first provider keeps its fee");
+    assert.match(await op.getByTestId("fee-differs").innerText(), /paying 2 different fees/);
 
     const owner = await (await h.newContext()).newPage();
     const ownerProblems = watchPage(owner);

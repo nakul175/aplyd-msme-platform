@@ -52,7 +52,7 @@ type Listed = {
   title: string;
   kind: string;
   withdrawnAt: string | null;
-  pool: { shown: false; floor: number } | { shown: true; companies: number } | null;
+  pool: { shown: false; floor: number } | { shown: true; atLeast: number } | null;
   providers: { id: string; name: string; summary: string }[];
 };
 const requirementsOf = async (companyId: string, cookie: string) => ((await (await listReq(companyId, cookie)).json()) as { requirements: Listed[] }).requirements;
@@ -151,7 +151,7 @@ test("an owner makes a requirement from an idea they accepted in a signed-off as
   assert.deepEqual(JSON.parse(entry.detail), { requirement: made.id, opportunity: KIND, cluster: CLUSTER });
 });
 
-test("asking again for the same idea changes nothing: 200 with the same id, one row, one audit entry, even for another cluster", async () => {
+test("asking again for the same idea changes nothing: 200 with the same id and the cluster that is stored, one row, one audit entry, even for another cluster", async () => {
   const cookie = await ownerA();
   const detail = await signedOff(A, cookie);
   const first = (await (await makeReq(A, cookie, body(detail))).json()) as { id: string };
@@ -160,9 +160,27 @@ test("asking again for the same idea changes nothing: 200 with the same id, one 
   assert.deepEqual(await again.json(), { id: first.id, created: false, cluster: CLUSTER });
   const other = await makeReq(A, cookie, body(detail, KIND, OTHER_CLUSTER));
   assert.equal(other.status, 200);
-  assert.equal(((await other.json()) as { id: string }).id, first.id, "the first requirement stands; the cluster it was made in is kept");
+  assert.deepEqual(await other.json(), { id: first.id, created: false, cluster: CLUSTER }, "the first requirement stands, and the answer names the cluster it was made in, not the one asked for");
   assert.equal(await count("requirements"), 1);
   assert.equal((await audits("requirement.created")).length, 1);
+});
+
+test("a withdrawn requirement is not made again by asking: 409, nothing stored, no audit entry, and the answer never names a cluster it did not store", async () => {
+  const a = await ownerA();
+  const detail = await signedOff(A, a);
+  const { id } = (await (await makeReq(A, a, body(detail))).json()) as { id: string };
+  assert.equal((await withdraw(A, id, a)).status, 201);
+  for (const cluster of [CLUSTER, OTHER_CLUSTER]) {
+    const again = await makeReq(A, a, body(detail, KIND, cluster));
+    assert.equal(again.status, 409, cluster);
+    assert.deepEqual(await again.json(), { error: "previously_withdrawn" }, cluster);
+  }
+  assert.equal(await count("requirements"), 1);
+  assert.equal((await audits("requirement.created")).length, 1, "no new entry");
+  const [row] = await requirementsOf(A, a);
+  assert.equal(row.id, id);
+  assert.ok(row.withdrawnAt, "it is still withdrawn");
+  assert.equal(row.cluster, CLUSTER, "and still in the cluster it was made in");
 });
 
 test("a requirement needs a signed-off assessment: a half-decided one is refused with 409 and nothing is stored", async () => {
@@ -375,7 +393,7 @@ async function poolOf(n: number, cluster = CLUSTER): Promise<{ companyId: string
   return out;
 }
 
-test("a pool of fewer than five companies shows no number to anyone, its own members included; at five, every member sees it; a withdrawal takes it back below", async () => {
+test("a pool of fewer than five companies shows no number to anyone, its own members included; at five, every member sees a lower bound of five, not the count; a withdrawal takes it back below", async () => {
   const four = await poolOf(4);
   for (const m of four) {
     const text = await (await listReq(m.companyId, m.cookie)).text();
@@ -390,7 +408,7 @@ test("a pool of fewer than five companies shows no number to anyone, its own mem
   const res = await makeReq(fifth.companyId, fifth.cookie, body(fifth.detail));
   assert.equal(res.status, 201);
   const members = [...four, { companyId: fifth.companyId, cookie: fifth.cookie, id: ((await res.json()) as { id: string }).id }];
-  for (const m of members) assert.deepEqual((await requirementsOf(m.companyId, m.cookie))[0].pool, { shown: true, companies: 5 }, m.companyId);
+  for (const m of members) assert.deepEqual((await requirementsOf(m.companyId, m.cookie))[0].pool, { shown: true, atLeast: 5 }, m.companyId);
   assert.deepEqual(await (await opGet(handlePools, op)).json(), { pools: [{ cluster: CLUSTER, opportunityId: KIND, companies: 5 }] });
 
   assert.equal((await withdraw(members[2].companyId, members[2].id, members[2].cookie)).status, 201);
@@ -534,12 +552,15 @@ test("every provider is listed at the same fee, whatever it serves, whoever aske
   assert.equal(await count("provider_events", "provider_id = ?", unlisted), 1);
 });
 
-test("a new fee is a new version: later listings carry it, earlier listings keep theirs, and a stale version cannot be used", async () => {
+test("a new fee is a new version: later listings carry it, earlier listings keep theirs (so providers listed at different times pay different fees, a stated limit), and a stale version cannot be used", async () => {
   const op = await operator();
   await setFee(op, { feeInr: 100 });
   const first = await addProvider(op, "First");
   await listIt(op, first);
-  await setFee(op, { feeInr: 250, note: "second version" });
+  const changed = await setFee(op, { feeInr: 250, note: "second version" });
+  assert.equal(changed.status, 201);
+  const reported = ((await changed.json()) as { terms: { version: number; feeInr: number; note: string } }).terms;
+  assert.deepEqual([reported.version, reported.feeInr, reported.note], [2, 250, "second version"], "the answer names the version just set");
   const second = await addProvider(op, "Second");
   assert.deepEqual(await (await listIt(op, second)).json(), { ok: true, feeInr: 250 });
   const rows = (await db.prepare("SELECT provider_id, fee_inr, terms_version FROM provider_events WHERE kind = 'list' ORDER BY id").all<{ provider_id: string; fee_inr: number; terms_version: number }>()).results;
@@ -748,12 +769,15 @@ test("a form post that cannot be done goes back to the page with a message, neve
   assert.equal(missing, "/procure?problem=missing");
   assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${B}/requirements`, b, [["assessment", detail.id], ["opportunity", KIND], ["cluster", CLUSTER]]), env, B)), missing, "another company's assessment looks like a missing one");
   assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${A}/requirements`, a, [["assessment", detail.id], ["opportunity", KIND], ["cluster", "nowhere"]]), env, A)), "/procure?problem=request");
+  assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${A}/requirements`, a, [["assessment", detail.id], ["opportunity", KIND], ["cluster", CLUSTER]]), env, A)), "/procure?problem=already_made", "asking again says it was already made; it does not say it was recorded now");
+  assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${A}/requirements`, a, [["assessment", detail.id], ["opportunity", KIND], ["cluster", OTHER_CLUSTER]]), env, A)), "/procure?problem=already_made", "also for another cluster");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/none/withdraw`, a), env, A, "none")), "/procure?problem=missing");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${B}/requirements/${id}/withdraw`, b), env, B, id)), "/procure?problem=missing", "another company's requirement looks like a missing one");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${"x".repeat(65)}/withdraw`, a), env, A, "x".repeat(65))), "/procure?problem=missing");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a, [["note", "x".repeat(501)]]), env, A, id)), "/procure?problem=note");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a), env, A, id)), "/procure?withdrawn=1");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a), env, A, id)), "/procure?problem=withdrawn");
+  assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${A}/requirements`, a, [["assessment", detail.id], ["opportunity", KIND], ["cluster", CLUSTER]]), env, A)), "/procure?problem=previously_withdrawn", "a withdrawn requirement is not 'recorded' again");
 
   // the operator's forms: a provider that is not there, a name that is too long an id, no fee set, a listing twice, an unlisting that was never listed
   assert.equal(await go(handleProviderList(procure("/api/operator/providers/none/list", op), env, "none")), "/operator?problem=missing");

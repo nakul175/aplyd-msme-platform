@@ -33,11 +33,14 @@ const SELECT_ENGAGEMENTS = `SELECT g.id, g.requirement_id, g.provider_id, g.crea
          JOIN providers p ON p.id = g.provider_id
          JOIN requirements r ON r.id = g.requirement_id AND r.company_id = g.company_id`;
 
-async function assemble(db: D1Database, companyId: string, rows: EngagementRow[]): Promise<EngagementRecord[]> {
+/** Puts each engagement's plan and events together. With one engagement named, only that engagement's rows are read. */
+async function assemble(db: D1Database, companyId: string, rows: EngagementRow[], only: string | null = null): Promise<EngagementRecord[]> {
   if (rows.length === 0) return [];
+  const scope = only === null ? "" : " AND engagement_id = ?";
+  const binds = only === null ? [companyId] : [companyId, only];
   const [milestones, events] = await Promise.all([
-    db.prepare("SELECT id, engagement_id, seq, title, acceptance_test, due_on, agreed_inr, created_at FROM milestones WHERE company_id = ? ORDER BY engagement_id, seq").bind(companyId).all<MilestoneRow>(),
-    db.prepare("SELECT id, engagement_id, at, user_id, kind, milestone_id, amount_inr, note FROM engagement_events WHERE company_id = ? ORDER BY id").bind(companyId).all<EventDbRow>(),
+    db.prepare(`SELECT id, engagement_id, seq, title, acceptance_test, due_on, agreed_inr, created_at FROM milestones WHERE company_id = ?${scope} ORDER BY engagement_id, seq`).bind(...binds).all<MilestoneRow>(),
+    db.prepare(`SELECT id, engagement_id, at, user_id, kind, milestone_id, amount_inr, note FROM engagement_events WHERE company_id = ?${scope} ORDER BY id`).bind(...binds).all<EventDbRow>(),
   ]);
   return rows.map((r) => ({
     id: r.id,
@@ -64,7 +67,7 @@ export async function listEngagements(db: D1Database, companyId: string): Promis
 export async function loadEngagement(db: D1Database, companyId: string, engagementId: string): Promise<EngagementRecord | null> {
   if (engagementId.length === 0 || engagementId.length > 64) return null;
   const { results } = await db.prepare(`${SELECT_ENGAGEMENTS} WHERE g.company_id = ? AND g.id = ?`).bind(companyId, engagementId).all<EngagementRow>();
-  return (await assemble(db, companyId, results))[0] ?? null;
+  return (await assemble(db, companyId, results, engagementId))[0] ?? null;
 }
 
 export type CreateResult = { ok: true; id: string; created: boolean } | { ok: false; reason: "not_found" | "requirement_withdrawn" | "provider_unavailable" | "already_engaged" };
@@ -103,7 +106,7 @@ export async function createEngagement(db: D1Database, input: { companyId: strin
 }
 
 export type MilestoneInput = { title: string; acceptanceTest: string; dueOn: string; agreedInr: number };
-export type AddMilestoneResult = { ok: true; id: string; seq: number } | { ok: false; reason: "not_found" | "plan_locked" | "too_many" };
+export type AddMilestoneResult = { ok: true; id: string; seq: number } | { ok: false; reason: "not_found" | "plan_locked" | "closed" | "too_many" };
 
 /** Adds the next milestone to a plan that is not yet agreed. The number is worked out in the statement itself. */
 export async function addMilestone(db: D1Database, input: { companyId: string; userId: string; engagementId: string } & MilestoneInput): Promise<AddMilestoneResult> {
@@ -122,7 +125,11 @@ export async function addMilestone(db: D1Database, input: { companyId: string; u
     if (inserted.meta.changes !== 1) return { ok: false, reason: "not_found" };
   } catch (error) {
     const text = String(error);
-    if (/cannot be added/.test(text)) return { ok: false, reason: "plan_locked" };
+    if (/cannot be added/.test(text)) {
+      // The one rule covers two cases and the owner is told which: an engagement that is closed (with or without an agreed plan) or a plan that is agreed.
+      const closed = await db.prepare("SELECT 1 AS n FROM engagement_events WHERE engagement_id = ? AND company_id = ? AND kind = 'closed' LIMIT 1").bind(engagementId, companyId).first<{ n: number }>();
+      return { ok: false, reason: closed ? "closed" : "plan_locked" };
+    }
     if (/too many milestones/.test(text)) return { ok: false, reason: "too_many" };
     throw error;
   }

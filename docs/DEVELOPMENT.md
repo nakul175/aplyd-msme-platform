@@ -14,7 +14,7 @@ Last updated 4 October 2026. Read [AGENTS.md](../AGENTS.md) and [HANDOVER.md](..
 | Path | Holds |
 | --- | --- |
 | `app/` | The Next.js routes and pages. Thin: they call the module. |
-| `modules/<name>/` | One module per writing agent: `src/`, `tests/`, `STATUS.md`, `VALIDATION.md`. `platform` (sign-in, scope, audit, shared request checks, test support), `factory` (Describe), `diagnose` (the ranked assessment) `procure` (requirements, pools, the provider registry and the listing fee) and `deliver` (the chosen provider, the plan, and what the owner records on it). |
+| `modules/<name>/` | One module per writing agent: `src/`, `tests/`, `STATUS.md`, `VALIDATION.md`. `platform` (sign-in, scope, audit, shared request checks, test support), `factory` (Describe), `diagnose` (the ranked assessment) `procure` (requirements, pools, the provider registry and the listing fee) and `deliver` (the chosen provider, the plan, and what the owner records on it) and `run` (the starting number and the three reviews of an engagement). |
 | `worker/` | The Worker entry. |
 | `drizzle/` | Migrations. Generated from every `modules/*/src/db/schema.ts` with `pnpm db:generate`; custom SQL with `pnpm db:generate --custom --name <name>`. Applied migrations are never edited. |
 | `scripts/` | The test runner, the documentation check, the local database script. |

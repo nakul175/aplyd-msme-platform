@@ -1,6 +1,6 @@
 # Procure module: validation
 
-Environment for every result below: a Linux container, Node v22.22.0, pnpm 11.25.0, Chromium 141.0.7390.37 through `playwright-core` 1.56.1, 5 October 2026. The agent that wrote the code ran every check here. No separate agent has read this slice yet and no person has; this page is updated when one does, and until then nothing on it is an independent finding.
+Environment for every result below: a Linux container, Node v22.22.0, pnpm 11.25.0, Chromium 141.0.7390.37 through `playwright-core` 1.56.1, 5 October 2026. The agent that wrote the code ran every check here, except the independent review, which another agent ran (below). No person has reviewed this slice.
 
 ## Results
 
@@ -9,9 +9,9 @@ Run in the working tree of branch `slice-4-procure`: `pnpm build`, then `node sc
 | Suite | Result |
 | --- | --- |
 | procure/unit/clusters | 2 passed |
-| procure/unit/pool | 4 passed (the floor of five, counting companies not requirements) |
-| procure/integration/procure-api | 30 passed, against a real D1 database through Miniflare |
-| procure/static/rules | 9 passed (queries bound to the company, the two cross-company reads, provider order by name only, the money columns) |
+| procure/unit/pool | 5 passed (the floor of five, counting companies not requirements, and the lower bound in steps of five) |
+| procure/integration/procure-api | 31 passed after the review fixes (30 at the first run), against a real D1 database through Miniflare |
+| procure/static/rules | 10 passed after the review fixes (9 at the first run: queries bound to the company, the two cross-company reads, provider order by name only, the money columns) |
 | procure/static/problems | 2 passed (every form outcome has a page message) |
 | procure/smoke/procure | 6 passed, the built application in a local Worker |
 | procure/browser/procure | 3 passed, a real headless Chromium |
@@ -22,7 +22,21 @@ Run in the working tree of branch `slice-4-procure`: `pnpm build`, then `node sc
 
 ## Independent review
 
-None yet. A separate agent will be asked to read this slice and try to break it; its findings and what was done about them will be recorded here. No person has reviewed this slice.
+A separate agent (a second Claude instance, read-only, working in a detached copy of commit 9acdf2a; no person) read this slice and tried to break it. Its report: **0 high, 4 medium, 5 low.** It found no leak across companies, no operator bypass and no trigger bypass; it ran the procure unit, static and integration suites (47 of 47 passed) and seven breaks of its own (six caught; the seventh, removing the company match from the sign-off trigger, is equivalent because the composite foreign key already enforces it). What was found and what was done, in the commit after 9acdf2a:
+
+| Finding | What was done |
+| --- | --- |
+| **M1.** A fifth company that took a pool from four to five was shown "5 companies", so it learned the pool had held exactly four, below the floor. Limit 2 described this too weakly. | The owner is shown "at least 5", "at least 10" and so on (a lower bound in steps of five), never the count; a pool of five and a pool of nine look the same. The joiner still learns the pool held at least four others, which is said in limit 2. Unit, integration and static tests; the page wording is pinned by a static test. |
+| **M2.** "One flat fee, the same for every provider" holds only for the fee in force when a provider is listed; the operator can list two providers at different fees by changing the fee between. | The wording now says "one fee at a time", the operator page says when the listed providers pay different fees (browser test), and limit 10 states it and leaves the question of forbidding it to the sponsor (OQ-11). D-03 as written is not broken, because nothing ties a fee to which provider an owner chooses. No rule was added. |
+| **M3.** A withdrawn requirement asked for again returned 200 with the withdrawn one's id, a "recorded" message and a cluster that was never stored. | The answer is 409 `previously_withdrawn` (a form: a message); asking again for one that exists says it already exists, with the cluster it was made in (JSON and form). A withdrawn requirement still cannot be made again; limit 9. |
+| **M4.** The mutation tables could not be reproduced: `mutate.py` was not in the repository. | `scripts/mutation/mutate.py` and its README are in the repository, and the break lists are in `modules/procure/mutations/` (m7: the 51 first breaks; m7b: the 11 for form redirects; m7c: the breaks for these fixes). After later edits some patterns no longer match and print SKIP. |
+| **L1.** The fee in the reply to a listing was read after the batch and could name a later fee than the one stored. The same for setting a new fee. | The reply reads the row just written. Not testable as a race here; tested by mutating the read to the wrong row (caught). |
+| **L2.** Operator page said nothing on it reads a company's records, although the pools are counts across companies. | Reworded. |
+| **L3.** Provider names (and notes) accepted text-direction override characters. | The shared check (`hasControlCharacters`, in `modules/factory/src/questionnaire.ts`) now also refuses the direction overrides and isolates, zero-width space, word joiner, byte order mark and the Arabic letter mark, and still allows the joiners that Hindi and other Indian scripts and emoji need. This also covers the factory and diagnose notes (finding M2 of the slice 2 review). Unit tests in the factory module. |
+| **L4.** A service could be added to a listed provider by a direct insert. | Not fixed in this branch: it needs a trigger, and applied migrations are not edited. It is in the fix branch at the top of the stack (migration 0014); limit 11. |
+| **L5.** A visitor's 401 is not audited and an owner's 403 is. | Documented as limit 12. |
+
+Results after the fixes, in the working tree of this branch: typecheck, static and unit layers; `procure/integration/procure-api` (31 passed) and `factory/integration/factory-api`; after `pnpm build`, `procure/smoke/procure` (6) and `procure/browser/procure` (3). A full `pr` run is recorded in the top branch of the stack after the later slices' fixes were merged in, not here. The reviewer did not run the smoke or browser layers, `pnpm build` or the pages in a browser, and did not review how an operator account is issued outside the synthetic seed.
 
 ## What the first runs found
 
@@ -57,6 +71,22 @@ The two survivors:
 ### Mutation checks on the form redirects
 
 Eleven breaks (m7b), all caught: the operator role check again, unlisted providers shown to owners again, and nine for the form redirects (a missing assessment, a missing requirement on withdraw, an overlong requirement id, a missing provider on list and on unlist, an overlong provider id on list and on unlist, answered with JSON; the missing-record message removed from each of `/procure` and `/operator`).
+
+### Mutation checks on the review fixes
+
+Sixteen breaks (m7c): **13 caught on the first run, 3 survived.** One survivor is equivalent; two were closed with tests and are now caught.
+
+| Break | Result |
+| --- | --- |
+| The pool shows the exact count again; steps of two; the floor lowered to four | caught ×3 |
+| A withdrawn requirement returned as if made; the stored cluster not echoed; JSON answers 201 for an existing one; a form says "made" for an existing one | caught ×4 |
+| The hidden-character check: direction overrides, isolates, zero-width space and byte order mark allowed again; the joiners refused (which would break Indian scripts) | caught ×5 |
+| A listing's reported fee read from the wrong row | caught |
+| The page prints a pool without "At least" | survived at first (nothing pinned the page's wording); a static test now does; caught |
+| A new fee's reply read from the wrong row | survived at first (the test never read the reply); asserted now; caught |
+| The withdrawn lookup without the company in its sub-select | survived, **equivalent**: `requirement_events` has a composite foreign key to the requirement and its company, so the second filter is redundant. Left in |
+
+Five further breaks, of the registry trigger, were run against an earlier form of the fix and are re-run in the top branch where the trigger now lives.
 
 ## What these results do not show
 

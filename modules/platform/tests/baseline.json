@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "slice 5 deliver",
+  "reason": "slice 5 review fixes",
   "suites": {
     "integration/platform-api": 26,
     "smoke/built-app": 11,

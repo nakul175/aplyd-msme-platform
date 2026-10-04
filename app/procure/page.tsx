@@ -16,6 +16,8 @@ const PROBLEMS: Record<string, string> = {
   request: "That requirement could not be made. Choose a cluster from the list.",
   not_signed_off: "Only an assessment you have signed off can be turned into requirements.",
   not_accepted: "Only an idea you accepted can be turned into a requirement.",
+  already_made: "You have already made this requirement. It is listed below, in the cluster you chose the first time.",
+  previously_withdrawn: "You withdrew this requirement earlier, and a withdrawn requirement is not made again. To ask again, make a new assessment.",
   note: "Keep the note under 500 characters.",
   withdrawn: "That requirement was already withdrawn.",
   missing: "That requirement could not be found.",
@@ -165,7 +167,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                 <>
                   <p data-testid="pool">
                     {r.pool && r.pool.shown
-                      ? `${r.pool.companies} companies in this cluster have asked for the same thing.`
+                      ? `At least ${r.pool.atLeast} companies in this cluster have asked for the same thing.`
                       : `Fewer than ${r.pool?.floor ?? 5} companies have asked for this in your cluster, so the number is not shown to anyone, to protect the companies that asked.`}
                   </p>
                   <div data-testid="providers">
