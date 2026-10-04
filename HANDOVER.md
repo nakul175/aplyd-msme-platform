@@ -21,7 +21,7 @@ None yet.
 Documentation-only commits made at the sponsor's instruction in conversation:
 
 - 4 October 2026, b918272: documentation base.
-- 4 October 2026: thesis version 2 (marketplace++), after the sponsor rejected version 1.
+- 4 October 2026, 7021ceb: thesis version 2 (marketplace++), after the sponsor rejected version 1.
 
 ## Next work, in order
 
