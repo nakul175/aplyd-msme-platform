@@ -21,6 +21,7 @@ const PROBLEMS: Record<string, string> = {
   not_listed: "That provider is not listed.",
   missing: "That provider could not be found.",
 };
+const distinctListedFees = (providers: { listed: boolean; listedFeeInr: number | null }[]) => new Set(providers.filter((p) => p.listed && p.listedFeeInr !== null).map((p) => p.listedFeeInr)).size;
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const titleOf = (id: string) => LIBRARY.find((o) => o.id === id)?.title ?? id;
 
@@ -58,7 +59,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
     <>
       <h1>Providers and the listing fee</h1>
       <p className="muted">
-        <span className="tag">SYNTHETIC</span> Every provider here is a placeholder. Nothing on this page reads a company&apos;s records, and no money is collected: a listing records the fee that is due and nothing more.
+        <span className="tag">SYNTHETIC</span> Every provider here is a placeholder. No company is named or shown on this page (the pools below are counts of companies, and only from five), and no money is collected: a listing records the fee that is due and nothing more.
       </p>
 
       {q.made ? (
@@ -90,7 +91,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
       <section className="card" aria-label="Listing fee" data-testid="fee">
         <h2>The listing fee</h2>
         <p>
-          One flat fee, the same for every provider. It does not depend on what a provider serves, on how many owners ask for it, or on which provider an owner chooses (D-03).
+          One fee at a time, the same for every provider listed under it. It does not depend on what a provider serves, on how many owners ask for it, or on which provider an owner chooses (D-03). A provider keeps the fee it was listed at when the fee changes, so providers listed at different times can pay different fees; this page says so when they do.
         </p>
         {terms ? (
           <p data-testid="fee-now">
@@ -160,6 +161,11 @@ export default async function Operator({ searchParams }: { searchParams: Promise
       </section>
 
       <h2>Providers</h2>
+      {distinctListedFees(providers) > 1 ? (
+        <p role="status" className="notice" data-testid="fee-differs">
+          The providers now listed are paying {distinctListedFees(providers)} different fees, because the fee changed after some of them were listed. Each fee is shown on its provider below.
+        </p>
+      ) : null}
       {providers.length === 0 ? (
         <p className="muted">None yet.</p>
       ) : (

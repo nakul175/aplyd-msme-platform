@@ -1,13 +1,13 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "slice 5 deliver",
+  "reason": "slice 4 review fixes",
   "suites": {
     "browser/procure": 3,
-    "integration/procure-api": 30,
+    "integration/procure-api": 31,
     "smoke/procure": 6,
     "static/problems": 2,
-    "static/rules": 9,
+    "static/rules": 10,
     "unit/clusters": 2,
-    "unit/pool": 4
+    "unit/pool": 5
   }
 }
