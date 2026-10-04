@@ -1,12 +1,16 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "Slice 1 walking skeleton: first baseline",
+  "reason": "Slice 1b: browser layer, first baseline (headless Chromium through playwright-core 1.56.1)",
   "suites": {
     "integration/platform-api": 14,
     "smoke/built-app": 6,
     "static/source-rules": 3,
     "unit/cross-site": 5,
     "unit/scope": 5,
-    "unit/session": 6
+    "unit/session": 6,
+    "browser/cross-origin": 5,
+    "browser/harness": 8,
+    "browser/pages": 3,
+    "browser/session-and-scope": 8
   }
 }

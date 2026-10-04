@@ -8,7 +8,7 @@
 //   node scripts/test.mjs <layer ...> --update-baseline --reason "<why>"
 //                                                deliberately change a module's tests/baseline.json
 //
-// Layers: static unit integration smoke. Alias: pr (all four). With no argument it runs pr.
+// Layers: static unit integration smoke browser. Alias: pr (all five). With no argument it runs pr.
 // A suite is a file modules/<module>/tests/<layer>/<name>.test.ts, run with `node --test`, or a command listed below.
 // Each module keeps its own baseline (modules/<module>/tests/baseline.json): the least number of passing tests per suite.
 // --guard fails when a suite is missing, has no baseline, or passes fewer tests than its baseline.
@@ -21,9 +21,9 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 process.chdir(ROOT);
 
-const LAYERS = ["static", "unit", "integration", "smoke"];
+const LAYERS = ["static", "unit", "integration", "smoke", "browser"];
 const ALIASES = { pr: LAYERS };
-const TIMEOUT_MIN = { static: 10, unit: 10, integration: 15, smoke: 15 };
+const TIMEOUT_MIN = { static: 10, unit: 10, integration: 15, smoke: 15, browser: 15 };
 // Command suites: run as a process, pass or fail only, no per-test count.
 const COMMAND_SUITES = [
   { id: "static/typecheck", layer: "static", cmd: process.execPath, args: ["node_modules/typescript/bin/tsc", "--noEmit"] },

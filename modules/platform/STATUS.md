@@ -14,12 +14,13 @@ This is slice 1, the walking skeleton. It is application plumbing with no produc
 - Sign-in refuses anywhere `APLYD_ENV` is not local, synthetic or test, and without `SESSION_SECRET`.
 - The interface shows a SYNTHETIC banner and tag.
 - Test runner with layers, per-module baselines and a guard; CI that runs it; a documentation integrity check.
+- A browser test layer (slice 1b): the built application in a local Worker, walked in a real headless Chromium through `playwright-core`. It checks that the pages render with the SYNTHETIC banner, that sign-in through the form leaves an HttpOnly, SameSite=Lax session cookie that script on the page cannot read, that the scope rule and sign-out hold in the browser, and that a cross-site post is refused. First run on 4 October 2026 in Chromium 141.0.7390.37 on Linux; not yet run by GitHub Actions. What it does not prove is in [VALIDATION.md](VALIDATION.md).
 
 ## Not built
 
 - Real sign-in (OQ-13). Hosted staging and its access layer, and the deployment workflow (needs the sponsor's Cloudflare account and OQ-07).
 - Creating or editing a company record. Slice 2 (Describe) does that, as appended revisions, not edits.
-- A browser test layer. The supply-chain gate (SBOM and audit).
+- The supply-chain gate (SBOM and audit).
 - Any money, vendor, pooling or aggregate code. The invariants in AGENTS.md about vendor-neutral earnings, certification, selling data and the five-company floor have no code to test yet; each gets its test in the slice that adds the code.
 
 ## Known limits
@@ -29,4 +30,6 @@ This is slice 1, the walking skeleton. It is application plumbing with no produc
 3. A session cannot be revoked before its eight hours end, except by deleting the user or changing `SESSION_SECRET`. There is no "sign out everywhere".
 4. The header allow-list test is a tripwire. It catches the usual ways to read a header; it does not prove no code path trusts one.
 5. The seeded company records are read-only by absence of a write path, not by a database rule.
-6. Results are in [VALIDATION.md](VALIDATION.md), with their dates and limits.
+6. The browser layer covers one browser engine (Chromium) on desktop Linux against a local Worker over plain HTTP on loopback. Firefox, Safari, phones, Secure-cookie behaviour over real HTTPS, and any hosted environment are untested.
+7. Two things the browser layer found are recorded, not fixed: a cross-site refusal that leaves the request body unread upsets the local dev proxy, and responses carry no framing or content-type hardening headers. See [VALIDATION.md](VALIDATION.md), browser-layer findings 1 and 2.
+8. Results are in [VALIDATION.md](VALIDATION.md), with their dates and limits.
