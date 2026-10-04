@@ -1,6 +1,7 @@
 // What state an engagement and each milestone are in, worked out from the events recorded, never stored. Pure functions: the
-// rules about what may happen next are also enforced by triggers in the database (drizzle/0011_deliver_guards.sql), and a test
-// keeps this file and those triggers saying the same thing.
+// rules about what may happen next are also enforced by triggers in the database (drizzle/0011_deliver_guards.sql). A unit test
+// reads the trigger text and compares it with the table here; an integration test runs the real triggers against every state
+// and every kind and checks the page is offered exactly what the database would accept.
 
 export const EVENT_KINDS = ["plan_agreed", "delivered", "accepted", "rejected", "payment_recorded", "closed"] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -28,12 +29,18 @@ export function milestoneState(kinds: readonly MilestoneKind[]): MilestoneState 
   return last ? STATE_AFTER[last] : "planned";
 }
 
-/** What the owner may record next on a milestone in a state. Mirrors the triggers: delivered once or again after a rejection; accepted or rejected after a delivery; paid once after acceptance. */
-export function nextKinds(state: MilestoneState): MilestoneKind[] {
+/**
+ * What the owner may record next on a milestone in a state, given how many times it has been delivered. Mirrors the triggers:
+ * delivered once or again after a rejection, until the delivery cap; accepted or rejected after a delivery; paid once after
+ * acceptance. At the cap a rejected milestone has nothing left to record (the independent review found the page offering a
+ * delivery the database would refuse); the owner closes the engagement.
+ */
+export function nextKinds(state: MilestoneState, deliveries: number = 0): MilestoneKind[] {
   switch (state) {
     case "planned":
-    case "rejected":
       return ["delivered"];
+    case "rejected":
+      return deliveries >= MAX_DELIVERIES ? [] : ["delivered"];
     case "delivered":
       return ["accepted", "rejected"];
     case "accepted":

@@ -14,7 +14,7 @@ import { handleEngagementCreate, handleEngagementEvent, handleEngagementList, ha
 import type { PresentedEngagement } from "../../src/api/engagements.ts";
 import { LIBRARY } from "../../../diagnose/src/library.ts";
 import { createEngagement } from "../../src/db/engagements.ts";
-import { MAX_DELIVERIES, MAX_MILESTONES } from "../../src/state.ts";
+import { MAX_DELIVERIES, MAX_MILESTONES, MILESTONE_KINDS } from "../../src/state.ts";
 
 let env: AppEnv;
 let db: D1Database;
@@ -259,6 +259,102 @@ test("a milestone is delivered at most MAX_DELIVERIES times: a delivery and a re
   assert.equal(Number(/engagement_events_delivery_limit[\s\S]*?>= (\d+)/.exec(sql)?.[1]), MAX_DELIVERIES);
 });
 
+test("a close is looked for in the engagement asked about, not in the company: with one engagement closed, another's agreed plan is still told it is locked", async () => {
+  const { a, op, id: first, detail } = await engaged();
+  assert.equal((await event(A, first, a, { kind: "closed" })).status, 201);
+  const secondIdea = detail.result.items.find((i) => i.opportunityId !== KIND)!.opportunityId;
+  const otherProvider = await addListedProvider(op, "Beta Works", [{ opportunityId: secondIdea, cluster: CLUSTER }]);
+  const asked = await handleRequirementCreate(req(`/api/companies/${A}/requirements`, a, { assessmentId: detail.id, opportunityId: secondIdea, cluster: CLUSTER }), env, A);
+  const made = await engage(A, ((await asked.json()) as { id: string }).id, a, { providerId: otherProvider });
+  const second = ((await made.json()) as { id: string }).id;
+  assert.equal((await milestone(A, second, a, MILESTONE)).status, 201);
+  assert.equal((await event(A, second, a, { kind: "plan_agreed" })).status, 201);
+  assert.deepEqual(await (await milestone(A, second, a, SECOND)).json(), { error: "plan_locked" }, "agreed, not closed: the other engagement's close is not this one's");
+  assert.deepEqual(await (await milestone(A, first, a, SECOND)).json(), { error: "closed" });
+});
+
+test("at the delivery cap the page is offered nothing to deliver: the count rides with each milestone, and the offer comes back and goes in step with the database", async () => {
+  const { a, id, ids } = await agreed();
+  const [first] = ids;
+  const milestoneOf = async (n: number) => (await view(A, id, a)).milestones[n];
+  for (let n = 1; n < MAX_DELIVERIES; n += 1) {
+    assert.equal((await event(A, id, a, { kind: "delivered", milestoneId: first })).status, 201);
+    assert.equal((await event(A, id, a, { kind: "rejected", milestoneId: first })).status, 201);
+  }
+  let m = await milestoneOf(0);
+  assert.deepEqual([m.state, m.deliveries, m.next], ["rejected", MAX_DELIVERIES - 1, ["delivered"]], "one delivery left: still offered");
+  assert.equal((await event(A, id, a, { kind: "delivered", milestoneId: first })).status, 201);
+  m = await milestoneOf(0);
+  assert.deepEqual([m.state, m.deliveries, m.next], ["delivered", MAX_DELIVERIES, ["accepted", "rejected"]], "the last delivery can still be decided");
+  assert.equal((await event(A, id, a, { kind: "rejected", milestoneId: first })).status, 201);
+  m = await milestoneOf(0);
+  assert.deepEqual([m.state, m.deliveries, m.next], ["rejected", MAX_DELIVERIES, []], "rejected at the cap: nothing to offer, because the database would refuse it");
+  assert.deepEqual((await milestoneOf(1)).next, ["delivered"], "the other milestone is not affected");
+  assert.equal((await event(A, id, a, { kind: "delivered", milestoneId: first })).status, 409, "and the refusal is what the page no longer invites");
+  assert.equal((await event(A, id, a, { kind: "closed" })).status, 201, "closing is the way out");
+});
+
+/**
+ * Whether the database itself would take an event of this kind on this milestone now. The statement is run inside a batch that
+ * ends in one that cannot succeed, so a statement the triggers accept is rolled back and nothing is left written.
+ */
+async function databaseAccepts(engagementId: string, milestoneId: string, kind: string): Promise<boolean> {
+  const before = await count("engagement_events");
+  const insert = db
+    .prepare("INSERT INTO engagement_events (engagement_id, company_id, at, user_id, kind, milestone_id, amount_inr, note) VALUES (?, ?, 'probe', 'user-synthetic-owner-a', ?, ?, ?, '')")
+    .bind(engagementId, A, kind, milestoneId, kind === "payment_recorded" ? 1000 : null);
+  let accepted: boolean;
+  try {
+    await db.batch([insert, db.prepare("SELECT 1 FROM probe_rolls_everything_back")]);
+    accepted = false;
+  } catch (error) {
+    // The last statement fails for a table that does not exist. If that is the error, the insert before it was accepted.
+    accepted = /probe_rolls_everything_back/.test(String(error));
+  }
+  assert.equal(await count("engagement_events"), before, "a probe leaves nothing behind");
+  return accepted;
+}
+
+test("what the page offers is exactly what the database would accept: every state and every kind, before the plan is agreed, while it runs, at the cap, and after the close", async () => {
+  const titles = ["planned", "delivered", "accepted", "rejected", "paid", "rejected at the cap", "delivered at the cap"];
+  const p = await planned(titles.map((title) => ({ ...MILESTONE, title })));
+  const [, delivered, accepted, rejected, paid, rejectedAtCap, deliveredAtCap] = p.ids;
+  const probeAll = async (label: string, expected: Record<string, string[]>) => {
+    const shown = await view(A, p.id, p.a);
+    for (const m of shown.milestones) {
+      for (const kind of MILESTONE_KINDS) {
+        assert.equal(await databaseAccepts(p.id, m.id, kind), m.next.includes(kind), `${label}: ${kind} on "${m.title}" (state ${m.state}, ${m.deliveries} deliveries, next ${JSON.stringify(m.next)})`);
+      }
+      if (expected[m.title]) assert.deepEqual(m.next, expected[m.title], `${label}: what is offered on "${m.title}"`);
+    }
+  };
+
+  await probeAll("before the plan is agreed", Object.fromEntries(titles.map((t) => [t, []])));
+  assert.equal((await event(A, p.id, p.a, { kind: "plan_agreed" })).status, 201);
+
+  const send = async (kind: string, milestoneId: string, amountInr?: number) => assert.equal((await event(A, p.id, p.a, { kind, milestoneId, amountInr })).status, 201, kind);
+  await send("delivered", delivered);
+  await send("delivered", accepted); await send("accepted", accepted);
+  await send("delivered", rejected); await send("rejected", rejected);
+  await send("delivered", paid); await send("accepted", paid); await send("payment_recorded", paid, 40000);
+  for (let n = 0; n < MAX_DELIVERIES; n += 1) { await send("delivered", rejectedAtCap); await send("rejected", rejectedAtCap); }
+  for (let n = 1; n < MAX_DELIVERIES; n += 1) { await send("delivered", deliveredAtCap); await send("rejected", deliveredAtCap); }
+  await send("delivered", deliveredAtCap);
+
+  await probeAll("while the plan runs", {
+    planned: ["delivered"],
+    delivered: ["accepted", "rejected"],
+    accepted: ["payment_recorded"],
+    rejected: ["delivered"],
+    paid: [],
+    "rejected at the cap": [],
+    "delivered at the cap": ["accepted", "rejected"],
+  });
+
+  assert.equal((await event(A, p.id, p.a, { kind: "closed" })).status, 201);
+  await probeAll("after the close", Object.fromEntries(titles.map((t) => [t, []])));
+});
+
 test("agreeing the plan needs a milestone, happens once, and fixes the plan: no milestone can be added after", async () => {
   const { a, id } = await engaged();
   const empty = await event(A, id, a, { kind: "plan_agreed" });
@@ -345,7 +441,19 @@ test("an engagement closed before any plan was agreed ends early, and nothing ca
   assert.equal((await view(A, e.id, e.a)).status, "ended_early");
   const late = await milestone(A, e.id, e.a, SECOND);
   assert.equal(late.status, 409);
-  assert.deepEqual(await late.json(), { error: "plan_locked" });
+  assert.deepEqual(await late.json(), { error: "closed" }, "the plan was never agreed: the engagement is closed, and the owner is told that");
+  const posted = await handleMilestoneAdd(form(`/api/companies/${A}/engagements/${e.id}/milestones`, e.a, [["title", "T"], ["test", "T"], ["due", "2026-12-15"], ["amount", "100"]]), env, A, e.id);
+  assert.equal(posted.headers.get("location"), "/deliver?problem=closed");
+});
+
+test("a plan that is agreed and a plan that is closed are told apart: adding to an agreed plan says the plan is locked, adding after the close says it is closed", async () => {
+  const p = await agreed();
+  const locked = await milestone(A, p.id, p.a, MILESTONE);
+  assert.deepEqual(await locked.json(), { error: "plan_locked" });
+  assert.equal((await event(A, p.id, p.a, { kind: "closed" })).status, 201);
+  const closed = await milestone(A, p.id, p.a, MILESTONE);
+  assert.deepEqual(await closed.json(), { error: "closed" }, "agreed and then closed: closed is what is true now");
+  assert.equal(await count("milestones"), 2);
 });
 
 test("the order is enforced: nothing is delivered, accepted or paid before the plan is agreed, and a milestone cannot skip a step", async () => {

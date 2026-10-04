@@ -39,6 +39,8 @@ const engagements = async (cookie: string) => ((await getJson(cookie, `/api/comp
 let providerId = "";
 let requirementId = "";
 let engagementId = "";
+let assessmentId = "";
+let secondIdea = "";
 
 test("an owner who has no engagement is told where one starts; the page says who it is for; the home page links to it for an owner only", async () => {
   const a = await signIn("owner-a@synthetic.invalid");
@@ -65,6 +67,8 @@ test("set-up: the operator sets a fee and lists a provider; an owner signs off a
   const made = await form(a, `/api/companies/${A}/assessments`);
   const assessment = new URL(made.headers.get("location")!, app.base).searchParams.get("a");
   const detail = (await getJson(a, `/api/companies/${A}/assessments/${assessment}`)) as { id: string; result: { items: { opportunityId: string }[] } };
+  assessmentId = detail.id;
+  secondIdea = detail.result.items.find((i) => i.opportunityId !== KIND)!.opportunityId;
   for (const item of detail.result.items) await form(a, `/api/companies/${A}/assessments/${detail.id}/decisions`, [["opportunity", item.opportunityId], ["decision", "accept"]]);
   assert.equal((await form(a, `/api/companies/${A}/assessments/${detail.id}/signoff`)).status, 303);
   assert.equal((await form(a, `/api/companies/${A}/requirements`, [["assessment", detail.id], ["opportunity", KIND], ["cluster", CLUSTER]])).status, 303);
@@ -228,4 +232,37 @@ test("D-03 at the page: nothing the owner sees on the delivery or requirement pa
   const json = JSON.stringify(await getJson(a, `/api/companies/${A}/engagements`));
   assert.ok(!json.includes("1234") && !/fee/i.test(json), "the engagement endpoint carries no fee");
   assert.match(await page(op, "/operator"), /In force: <strong>₹1,234<\/strong>/);
+});
+
+test("at the delivery cap the page stops offering a delivery and says why: the milestone was rejected for the last time that can be recorded, and only closing the engagement is left", async () => {
+  const a = await signIn("owner-a@synthetic.invalid");
+  const op = await signIn("operator@synthetic.invalid");
+  assert.equal((await form(op, "/api/operator/providers", [["name", "Beta Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", secondIdea], ["cluster", CLUSTER]])).status, 303);
+  const beta = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string; name: string }[] }).providers.find((p) => p.name === "Beta Works")!.id;
+  assert.equal((await form(op, `/api/operator/providers/${beta}/list`)).headers.get("location"), "/operator?listed=1");
+  assert.equal((await form(a, `/api/companies/${A}/requirements`, [["assessment", assessmentId], ["opportunity", secondIdea], ["cluster", CLUSTER]])).status, 303);
+  const requirements = ((await getJson(a, `/api/companies/${A}/requirements`)) as { requirements: { id: string; opportunityId: string }[] }).requirements;
+  const second = requirements.find((r) => r.opportunityId === secondIdea)!.id;
+  assert.equal((await form(a, `/api/companies/${A}/requirements/${second}/engagement`, [["provider", beta]])).headers.get("location"), "/deliver?made=1");
+  const g = (await engagements(a)).find((e) => e.id !== engagementId)!;
+  const path = `/api/companies/${A}/engagements/${g.id}`;
+  assert.equal((await form(a, `${path}/milestones`, [["title", "Pilot"], ["test", "Runs a full shift"], ["due", "2027-03-01"], ["amount", "1000"]])).headers.get("location"), "/deliver?saved=milestone");
+  assert.equal((await form(a, `${path}/events`, [["kind", "plan_agreed"]])).headers.get("location"), "/deliver?saved=plan_agreed");
+  const m = (await engagements(a)).find((e) => e.id === g.id)!.milestones[0].id;
+  for (let n = 1; n <= 14; n += 1) {
+    assert.equal((await form(a, `${path}/events`, [["kind", "delivered"], ["milestone", m]])).headers.get("location"), "/deliver?saved=delivered", `delivery ${n}`);
+    if (n === 14) {
+      const waiting = await page(a, "/deliver");
+      assert.match(waiting, /Accept milestone 1/, "the last delivery can still be decided");
+    }
+    assert.equal((await form(a, `${path}/events`, [["kind", "rejected"], ["milestone", m]])).headers.get("location"), "/deliver?saved=rejected", `rejection ${n}`);
+  }
+  const html = await page(a, "/deliver");
+  assert.match(html, /This milestone was rejected after being delivered 14 times, as many as can be recorded/);
+  assert.match(html, /data-testid="delivery-cap-1"/);
+  assert.ok(!html.includes("Record that milestone 1 was delivered"), "no form the database would refuse");
+  assert.match(html, /Close this engagement/, "the way out is there");
+  assert.equal((await form(a, `${path}/events`, [["kind", "delivered"], ["milestone", m]])).headers.get("location"), "/deliver?problem=too_many_deliveries");
+  assert.match(await page(a, "/deliver?problem=too_many_deliveries"), /as many as can be recorded\. If the last one is still waiting for your decision, decide on it/);
+  assert.equal((await form(a, `${path}/events`, [["kind", "closed"]])).headers.get("location"), "/deliver?saved=closed");
 });
