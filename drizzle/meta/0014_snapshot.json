@@ -1,0 +1,1819 @@
+{
+  "id": "8976adcb-e035-4025-8d75-6b20658868a8",
+  "prevId": "c3e56b65-ba32-4c4a-8ab0-1eed6a9dbe75",
+  "version": "6",
+  "dialect": "sqlite",
+  "tables": {
+    "engagement_events": {
+      "name": "engagement_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "engagement_id": {
+          "name": "engagement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "milestone_id": {
+          "name": "milestone_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "amount_inr": {
+          "name": "amount_inr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "engagement_events_engagement": {
+          "name": "engagement_events_engagement",
+          "columns": [
+            "engagement_id"
+          ],
+          "isUnique": false
+        },
+        "engagement_events_milestone": {
+          "name": "engagement_events_milestone",
+          "columns": [
+            "milestone_id"
+          ],
+          "isUnique": false
+        },
+        "engagement_events_one_agreement": {
+          "name": "engagement_events_one_agreement",
+          "columns": [
+            "engagement_id"
+          ],
+          "where": "\"engagement_events\".\"kind\" = 'plan_agreed'",
+          "isUnique": true
+        },
+        "engagement_events_one_close": {
+          "name": "engagement_events_one_close",
+          "columns": [
+            "engagement_id"
+          ],
+          "where": "\"engagement_events\".\"kind\" = 'closed'",
+          "isUnique": true
+        },
+        "engagement_events_one_payment": {
+          "name": "engagement_events_one_payment",
+          "columns": [
+            "milestone_id"
+          ],
+          "where": "\"engagement_events\".\"kind\" = 'payment_recorded'",
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "engagement_events_company_id_companies_id_fk": {
+          "name": "engagement_events_company_id_companies_id_fk",
+          "tableFrom": "engagement_events",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "engagement_events_user_id_users_id_fk": {
+          "name": "engagement_events_user_id_users_id_fk",
+          "tableFrom": "engagement_events",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "engagement_events_engagement_fk": {
+          "name": "engagement_events_engagement_fk",
+          "tableFrom": "engagement_events",
+          "columnsFrom": [
+            "engagement_id",
+            "company_id"
+          ],
+          "tableTo": "engagements",
+          "columnsTo": [
+            "id",
+            "company_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "engagement_events_milestone_fk": {
+          "name": "engagement_events_milestone_fk",
+          "tableFrom": "engagement_events",
+          "columnsFrom": [
+            "milestone_id",
+            "engagement_id"
+          ],
+          "tableTo": "milestones",
+          "columnsTo": [
+            "id",
+            "engagement_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "engagement_events_shape": {
+          "name": "engagement_events_shape",
+          "value": "(\"engagement_events\".\"kind\" IN ('plan_agreed', 'closed') AND \"engagement_events\".\"milestone_id\" IS NULL AND \"engagement_events\".\"amount_inr\" IS NULL)\n       OR (\"engagement_events\".\"kind\" IN ('delivered', 'accepted', 'rejected') AND \"engagement_events\".\"milestone_id\" IS NOT NULL AND \"engagement_events\".\"amount_inr\" IS NULL)\n       OR (\"engagement_events\".\"kind\" = 'payment_recorded' AND \"engagement_events\".\"milestone_id\" IS NOT NULL AND \"engagement_events\".\"amount_inr\" BETWEEN 1 AND 100000000)"
+        }
+      }
+    },
+    "engagements": {
+      "name": "engagements",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "requirement_id": {
+          "name": "requirement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "engagements_one_per_requirement": {
+          "name": "engagements_one_per_requirement",
+          "columns": [
+            "requirement_id"
+          ],
+          "isUnique": true
+        },
+        "engagements_id_company": {
+          "name": "engagements_id_company",
+          "columns": [
+            "id",
+            "company_id"
+          ],
+          "isUnique": true
+        },
+        "engagements_company": {
+          "name": "engagements_company",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "engagements_company_id_companies_id_fk": {
+          "name": "engagements_company_id_companies_id_fk",
+          "tableFrom": "engagements",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "engagements_provider_id_providers_id_fk": {
+          "name": "engagements_provider_id_providers_id_fk",
+          "tableFrom": "engagements",
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "tableTo": "providers",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "engagements_created_by_users_id_fk": {
+          "name": "engagements_created_by_users_id_fk",
+          "tableFrom": "engagements",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "engagements_requirement_fk": {
+          "name": "engagements_requirement_fk",
+          "tableFrom": "engagements",
+          "columnsFrom": [
+            "requirement_id",
+            "company_id"
+          ],
+          "tableTo": "requirements",
+          "columnsTo": [
+            "id",
+            "company_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "milestones": {
+      "name": "milestones",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "engagement_id": {
+          "name": "engagement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "acceptance_test": {
+          "name": "acceptance_test",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "due_on": {
+          "name": "due_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agreed_inr": {
+          "name": "agreed_inr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "milestones_order": {
+          "name": "milestones_order",
+          "columns": [
+            "engagement_id",
+            "seq"
+          ],
+          "isUnique": true
+        },
+        "milestones_id_engagement": {
+          "name": "milestones_id_engagement",
+          "columns": [
+            "id",
+            "engagement_id"
+          ],
+          "isUnique": true
+        },
+        "milestones_company": {
+          "name": "milestones_company",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "milestones_company_id_companies_id_fk": {
+          "name": "milestones_company_id_companies_id_fk",
+          "tableFrom": "milestones",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "milestones_created_by_users_id_fk": {
+          "name": "milestones_created_by_users_id_fk",
+          "tableFrom": "milestones",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "milestones_engagement_fk": {
+          "name": "milestones_engagement_fk",
+          "tableFrom": "milestones",
+          "columnsFrom": [
+            "engagement_id",
+            "company_id"
+          ],
+          "tableTo": "engagements",
+          "columnsTo": [
+            "id",
+            "company_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "milestones_seq": {
+          "name": "milestones_seq",
+          "value": "\"milestones\".\"seq\" BETWEEN 1 AND 12"
+        },
+        "milestones_title": {
+          "name": "milestones_title",
+          "value": "length(\"milestones\".\"title\") BETWEEN 1 AND 120"
+        },
+        "milestones_test": {
+          "name": "milestones_test",
+          "value": "length(\"milestones\".\"acceptance_test\") BETWEEN 1 AND 500"
+        },
+        "milestones_due": {
+          "name": "milestones_due",
+          "value": "\"milestones\".\"due_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "milestones_agreed": {
+          "name": "milestones_agreed",
+          "value": "\"milestones\".\"agreed_inr\" BETWEEN 1 AND 100000000"
+        }
+      }
+    },
+    "assessment_events": {
+      "name": "assessment_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "assessment_id": {
+          "name": "assessment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opportunity_id": {
+          "name": "opportunity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "digest": {
+          "name": "digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "assessment_events_one_signoff": {
+          "name": "assessment_events_one_signoff",
+          "columns": [
+            "assessment_id"
+          ],
+          "where": "\"assessment_events\".\"kind\" = 'signoff'",
+          "isUnique": true
+        },
+        "assessment_events_assessment": {
+          "name": "assessment_events_assessment",
+          "columns": [
+            "assessment_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "assessment_events_company_id_companies_id_fk": {
+          "name": "assessment_events_company_id_companies_id_fk",
+          "tableFrom": "assessment_events",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "assessment_events_user_id_users_id_fk": {
+          "name": "assessment_events_user_id_users_id_fk",
+          "tableFrom": "assessment_events",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "assessment_events_assessment_fk": {
+          "name": "assessment_events_assessment_fk",
+          "tableFrom": "assessment_events",
+          "columnsFrom": [
+            "assessment_id",
+            "company_id"
+          ],
+          "tableTo": "assessments",
+          "columnsTo": [
+            "id",
+            "company_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "assessment_events_shape": {
+          "name": "assessment_events_shape",
+          "value": "(\"assessment_events\".\"kind\" = 'decision' AND \"assessment_events\".\"opportunity_id\" IS NOT NULL AND \"assessment_events\".\"decision\" IN ('accept', 'defer', 'reject') AND \"assessment_events\".\"digest\" IS NULL) OR (\"assessment_events\".\"kind\" = 'signoff' AND \"assessment_events\".\"opportunity_id\" IS NULL AND \"assessment_events\".\"decision\" IS NULL AND \"assessment_events\".\"digest\" IS NOT NULL)"
+        }
+      }
+    },
+    "assessments": {
+      "name": "assessments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "factory_revision_no": {
+          "name": "factory_revision_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "library_version": {
+          "name": "library_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "engine_version": {
+          "name": "engine_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "assessments_inputs": {
+          "name": "assessments_inputs",
+          "columns": [
+            "company_id",
+            "factory_revision_no",
+            "library_version",
+            "engine_version"
+          ],
+          "isUnique": true
+        },
+        "assessments_id_company": {
+          "name": "assessments_id_company",
+          "columns": [
+            "id",
+            "company_id"
+          ],
+          "isUnique": true
+        },
+        "assessments_company": {
+          "name": "assessments_company",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "assessments_company_id_companies_id_fk": {
+          "name": "assessments_company_id_companies_id_fk",
+          "tableFrom": "assessments",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "assessments_created_by_users_id_fk": {
+          "name": "assessments_created_by_users_id_fk",
+          "tableFrom": "assessments",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "assessments_revision_fk": {
+          "name": "assessments_revision_fk",
+          "tableFrom": "assessments",
+          "columnsFrom": [
+            "company_id",
+            "factory_revision_no"
+          ],
+          "tableTo": "factory_revisions",
+          "columnsTo": [
+            "company_id",
+            "revision_no"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "assessments_result_json": {
+          "name": "assessments_result_json",
+          "value": "json_valid(\"assessments\".\"result\")"
+        }
+      }
+    },
+    "factory_revisions": {
+      "name": "factory_revisions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revision_no": {
+          "name": "revision_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confirmed": {
+          "name": "confirmed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "questionnaire_version": {
+          "name": "questionnaire_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "answers": {
+          "name": "answers",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "factory_revisions_company_revision": {
+          "name": "factory_revisions_company_revision",
+          "columns": [
+            "company_id",
+            "revision_no"
+          ],
+          "isUnique": true
+        },
+        "factory_revisions_company": {
+          "name": "factory_revisions_company",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "factory_revisions_company_id_companies_id_fk": {
+          "name": "factory_revisions_company_id_companies_id_fk",
+          "tableFrom": "factory_revisions",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "factory_revisions_created_by_users_id_fk": {
+          "name": "factory_revisions_created_by_users_id_fk",
+          "tableFrom": "factory_revisions",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "factory_revisions_confirmed_bool": {
+          "name": "factory_revisions_confirmed_bool",
+          "value": "\"factory_revisions\".\"confirmed\" IN (0, 1)"
+        },
+        "factory_revisions_revision_positive": {
+          "name": "factory_revisions_revision_positive",
+          "value": "\"factory_revisions\".\"revision_no\" >= 1"
+        }
+      }
+    },
+    "audit_events": {
+      "name": "audit_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "event": {
+          "name": "event",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "companies": {
+      "name": "companies",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_synthetic": {
+          "name": "is_synthetic",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_synthetic": {
+          "name": "is_synthetic",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "users_company_id_companies_id_fk": {
+          "name": "users_company_id_companies_id_fk",
+          "tableFrom": "users",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "listing_terms": {
+      "name": "listing_terms",
+      "columns": {
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fee_inr": {
+          "name": "fee_inr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "listing_terms_user_id_users_id_fk": {
+          "name": "listing_terms_user_id_users_id_fk",
+          "tableFrom": "listing_terms",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "listing_terms_fee_positive": {
+          "name": "listing_terms_fee_positive",
+          "value": "\"listing_terms\".\"fee_inr\" > 0"
+        }
+      }
+    },
+    "provider_events": {
+      "name": "provider_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "terms_version": {
+          "name": "terms_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fee_inr": {
+          "name": "fee_inr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "provider_events_provider": {
+          "name": "provider_events_provider",
+          "columns": [
+            "provider_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "provider_events_provider_id_providers_id_fk": {
+          "name": "provider_events_provider_id_providers_id_fk",
+          "tableFrom": "provider_events",
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "tableTo": "providers",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "provider_events_user_id_users_id_fk": {
+          "name": "provider_events_user_id_users_id_fk",
+          "tableFrom": "provider_events",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "provider_events_terms_version_listing_terms_version_fk": {
+          "name": "provider_events_terms_version_listing_terms_version_fk",
+          "tableFrom": "provider_events",
+          "columnsFrom": [
+            "terms_version"
+          ],
+          "tableTo": "listing_terms",
+          "columnsTo": [
+            "version"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "provider_events_shape": {
+          "name": "provider_events_shape",
+          "value": "(\"provider_events\".\"kind\" = 'list' AND \"provider_events\".\"terms_version\" IS NOT NULL AND \"provider_events\".\"fee_inr\" IS NOT NULL) OR (\"provider_events\".\"kind\" = 'unlist' AND \"provider_events\".\"terms_version\" IS NULL AND \"provider_events\".\"fee_inr\" IS NULL)"
+        }
+      }
+    },
+    "provider_services": {
+      "name": "provider_services",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opportunity_id": {
+          "name": "opportunity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cluster": {
+          "name": "cluster",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "provider_services_unique": {
+          "name": "provider_services_unique",
+          "columns": [
+            "provider_id",
+            "opportunity_id",
+            "cluster"
+          ],
+          "isUnique": true
+        },
+        "provider_services_match": {
+          "name": "provider_services_match",
+          "columns": [
+            "cluster",
+            "opportunity_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "provider_services_provider_id_providers_id_fk": {
+          "name": "provider_services_provider_id_providers_id_fk",
+          "tableFrom": "provider_services",
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "tableTo": "providers",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "providers": {
+      "name": "providers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "is_synthetic": {
+          "name": "is_synthetic",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "providers_created_by_users_id_fk": {
+          "name": "providers_created_by_users_id_fk",
+          "tableFrom": "providers",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "requirement_events": {
+      "name": "requirement_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "requirement_id": {
+          "name": "requirement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "requirement_events_one_withdrawal": {
+          "name": "requirement_events_one_withdrawal",
+          "columns": [
+            "requirement_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "requirement_events_company_id_companies_id_fk": {
+          "name": "requirement_events_company_id_companies_id_fk",
+          "tableFrom": "requirement_events",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "requirement_events_user_id_users_id_fk": {
+          "name": "requirement_events_user_id_users_id_fk",
+          "tableFrom": "requirement_events",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "requirement_events_requirement_fk": {
+          "name": "requirement_events_requirement_fk",
+          "tableFrom": "requirement_events",
+          "columnsFrom": [
+            "requirement_id",
+            "company_id"
+          ],
+          "tableTo": "requirements",
+          "columnsTo": [
+            "id",
+            "company_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "requirement_events_kind": {
+          "name": "requirement_events_kind",
+          "value": "\"requirement_events\".\"kind\" = 'withdraw'"
+        }
+      }
+    },
+    "requirements": {
+      "name": "requirements",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "assessment_id": {
+          "name": "assessment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opportunity_id": {
+          "name": "opportunity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cluster": {
+          "name": "cluster",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "spec": {
+          "name": "spec",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "requirements_one_per_item": {
+          "name": "requirements_one_per_item",
+          "columns": [
+            "company_id",
+            "assessment_id",
+            "opportunity_id"
+          ],
+          "isUnique": true
+        },
+        "requirements_id_company": {
+          "name": "requirements_id_company",
+          "columns": [
+            "id",
+            "company_id"
+          ],
+          "isUnique": true
+        },
+        "requirements_company": {
+          "name": "requirements_company",
+          "columns": [
+            "company_id"
+          ],
+          "isUnique": false
+        },
+        "requirements_pool": {
+          "name": "requirements_pool",
+          "columns": [
+            "cluster",
+            "opportunity_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "requirements_company_id_companies_id_fk": {
+          "name": "requirements_company_id_companies_id_fk",
+          "tableFrom": "requirements",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "requirements_created_by_users_id_fk": {
+          "name": "requirements_created_by_users_id_fk",
+          "tableFrom": "requirements",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "requirements_assessment_fk": {
+          "name": "requirements_assessment_fk",
+          "tableFrom": "requirements",
+          "columnsFrom": [
+            "assessment_id",
+            "company_id"
+          ],
+          "tableTo": "assessments",
+          "columnsTo": [
+            "id",
+            "company_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "requirements_spec_json": {
+          "name": "requirements_spec_json",
+          "value": "json_valid(\"requirements\".\"spec\")"
+        }
+      }
+    },
+    "outcome_events": {
+      "name": "outcome_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "engagement_id": {
+          "name": "engagement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "review_no": {
+          "name": "review_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verdict": {
+          "name": "verdict",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "in_use": {
+          "name": "in_use",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "outcome_events_engagement": {
+          "name": "outcome_events_engagement",
+          "columns": [
+            "engagement_id"
+          ],
+          "isUnique": false
+        },
+        "outcome_events_one_baseline": {
+          "name": "outcome_events_one_baseline",
+          "columns": [
+            "engagement_id"
+          ],
+          "where": "\"outcome_events\".\"kind\" = 'baseline'",
+          "isUnique": true
+        },
+        "outcome_events_one_review": {
+          "name": "outcome_events_one_review",
+          "columns": [
+            "engagement_id",
+            "review_no"
+          ],
+          "where": "\"outcome_events\".\"kind\" = 'review'",
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "outcome_events_company_id_companies_id_fk": {
+          "name": "outcome_events_company_id_companies_id_fk",
+          "tableFrom": "outcome_events",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "tableTo": "companies",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "outcome_events_user_id_users_id_fk": {
+          "name": "outcome_events_user_id_users_id_fk",
+          "tableFrom": "outcome_events",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "outcome_events_engagement_fk": {
+          "name": "outcome_events_engagement_fk",
+          "tableFrom": "outcome_events",
+          "columnsFrom": [
+            "engagement_id",
+            "company_id"
+          ],
+          "tableTo": "engagements",
+          "columnsTo": [
+            "id",
+            "company_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "outcome_events_value": {
+          "name": "outcome_events_value",
+          "value": "\"outcome_events\".\"value\" BETWEEN 0 AND 1000000000"
+        },
+        "outcome_events_note": {
+          "name": "outcome_events_note",
+          "value": "length(\"outcome_events\".\"note\") <= 500"
+        },
+        "outcome_events_shape": {
+          "name": "outcome_events_shape",
+          "value": "(\"outcome_events\".\"kind\" = 'baseline' AND \"outcome_events\".\"review_no\" IS NULL AND \"outcome_events\".\"verdict\" IS NULL AND \"outcome_events\".\"in_use\" IS NULL)\n       OR (\"outcome_events\".\"kind\" = 'review' AND \"outcome_events\".\"review_no\" BETWEEN 1 AND 3 AND \"outcome_events\".\"verdict\" IN ('met', 'partly', 'not_met') AND \"outcome_events\".\"in_use\" IN ('yes', 'no'))"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

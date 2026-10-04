@@ -21,6 +21,9 @@ export const APPEND_ONLY_TABLES: Record<string, string[]> = {
 
 /** Triggers that enforce a rule about what may be inserted, by table. */
 export const RULE_TRIGGERS: Record<string, string[]> = {
+  factory_revisions: ["factory_revisions_answers_are_an_object", "factory_revisions_no_gaps", "factory_revisions_limit", "factory_revisions_note_is_short"],
+  listing_terms: ["listing_terms_fee_is_whole", "listing_terms_note_is_short"],
+  provider_services: ["provider_services_closed_after_first_listing"],
   assessments: ["assessments_needs_confirmed_description"],
   assessment_events: [
     "assessment_events_decision_names_an_item",
@@ -29,12 +32,14 @@ export const RULE_TRIGGERS: Record<string, string[]> = {
     "assessment_events_one_signoff_only",
     "assessment_events_decision_limit",
     "assessment_events_signoff_needs_an_item",
+    "assessment_events_decision_needs_a_value",
+    "assessment_events_note_is_short",
   ],
   requirements: ["requirements_needs_signed_off_assessment", "requirements_needs_accepted_item"],
-  provider_events: ["provider_events_list_carries_the_fee_in_force", "provider_events_list_needs_a_service", "provider_events_alternate"],
-  requirement_events: ["requirement_events_not_after_engagement"],
+  provider_events: ["provider_events_list_carries_the_fee_in_force", "provider_events_list_needs_a_service", "provider_events_alternate", "provider_events_note_is_short"],
+  requirement_events: ["requirement_events_not_after_engagement", "requirement_events_note_is_short"],
   engagements: ["engagements_needs_an_open_requirement", "engagements_needs_a_listed_provider"],
-  milestones: ["milestones_plan_is_open", "milestones_limit"],
+  milestones: ["milestones_plan_is_open", "milestones_limit", "milestones_numbers_are_whole", "milestones_due_is_a_date", "milestones_text_is_not_blank"],
   outcome_events: [
     "outcome_events_one_baseline_only",
     "outcome_events_one_review_each",
@@ -52,8 +57,16 @@ export const RULE_TRIGGERS: Record<string, string[]> = {
     "engagement_events_decision_needs_a_delivery",
     "engagement_events_payment_needs_an_acceptance",
     "engagement_events_delivery_limit",
+    "engagement_events_amount_is_whole",
+    "engagement_events_payment_has_an_amount",
+    "engagement_events_note_is_short",
   ],
 };
 
 export const ALL_APPEND_ONLY_TRIGGERS: string[] = Object.values(APPEND_ONLY_TABLES).flat();
 export const ALL_REQUIRED_TRIGGERS: string[] = [...ALL_APPEND_ONLY_TRIGGERS, ...Object.values(RULE_TRIGGERS).flat()];
+
+/** Every required trigger with the table it must be on, so a trigger of the right name on another table is not mistaken for the real one. */
+export const REQUIRED_TRIGGERS_BY_TABLE: { table: string; name: string }[] = [APPEND_ONLY_TABLES, RULE_TRIGGERS].flatMap((byTable) =>
+  Object.entries(byTable).flatMap(([table, names]) => names.map((name) => ({ table, name }))),
+);

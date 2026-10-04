@@ -12,18 +12,52 @@ export type BodyProblem = "unsupported" | "too_large" | "bad";
 export const MAX_BODY_CHARACTERS = 64 * 1024;
 
 /**
+ * Reads a request's body as text without holding more than a bounded amount of it. A body whose declared length is over the bound is
+ * refused without being read; a body that turns out to be over it (no length declared, or a false one) is abandoned as soon as the
+ * bound is passed, not buffered to the end. The bound is in bytes, four for each character allowed (the most one character takes in UTF-8);
+ * the count of characters is checked by the caller after decoding. "bad" is a body that cannot be read.
+ */
+export async function readTextWithin(request: Request, maxCharacters: number): Promise<{ ok: true; text: string } | { ok: false; problem: "too_large" | "bad" }> {
+  const maxBytes = maxCharacters * 4;
+  const declared = request.headers.get("content-length");
+  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > maxBytes) return { ok: false, problem: "too_large" };
+  if (request.body === null) return { ok: true, text: "" };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > maxBytes) {
+        await reader.cancel().catch(() => {});
+        return { ok: false, problem: "too_large" };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, problem: "bad" };
+  }
+  const all = new Uint8Array(bytes);
+  let at = 0;
+  for (const c of chunks) {
+    all.set(c, at);
+    at += c.byteLength;
+  }
+  return { ok: true, text: new TextDecoder().decode(all) };
+}
+
+/**
  * An absent body (no content type, nothing sent) is "empty". JSON must be an object. Anything else is a problem:
  * "unsupported" for another content type (415), "too_large" (413), "bad" for unreadable or malformed content (400).
  */
 export async function readBody(request: Request, maxCharacters: number = MAX_BODY_CHARACTERS): Promise<Body | BodyProblem> {
   const type = (request.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
   if (type !== "" && type !== "application/x-www-form-urlencoded" && type !== "application/json") return "unsupported";
-  let text: string;
-  try {
-    text = await request.text();
-  } catch {
-    return "bad";
-  }
+  const read = await readTextWithin(request, maxCharacters);
+  if (!read.ok) return read.problem;
+  const text = read.text;
   if (text.length > maxCharacters) return "too_large";
   if (type === "application/x-www-form-urlencoded") return { kind: "form", form: new URLSearchParams(text) };
   if (type === "") return text.trim() === "" ? { kind: "empty" } : "unsupported";
