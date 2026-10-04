@@ -17,6 +17,7 @@ const PROBLEMS: Record<string, string> = {
   not_accepted: "Only an idea you accepted can be turned into a requirement.",
   note: "Keep the note under 500 characters.",
   withdrawn: "That requirement was already withdrawn.",
+  missing: "That requirement could not be found.",
 };
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const range = (r: { low: number; high: number }) => (r.low === r.high ? rupees(r.low) : `${rupees(r.low)} to ${rupees(r.high)}`);

@@ -19,6 +19,7 @@ const PROBLEMS: Record<string, string> = {
   no_service: "A provider that serves nothing cannot be listed.",
   already_listed: "That provider is already listed.",
   not_listed: "That provider is not listed.",
+  missing: "That provider could not be found.",
 };
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const titleOf = (id: string) => LIBRARY.find((o) => o.id === id)?.title ?? id;

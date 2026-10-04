@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "slice 3 review fixes: new triggers, pins, key tripwire, form redirects",
+  "reason": "slice 4 procure",
   "suites": {
     "integration/platform-api": 26,
     "smoke/built-app": 11,

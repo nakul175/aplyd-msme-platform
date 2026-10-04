@@ -102,6 +102,7 @@ const setFee = (cookie: string | undefined, payload: unknown, headers: Record<st
 const newProvider = (cookie: string | undefined, payload: unknown, headers: Record<string, string> = {}) => handleProviderCreate(req("/api/operator/providers", cookie, payload, headers), env);
 const listIt = (cookie: string | undefined, pid: string, payload: unknown = {}, headers: Record<string, string> = {}) => handleProviderList(req(`/api/operator/providers/${pid}/list`, cookie, payload, headers), env, pid);
 const unlistIt = (cookie: string | undefined, pid: string, payload: unknown = {}) => handleProviderUnlist(req(`/api/operator/providers/${pid}/unlist`, cookie, payload), env, pid);
+const formPost = (path: string, cookie: string, fields: [string, string][] = []) => new Request(`${ORIGIN}${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, cookie }, body: new URLSearchParams(fields) });
 const providersFor = async (cookie: string) => ((await (await handlePublicProviders(get("/api/providers", cookie), env)).json()) as { providers: { id: string; name: string; services: { opportunityId: string; cluster: string }[] }[] }).providers;
 
 async function addProvider(cookie: string, name: string, services = [{ opportunityId: KIND, cluster: CLUSTER }], summary = "SYNTHETIC provider") {
@@ -450,6 +451,16 @@ test("an account with the operator role that belongs to a company is not an oper
 
 // ------------------------------------------------------------------------------------------------ providers and the listing fee (D-03)
 
+test("an account with no company that does not have the operator role is not an operator either: refused like an owner is", async () => {
+  await db.prepare("INSERT INTO users (id, company_id, email, display_name, role, is_synthetic) VALUES ('user-stray', NULL, 'stray@synthetic.invalid', 'SYNTHETIC Stray', 'owner', 1)").run();
+  const stray = await signIn("stray@synthetic.invalid");
+  for (const handler of [handlePools, handleOperatorProviders, handleTermsRead]) assert.equal((await opGet(handler, stray)).status, 403);
+  assert.equal((await setFee(stray, { feeInr: 5 })).status, 403);
+  assert.equal((await newProvider(stray, { name: "Nope", summary: "", services: [{ opportunityId: KIND, cluster: CLUSTER }] })).status, 403);
+  assert.equal(await count("listing_terms"), 0);
+  assert.equal(await count("providers"), 0);
+});
+
 test("the operator enters a provider, sets the one fee, and lists it; until then it is not shown to owners; there is no listing while the fee is undecided", async () => {
   const op = await operator();
   const a = await ownerA();
@@ -589,6 +600,25 @@ test("owners see providers in name order: not the order they were listed in, not
   assert.deepEqual((await requirementsOf(A, a))[0].providers.map((p) => p.name), expected);
 });
 
+test("a provider never listed, or unlisted since, is not shown under an owner's requirement or in the public list: only the operator's registry shows it", async () => {
+  const op = await operator();
+  await setFee(op, { feeInr: 100 });
+  await addProvider(op, "Never listed");
+  const gone = await addProvider(op, "Listed then unlisted");
+  const shown = await addProvider(op, "Listed");
+  assert.equal((await listIt(op, gone)).status, 201);
+  assert.equal((await unlistIt(op, gone)).status, 201);
+  assert.equal((await listIt(op, shown)).status, 201);
+  const a = await ownerA();
+  await makeReq(A, a, body(await signedOff(A, a)));
+  assert.deepEqual((await requirementsOf(A, a))[0].providers.map((p) => p.name), ["Listed"]);
+  assert.deepEqual((await providersFor(a)).map((p) => p.name), ["Listed"]);
+  const registry = ((await (await opGet(handleOperatorProviders, op)).json()) as { providers: { name: string }[] }).providers.map((p) => p.name);
+  assert.deepEqual(registry, ["Listed", "Listed then unlisted", "Never listed"], "the registry shows all three");
+  assert.equal((await unlistIt(op, shown)).status, 201);
+  assert.deepEqual((await requirementsOf(A, a))[0].providers, []);
+});
+
 test("the operator's registry shows every provider with what it serves, whether it is listed and the fee it was listed at", async () => {
   const op = await operator();
   await setFee(op, { feeInr: 321 });
@@ -696,4 +726,44 @@ test("a body of the wrong type or size is refused by the operator endpoints too"
   assert.equal((await raw(handleProviderCreate, "application/json", "[1]")).status, 400);
   assert.equal(await count("listing_terms"), 0);
   assert.equal(await count("providers"), 0);
+});
+
+// ------------------------------------------------------------------------------------------------ form posts
+
+test("a form post that cannot be done goes back to the page with a message, never to a page of JSON; another company's record gets the message a missing one gets", async () => {
+  const a = await ownerA();
+  const b = await ownerB();
+  const op = await operator();
+  const detail = await signedOff(A, a);
+  const { id } = (await (await makeReq(A, a, body(detail))).json()) as { id: string };
+  const go = async (res: Promise<Response>) => {
+    const r = await res;
+    assert.equal(r.status, 303, `a form post is answered by a redirect, not ${r.status}`);
+    return r.headers.get("location");
+  };
+  const procure = (path: string, cookie: string, fields: [string, string][] = []) => formPost(path, cookie, fields);
+
+  // requirements: an assessment that is not there, another company's assessment, a bad cluster, a requirement that is not there, another company's, a second withdrawal, a bad note
+  const missing = await go(handleRequirementCreate(procure(`/api/companies/${A}/requirements`, a, [["assessment", "no-such-assessment"], ["opportunity", KIND], ["cluster", CLUSTER]]), env, A));
+  assert.equal(missing, "/procure?problem=missing");
+  assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${B}/requirements`, b, [["assessment", detail.id], ["opportunity", KIND], ["cluster", CLUSTER]]), env, B)), missing, "another company's assessment looks like a missing one");
+  assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${A}/requirements`, a, [["assessment", detail.id], ["opportunity", KIND], ["cluster", "nowhere"]]), env, A)), "/procure?problem=request");
+  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/none/withdraw`, a), env, A, "none")), "/procure?problem=missing");
+  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${B}/requirements/${id}/withdraw`, b), env, B, id)), "/procure?problem=missing", "another company's requirement looks like a missing one");
+  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${"x".repeat(65)}/withdraw`, a), env, A, "x".repeat(65))), "/procure?problem=missing");
+  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a, [["note", "x".repeat(501)]]), env, A, id)), "/procure?problem=note");
+  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a), env, A, id)), "/procure?withdrawn=1");
+  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a), env, A, id)), "/procure?problem=withdrawn");
+
+  // the operator's forms: a provider that is not there, a name that is too long an id, no fee set, a listing twice, an unlisting that was never listed
+  assert.equal(await go(handleProviderList(procure("/api/operator/providers/none/list", op), env, "none")), "/operator?problem=missing");
+  assert.equal(await go(handleProviderUnlist(procure("/api/operator/providers/none/unlist", op), env, "none")), "/operator?problem=missing");
+  assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${"x".repeat(65)}/list`, op), env, "x".repeat(65))), "/operator?problem=missing");
+  assert.equal(await go(handleProviderUnlist(procure(`/api/operator/providers/${"x".repeat(65)}/unlist`, op), env, "x".repeat(65))), "/operator?problem=missing");
+  const pid = await addProvider(op, "Alpha");
+  assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?problem=fee_undecided");
+  assert.equal(await go(handleProviderUnlist(procure(`/api/operator/providers/${pid}/unlist`, op), env, pid)), "/operator?problem=not_listed");
+  await setFee(op, { feeInr: 50 });
+  assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?listed=1");
+  assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?problem=already_listed");
 });
