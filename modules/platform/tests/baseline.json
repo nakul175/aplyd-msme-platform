@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "Slice 2 (Describe): factory module first baseline; platform unit/guards added",
+  "reason": "Slice 3 (Diagnose): new suites for the diagnose module, platform body unit suite, and the guards suite now checks the rule triggers",
   "suites": {
     "integration/platform-api": 26,
     "smoke/built-app": 11,
@@ -15,6 +15,7 @@
     "browser/harness": 8,
     "browser/pages": 3,
     "browser/session-and-scope": 8,
-    "unit/guards": 2
+    "unit/guards": 2,
+    "unit/body": 3
   }
 }

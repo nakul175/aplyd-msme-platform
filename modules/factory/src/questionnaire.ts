@@ -212,7 +212,7 @@ const put = (target: object, key: string, value: unknown) => Object.defineProper
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 // Control characters other than tab and newline have no place in an answer. A string with NUL or escape codes is refused, not cleaned.
-const hasControlCharacters = (s: string) => /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(s);
+export const hasControlCharacters = (s: string) => /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(s);
 
 /**
  * Checks answers against the questionnaire. Unknown keys, wrong types, unlisted options, too many choices and

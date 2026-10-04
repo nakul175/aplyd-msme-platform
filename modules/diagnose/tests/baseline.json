@@ -1,0 +1,12 @@
+{
+  "updatedAt": "2026-10-04",
+  "reason": "Slice 3 (Diagnose): new suites for the diagnose module, platform body unit suite, and the guards suite now checks the rule triggers",
+  "suites": {
+    "browser/diagnose": 8,
+    "integration/diagnose-api": 25,
+    "smoke/diagnose": 7,
+    "static/scope-rules": 4,
+    "unit/digest": 3,
+    "unit/engine": 20
+  }
+}
