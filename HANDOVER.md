@@ -4,7 +4,7 @@ Read [AGENTS.md](AGENTS.md) first, then this file. Last updated 4 October 2026.
 
 ## Current state
 
-- Documentation base on `main`. Slice 1 (the walking skeleton) is on a draft pull request from `slice-1-walking-skeleton`, not merged. It holds sign-in for synthetic users, one company record with the scope rule, an append-only audit log, the test runner and CI. No deployment. Details and limits: [modules/platform/STATUS.md](modules/platform/STATUS.md).
+- Documentation base on `main`. Slice 1 (the walking skeleton) is on draft pull request #1 from `slice-1-walking-skeleton`, labelled `needs-human-review`, not merged. Its two CI workflows passed on 4 October 2026. It holds sign-in for synthetic users, one company record with the scope rule, an append-only audit log, the test runner and CI. No deployment. Details and limits: [modules/platform/STATUS.md](modules/platform/STATUS.md).
 - Direction decided: marketplace++ (D-05). The thesis is [docs/thesis.md](docs/thesis.md), version 2. Stack decided: D-06.
 - Open questions that change what gets built: OQ-03 (first sector and cluster), OQ-09 (right to reuse study material, including disclosure), OQ-11 (revenue under D-03), OQ-12 (platform as principal or agent), OQ-13 (how real owners sign in).
 

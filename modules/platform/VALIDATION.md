@@ -37,7 +37,7 @@ Also checked by hand, not as a suite: `pnpm db:local` then `pnpm dev`, sign-in a
 
 ## Limits
 
-- GitHub Actions has not run these workflows yet. Record the result here when the pull request's checks finish.
+- GitHub Actions ran both workflows on pull request #1 at commit a6c806f on 4 October 2026: `documentation-checks` and `engineering-checks` both passed (frozen install with the pinned pnpm, catalogue, type check, documentation and static suites, build, unit, integration and smoke with the guard). That is one run on one commit. It confirms the workflows start from a clean checkout; it adds no test coverage and does not replace review.
 - The same agent wrote the code and the tests. No person and no other agent has reviewed either. Identity and data scope are protected paths.
 - No browser has rendered a page. The smoke layer reads rendered HTML as text. Cookie behaviour (`Secure`, `SameSite`) in real browsers is untested.
 - Miniflare runs the same SQLite engine as D1 but is not Cloudflare's hosted D1. No hosted environment has been tested.
