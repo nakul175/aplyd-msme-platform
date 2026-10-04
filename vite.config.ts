@@ -4,7 +4,7 @@ import { defineConfig } from "vite";
 // Placeholder id for the local D1 database. Hosted environments are configured outside this file.
 const LOCAL_DATABASE_ID = "00000000-0000-4000-8000-000000000000";
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command }) => {
   // Keep Wrangler and Miniflare state project-local and send no telemetry.
   process.env.CLOUDFLARE_CF_FETCH_ENABLED ??= "false";
   process.env.WRANGLER_SEND_METRICS ??= "false";
@@ -28,8 +28,10 @@ export default defineConfig(async () => {
           d1_databases: [
             { binding: "DB", database_name: "aplyd-local", database_id: LOCAL_DATABASE_ID },
           ],
-          // Never a production value. Synthetic sign-in refuses to run for any other value.
-          vars: { APLYD_ENV: "local" },
+          // Only for the development server. A build carries no environment name, so a deployed build has no synthetic
+          // sign-in unless whoever deploys it asks for one (found by independent review of slice 1). The smoke layer sets it
+          // explicitly when it starts the built application.
+          ...(command === "serve" ? { vars: { APLYD_ENV: "local" } } : {}),
         },
       }),
     ],

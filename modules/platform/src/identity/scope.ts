@@ -4,5 +4,5 @@
 export type Identity = { userId: string; companyId: string | null; role: string; displayName: string };
 
 export function canReadCompany(identity: Identity | null, requestedCompanyId: string): boolean {
-  return identity !== null && identity.companyId !== null && identity.companyId === requestedCompanyId;
+  return identity !== null && identity.companyId !== null && identity.companyId !== "" && identity.companyId === requestedCompanyId;
 }

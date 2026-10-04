@@ -13,12 +13,20 @@ function statements(file: string): string[] {
     .filter(Boolean);
 }
 
-export function migrationStatements(): string[] {
+/** The migration files in the order drizzle's journal lists them. Throws when a file is not in the journal or a journal entry has no file. */
+export function migrationFiles(): string[] {
   const dir = join(ROOT, "drizzle");
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort()
-    .flatMap((f) => statements(join(dir, f)));
+  const journal = JSON.parse(readFileSync(join(dir, "meta", "_journal.json"), "utf8")) as { entries: { idx: number; tag: string }[] };
+  const tags = [...journal.entries].sort((a, b) => a.idx - b.idx).map((e) => e.tag);
+  const onDisk = readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => f.replace(/\.sql$/, ""));
+  const missing = tags.filter((t) => !onDisk.includes(t));
+  const unlisted = onDisk.filter((f) => !tags.includes(f));
+  if (missing.length || unlisted.length) throw new Error(`drizzle/ and its journal disagree. In the journal but not on disk: [${missing}]. On disk but not in the journal: [${unlisted}].`);
+  return tags.map((t) => join(dir, `${t}.sql`));
+}
+
+export function migrationStatements(): string[] {
+  return migrationFiles().flatMap((f) => statements(f));
 }
 
 export function seedStatements(): string[] {

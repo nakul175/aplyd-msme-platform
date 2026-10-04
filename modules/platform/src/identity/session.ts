@@ -45,6 +45,8 @@ export async function verifySession(token: string, secret: string, nowSeconds: n
   const [payload, mac] = parts;
   const macBytes = fromBase64Url(mac);
   if (!macBytes) return null;
+  // Accept one spelling only: the last base64 character carries unused bits that would otherwise give one token several valid strings.
+  if (toBase64Url(macBytes) !== mac) return null;
   // crypto.subtle.verify compares in constant time.
   const ok = await crypto.subtle.verify("HMAC", await hmacKey(secret, "verify"), macBytes, encoder.encode(payload));
   if (!ok) return null;
@@ -60,13 +62,18 @@ export async function verifySession(token: string, secret: string, nowSeconds: n
   }
 }
 
+/** The value of the named cookie. A name that appears twice is refused, so a cookie set by a sibling site cannot shadow the real one. */
 export function readCookie(header: string | null, name: string): string | null {
   if (!header) return null;
+  let found: string | null = null;
   for (const part of header.split(";")) {
     const i = part.indexOf("=");
-    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+    if (i > 0 && part.slice(0, i).trim() === name) {
+      if (found !== null) return null;
+      found = part.slice(i + 1).trim();
+    }
   }
-  return null;
+  return found;
 }
 
 export function sessionCookie(token: string): string {
