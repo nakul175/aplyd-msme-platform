@@ -6,6 +6,7 @@ Applies to Claude, GPT/Codex, Cursor and people. Start with [HANDOVER.md](HANDOV
 
 - The sponsor decides when a pull request merges into `main`. Branch from `main`, open a draft pull request, and do not merge unless the sponsor says so in that conversation.
 - A pull request that touches a protected path (below) carries the label `needs-human-review`. If the sponsor merges it without a person reading it, record that fact plainly in [HANDOVER.md](HANDOVER.md) under "Merged without review", with the date. Do not describe such code as reviewed.
+- Documentation-only corrections that the sponsor directs in conversation may be committed straight to `main`. List each one in [HANDOVER.md](HANDOVER.md) under "Direct to main". Code never goes straight to `main`.
 - Never force-push `main`. Check the remote before pushing and preserve concurrent work.
 - Commit a finished, reviewable slice with its tests and its documentation, push it, and verify the resulting tree before reporting completion. Report a failed push as a failure.
 

@@ -1,80 +1,76 @@
-# Product thesis
+# Product thesis (version 2)
 
-Status: proposal for the sponsor's decision (P-01 in [decisions.md](decisions.md)). Confidence tags: [Certain] is stated in a cited source, [Likely] is a strong inference from the sources, [Guessing] fills a gap and needs testing.
+Status: direction set by the sponsor on 4 October 2026 (D-05 in [decisions.md](decisions.md)). This replaces version 1, the compliance-only readiness companion, which the sponsor rejected. Confidence tags: [Certain] is stated in a cited source, [Likely] is a strong inference, [Guessing] fills a gap and needs testing.
 
-## 1. What we do not know yet
+## 1. The need, as an owner states it
 
-The 13 September session ended on a question it did not answer: what do MSME owners actually ask for when they first arrive? The study documents cannot answer that. They record what interviewers heard on factory visits and what the study team concluded; they do not record what a manufacturer would walk up to a platform and ask for.
+Speaking as the owner of a small manufacturing unit, the sponsor put it this way:
 
-- [Certain] The study's own count is 54 factory immersions completed out of 350 planned, with 645 pain points recorded across four sectors (S4, slide 4).
-- [Certain] The study labels its nine use cases indicative and a work in progress (S4, slide 8).
-- [Likely] So the thesis below is the best reading of an interim study, not a measured demand. Section 6 says how to test it quickly.
+- I do not know how to use AI in my factory.
+- I do not know how to carry out a gap assessment.
+- I do not know how to integrate and deploy, or how to procure.
+- Economies of scale do not work for me when I buy, because I am small.
+- There are many places where AI, or technology in general, could help me.
+- I wish I had a strategy consulting team, a technology consulting team, a technology team that could do everything, and an operations team.
 
-## 2. What the study supports
+The question is how one platform brings all of that together for the owner. The working name for the answer is marketplace++: a marketplace of providers, plus the consulting, delivery and operations functions the owner would otherwise have to hire.
 
-The nine prioritised use cases (S4, slide 8) group into four kinds:
+[Certain] This is one voice, and it is the sponsor's, speaking in character. It is a strong lead on what to build, not measured demand. Section 7 says how to test it.
 
-- Factory-floor data capture: automated visual inspection (textiles), production traceability and anomaly detection (electronics), and the pharma quality management system, which combines process, machine and visual data with the factory's own procedures (S4, slides 13, 37, 39).
-- Shared data across firms: the textile demand exchange and the electronics supply-chain intelligence platform. Both depend on competitors agreeing to share data through an association (S4, slides 17-20, 33-36).
-- Rules and paperwork: national export readiness (textiles) and the CDSCO regulatory assistant (medical devices). The authority-side workflow (medical devices) is the same territory seen from the regulator's side.
-- Workforce skill matching (textiles).
+## 2. What the study says about the same need
 
-The third group is the one this proposal builds on.
+- [Certain] The Inception Report says adoption stalls less from lack of interest than from a mismatch between how AI solutions are sold and what a small firm can bear: high upfront capital, unclear ownership of data and models, recurring costs that are hard to forecast, and no financing that fits (S1, pp. 36-37).
+- [Certain] It lists the outside capacities a small firm needs: instrumentation and data capture, model operations and failure resolution at MSME scale, deployment infrastructure, trusted system integrators and translators, and role-based training (S1, p. 36). These are the owner's "tech team" and "ops team".
+- [Certain] It studies three ways of buying: directly by the firm, shared across a cluster of firms, and as a service rather than an owned asset. It studies three ways of financing: purchase, subscription or pay-per-use, and outcome-linked (S1, p. 37). It frames total cost as one-time, recurring and hidden costs (S1, p. 37).
+- [Certain] It requires that the application layer be separable from the data layer, so a factory can change applications without losing what its data has built up (S1, p. 36).
+- [Certain] Of 645 pain points recorded, 369 (57.2 percent) were judged not to be AI problems (S4, slide 4). So "AI or technology in general" is the right scope: a diagnosis that only offered AI would have nothing to offer for more than half the problems the study found.
+- [Certain] In the six use cases whose scale route was read (S4, slides 16, 20, 24, 30, 36, 42), scale runs through an industry association or cluster body that recruits firms and brokers shared data or shared services. [Likely] That is the vehicle for pooling.
+- [Certain] The study's own integration blueprint, procurement and financing toolkit and ecosystem roadmap (D4, D5, D6) were still ahead on the 30 September timeline (S4, slide 43). The study has not yet produced the answers this platform depends on.
 
-| Use case | Sector | Pain / AI score | Source |
-| --- | --- | --- | --- |
-| National export readiness and compliance platform | Textiles | 4.3 / 4.0 | S4, slides 8, 21-24 |
-| CDSCO regulatory intelligence agent | Medical devices | 4.33 / 4.0 | S4, slides 8, 27-30 |
-| Authority-side workflow with service-level transparency | Medical devices | 4.33 / 3.5 | S4, slides 8, 31 |
+## 3. The proposal: one journey in five stages
 
-What the sources say about these:
+| Stage | What the owner gets | Who does the work |
+| --- | --- | --- |
+| 1. Describe | Tells the platform about the factory in their own words, by voice, photos and a few questions, in their own language. | Owner; AI structures it |
+| 2. Diagnose | A gap assessment and a ranked list of opportunities, AI and non-AI, each with a benefit range, total cost (one-time, recurring, hidden), prerequisites and risk. | AI drafts; a person checks |
+| 3. Procure | The chosen opportunity written as a standard requirement, pooled with similar needs in the cluster, offers from vetted providers compared on total cost and financing model, standard contract terms covering data ownership and exit. | Platform, providers, cluster body |
+| 4. Deploy | A named integrator, a milestone plan, acceptance tests, and payment tied to acceptance. | Provider; platform tracks and arbitrates |
+| 5. Run | Support, monitoring, review points where a person re-checks the system, outcome tracking, and the next item from the plan. | Provider and platform operations |
 
-- [Certain] The export readiness and CDSCO cases share one shape: a company and product profile is held against an external rule set; the system maps requirements, finds gaps, assists with documents, and sends complex questions to experts (S4, slides 21 and 27).
-- [Certain] The deck judges textile export requirements to be documented and largely static, so the work is aggregation rather than interpreting new regulation (S4, slide 24).
-- [Certain] For CDSCO the deck judges the inputs largely structured and public, and names regulator trust as the harder part (S4, slide 30).
-- [Certain] One textile respondent reported paying a consultant Rs 65,000 a year plus Rs 1,44,000 in agency fees for one certification, and asked for a single digital locker so know-your-customer documents are not resubmitted to each department and buyer (S4, slide 21). This is one respondent; [Guessing] whether it is typical.
-- [Certain] The deck proposes the same route to scale for every case: a government-funded pilot, then rollout led by an industry association, then private investment once savings are shown (S4, slides 16, 20, 24, 30, 36, 42).
-- [Certain] The authority-side workflow treats the regulator as the customer and keeps all decisions with the authority (S4, slide 31). A product aimed at the regulator is a different sale from one aimed at manufacturers.
+A plain marketplace covers stage 3 only. The "++" is stages 1, 2, 4 and 5, which are the strategy, solution design, delivery and operations teams the owner asked for.
 
-## 3. Proposed first product: readiness companion
+Compliance and certification help (export certification, medical-device regulation) is one type of opportunity inside stages 2 to 4, not the product. The study supports it as a strong case where rules are documented and largely static (S4, slides 21, 24, 27, 30).
 
-A manufacturer enters its company profile once. The platform holds a versioned rule library for a regulatory or certification area, compares the profile against it, shows the gaps, assembles the document pack, and routes questions it cannot settle to a named human expert.
+## 4. What software does and what people do
 
-Core objects:
+- [Likely] Software and AI can do: structure the intake, draft the gap assessment, write the requirement, match and pool demand, compare offers on total cost, track milestones, track outcomes.
+- [Likely] People must do: vet providers, judge unusual cases, settle disputes, and be accountable when a deployment fails.
+- [Likely] One platform does not replace four teams with software. It replaces them with standard playbooks, a partner network and a small core team, and it is the single point of accountability for the owner.
+- [Likely] Cluster and association bodies bring demand together and carry trust with owners (S4 pattern above).
 
-- Company profile: captured once, owned by the company, reused across rule libraries.
-- Rule library: a set of requirements for one area, each tied to the official document it came from, versioned, with a named custodian who maintains it.
-- Gap map: the comparison of profile against rules, with the reason for every gap.
-- Document pack: the forms and attachments assembled from the profile, for the company to submit itself.
-- Expert escalation: a hand-off to a person, with the case attached, for anything the rules do not settle.
-- Audit trail: append-only record of what was shown, what was changed and by whom.
+## 5. Constraints that shape the design
 
-Why this and not another of the nine:
+- D-03 says APLYD's earnings never vary with which vendor a customer picks. [Likely] A percentage commission on each deal earns more when the owner picks the dearer vendor, so on a plain reading it is ruled out. What remains: a subscription or flat project fee from the owner, an identical flat listing fee from every provider, funding for the diagnosis from a programme, or association membership. Open question OQ-11.
+- C-01 to C-03 stand: APLYD does not certify, does not build products listed in its own registry, and does not sell company data.
+- [Certain] The study is a joint engagement of the IndiaAI Mission, MeitY, NISG and Athena Infonomics (S4, cover). APLYD was created by Athena. A commercial platform built on the study's findings, by an affiliate of a study author, needs the client's agreement and disclosure. [Likely] Without them it is a conflict-of-interest risk to the study engagement (OQ-09).
+- [Likely] The best raw material for the diagnosis stage, the study's pain points and solution mappings, is the material whose reuse is unsettled. Until it is settled the opportunity library used in code is SYNTHETIC.
+- Accountability: is the platform the owner's single counterparty (principal) or an introducer (agent)? "One platform brings it together for me" points to principal, which carries liability. Open question OQ-12.
 
-- [Likely] Of the nine, export readiness and CDSCO are the two that need no cameras, sensors or competitor data-sharing; they work from documents and public rules (S4, slides 24 and 30). A small team can reach a working pilot without hardware integration. The deck still lists technology vendors as partners for both, so this is not a claim that no vendor is involved.
-- [Likely] It fits the two sponsor constraints. APLYD can own the platform (D-02), and nothing in it needs a revenue share tied to a vendor choice (D-03).
-- [Likely] It is reusable across sectors. A new sector is a new rule library, not a new product. The company profile and the history around it stay with the company, which is where stickiness can come from without selling or locking up data (C-03).
+## 6. Where to start
 
-## 4. First configuration
+- [Likely] Do not start with the marketplace listing. It is the easiest part to build and demonstrate, and the least of what the owner asked for.
+- [Likely] Start with stages 1 and 2 for one sector in one cluster, with stages 3 to 5 run by hand behind them. This shows what it costs to serve one owner and how many plans turn into purchases before any pooling software is built.
+- The 13 September build put a scoring engine at the front. Here the front is the owner's description of the factory and a plan back.
 
-[Likely] Textile export readiness first, CDSCO second. Reasons: the deck rates textile requirements as static and documented, so the first rule library can be checked against official sources; CDSCO depends on a regulator accepting AI-assisted filing, which the platform cannot control. This is open question OQ-03 and the sponsor may weigh it differently.
+## 7. Tests before building more
 
-## 5. What we are not building first
+- [Likely] Take ten owners in one cluster who were not met through the study (C-05). Run stages 1 and 2 by hand with a worksheet. Record: time and cost to serve each, how many act on the plan, what they buy, whether they would pay and how much.
+- [Likely] Pooling test: find three or more owners with the same requirement, get quotes for the pooled and the individual purchase from two providers, and measure the price gap. [Guessing] The gap is large enough to matter; no source gives its size.
 
-- A marketplace, vendor registry or procurement flow. These need vendors and a revenue model that the sponsor has already limited (D-03), and the fees from the earlier framing are dropped (decisions.md).
-- A scoring engine as the product. The study's scoring method belongs to the study.
-- Shop-floor vision or traceability. These need hardware integration and sit better with technology partners.
-- Automatic filing into government portals. [Guessing] The portals may not expose interfaces that allow it. Check before promising (OQ-05). The first version prepares the pack and the company submits.
+## 8. Risks
 
-## 6. How to test this before building much
-
-- [Likely] Ask ten textile exporters and ten medical-device makers what they would hand to a platform on day one, in their own words. This answers the question from section 1 directly.
-- [Likely] Build a thin version with synthetic rules and show it to the same people. If they ask for something else first, change the thesis, not the users.
-- Contact rules in C-05 apply: do not approach factories met through the study commercially until OQ-09 is settled.
-
-## 7. Risks
-
-- [Certain] The right to reuse the study's material is unresolved (OQ-09). Building on it before that is settled is a legal and relationship risk to the study engagement.
-- [Likely] A wrong rule shown with confidence harms a manufacturer. The product needs a custodian who owns rule accuracy, visible source and date on every rule, and escalation to an expert for anything the rules do not settle. Until a custodian exists, all rules are SYNTHETIC (AGENTS.md).
-- [Guessing] Manufacturers may value the document pack and the expert hand-off more than the gap map. The tests in section 6 should find out.
-- [Guessing] Willingness to pay is not evidenced in the sources. Revenue is an open question (OQ-06); no figure is proposed here.
+- [Likely] Both sides are needed at once. Owners will not come without providers, and providers will not come without owners.
+- [Likely] Small tickets make cost to serve the central problem. The diagnosis cannot be priced like consulting.
+- [Likely] Pooling only works for items that can be standardised, such as software seats, cameras, sensors and standard integrations. It does not work for bespoke integration.
+- [Likely] Counting non-AI fixes widens the supply side a great deal. A first cluster keeps it manageable.
+- [Guessing] Willingness to pay is not evidenced in the sources. No revenue figure is proposed here.

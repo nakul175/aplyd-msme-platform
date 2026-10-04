@@ -4,9 +4,9 @@ Status: documentation base. There is no application code yet, and nothing here i
 
 ## What this is
 
-A platform for Indian MSME manufacturers, built and owned by APLYD. The first product proposed in [docs/thesis.md](docs/thesis.md) is a readiness companion: a manufacturer enters its company profile once, and the platform maps that profile against a maintained rule book (export certification, medical-device regulation, quality systems) to show gaps, assemble the paperwork and hand hard questions to a human expert.
+A platform for Indian MSME manufacturers, built and owned by APLYD. The direction, set by the sponsor on 4 October 2026, is marketplace++: a small manufacturer describes its factory, gets a gap assessment, buys through pooled procurement, has the purchase deployed, and gets help running it. It covers AI and other technology. The "++" is the strategy, solution-design, delivery and operations help that a plain marketplace leaves to the owner. See [docs/thesis.md](docs/thesis.md).
 
-The proposal rests on the IndiaAI Mission MSME study (see [docs/sources.md](docs/sources.md)). It is a proposal, not a decision. The choices that are still open are in [docs/open-questions.md](docs/open-questions.md).
+The thesis draws on the IndiaAI Mission MSME study (see [docs/sources.md](docs/sources.md)). The direction is decided; the first sector, the revenue model and the accountability model are not. They are in [docs/open-questions.md](docs/open-questions.md).
 
 ## Where to start
 

@@ -14,7 +14,17 @@ Every figure or claim in this repository that comes from the study cites a sourc
 ## What has been read
 
 - S4 has been read through slide 46 (scoring method, progress snapshot, the nine prioritised use cases, timeline, governance) and the start of the annexures. The annexure value-chain maps and pain-point card libraries have been located but not read in full.
-- S1, S2 and S3 have been text-extracted and searched, not read in full. Nothing in this repository relies on a passage from them that has not been read.
+- S1 has been text-extracted and searched; pages 33-38 (supply-side mapping, enabling capacities, procurement and financing objective) have been read.
+- S2 and S3 have been text-extracted, not read. Nothing in this repository relies on a passage from them.
+- Nothing in this repository relies on a passage that has not been read.
+
+## Page references used so far (S1, printed page numbers)
+
+| Page | Content |
+| --- | --- |
+| 33-34 | Objective 3: mapping the AI supply side (vendors, system integrators, research labs) and finding providers through factory visits |
+| 36 | Implementation archetypes (human override, separation of application and data layers) and the list of outside enabling capacities |
+| 36-38 | Objective 5: procurement and financing models, total cost of ownership, the three procurement archetypes, the three financing models, the comparison framework |
 
 ## Slide references used so far (S4, printed slide numbers)
 
@@ -33,7 +43,7 @@ Every figure or claim in this repository that comes from the study cites a sourc
 | 33-36 | Use case 7: electronics supply-chain intelligence platform |
 | 37 | Use case 8: electronics production traceability and anomaly detection |
 | 39, 41, 42 | Use case 9: AI-enabled pharma quality management system |
-| 43 | Study timeline: D3 pipeline, D4 integration blueprint, D5 procurement and financing, D6 ecosystem roadmap, D7 policy playbook still ahead |
+| 43 | Study timeline as of 30 September: D1, D2, D3 and D9 complete; D4 integration blueprint, D5 procurement and financing, D6 ecosystem roadmap, D7 policy playbook, D8 webinars and D10 roundtable still ahead |
 
 ## Handling rules
 
