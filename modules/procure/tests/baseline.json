@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "slice 4 procure",
+  "reason": "slice 5 deliver",
   "suites": {
     "browser/procure": 3,
     "integration/procure-api": 30,
