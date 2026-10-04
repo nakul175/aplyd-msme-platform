@@ -13,6 +13,7 @@ import { handleRequirementCreate, handleRequirementWithdraw } from "../../../pro
 import { handleEngagementCreate, handleEngagementEvent, handleEngagementList, handleEngagementRead, handleMilestoneAdd } from "../../src/api/engagements.ts";
 import type { PresentedEngagement } from "../../src/api/engagements.ts";
 import { LIBRARY } from "../../../diagnose/src/library.ts";
+import { createEngagement } from "../../src/db/engagements.ts";
 import { MAX_DELIVERIES, MAX_MILESTONES } from "../../src/state.ts";
 
 let env: AppEnv;
@@ -389,6 +390,10 @@ test("what an event may carry is checked: a milestone for a milestone event, an 
     ["an amount on a delivery", { kind: "delivered", milestoneId: first, amountInr: 10 }, "amountInr"],
     ["a payment without an amount", { kind: "payment_recorded", milestoneId: first }, "amountInr"],
     ["a payment of zero", { kind: "payment_recorded", milestoneId: first, amountInr: 0 }, "amountInr"],
+    // An amount sent as text must be digits and nothing else: a decimal, an exponent, a sign or a space-only string is not a whole number of rupees.
+    ...["1.0", "2.", ".5", "1e3", "-5", "+5", "0x10", "1,000", " ", "٣"].map((text): [string, Record<string, unknown>, string] => [`a payment written as "${text}"`, { kind: "payment_recorded", milestoneId: first, amountInr: text }, "amountInr"]),
+    ["a payment of more than the limit", { kind: "payment_recorded", milestoneId: first, amountInr: 100_000_001 }, "amountInr"],
+    ["a fractional payment", { kind: "payment_recorded", milestoneId: first, amountInr: 10.5 }, "amountInr"],
     ["a note that is not text", { kind: "delivered", milestoneId: first, note: 5 }, "note"],
     ["a long note", { kind: "delivered", milestoneId: first, note: "x".repeat(501) }, "note"],
     ["no kind", {}, "kind"],
@@ -610,4 +615,31 @@ test("choosing providers listed at different fees leaves the fee tables untouche
   assert.equal(await count("audit_events", "event LIKE 'listing%' OR event LIKE 'provider.%'"), (await audits("listing_terms.set")).length + (await audits("provider.created")).length + (await audits("provider.listed")).length);
   void cheap;
   void providerId;
+});
+
+test("the data layer on its own refuses another company's requirement, and shows nothing of an engagement that is not the company's", async () => {
+  // The handler checks the requirement first and the composite foreign key backs it up; this calls the layer underneath directly,
+  // so a statement that stopped binding the requirement to the company would be seen here and not hidden behind the other two.
+  const { requirementId, providerId } = await setup();
+  const userB = "user-synthetic-owner-b";
+  const before = await createEngagement(db, { companyId: B, userId: userB, requirementId, providerId });
+  assert.deepEqual(before, { ok: false, reason: "not_found" });
+  assert.equal(await count("engagements"), 0);
+
+  const own = await createEngagement(db, { companyId: A, userId: "user-synthetic-owner-a", requirementId, providerId });
+  assert.equal(own.ok, true);
+  const after = await createEngagement(db, { companyId: B, userId: userB, requirementId, providerId });
+  assert.deepEqual(after, { ok: false, reason: "not_found" }, "the other company is not told an engagement exists, nor which provider it has");
+  assert.equal(await count("engagements"), 1);
+  assert.equal((await audits("engagement.created")).length, 1);
+});
+
+test("what the page may offer next follows the plan: nothing before the plan is agreed, the next step once it is, and nothing once the engagement is closed", async () => {
+  const p = await planned();
+  const nexts = async () => (await view(A, p.id, p.a)).milestones.map((m) => m.next);
+  assert.deepEqual(await nexts(), [[], []], "a plan that is not agreed offers nothing to deliver, accept or pay");
+  assert.equal((await event(A, p.id, p.a, { kind: "plan_agreed" })).status, 201);
+  assert.deepEqual(await nexts(), [["delivered"], ["delivered"]]);
+  assert.equal((await event(A, p.id, p.a, { kind: "closed" })).status, 201);
+  assert.deepEqual(await nexts(), [[], []], "nothing is offered after the close");
 });
