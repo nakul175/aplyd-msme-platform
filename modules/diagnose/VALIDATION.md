@@ -1,23 +1,44 @@
 # Diagnose module: validation
 
-Environment for every result below: a Linux container, Node v22.22.0, pnpm 11.25.0, Chromium 141.0.7390.37 through `playwright-core` 1.56.1, 5 October 2026. The agent that wrote the code ran every check here. No separate reviewer has read this slice yet and no person has.
+Environment for every result below: a Linux container, Node v22.22.0, pnpm 11.25.0, Chromium 141.0.7390.37 through `playwright-core` 1.56.1, 5 October 2026. The agent that wrote the code ran every check here. A separate agent reviewed the first version (below). No person has read this slice.
 
 ## Results
 
-Run in the working tree of branch `slice-3-diagnose`: `pnpm build`, then `node scripts/test.mjs pr --update-baseline` (every layer passed, then the baselines were recorded through the runner). The results are copied from that run's output; the pull request's own CI result is recorded below when it arrives.
+Run in the working tree of branch `slice-3-diagnose`: `pnpm build`, then `node scripts/test.mjs pr --update-baseline`. Run twice: once for the first version (a644577), and again after the review fixes below (the table shows the second run; the counts before the fixes are in the second column). Every layer passed both times, and the baselines were recorded through the runner. The pull request's own CI result is recorded below when it arrives.
 
-| Suite | Result |
-| --- | --- |
-| diagnose/unit/engine | 20 passed |
-| diagnose/unit/digest | 3 passed |
-| diagnose/integration/diagnose-api | 25 passed, against a real D1 database through Miniflare |
-| diagnose/static/scope-rules | 4 passed |
-| diagnose/smoke/diagnose | 7 passed, the built application in a local Worker |
-| diagnose/browser/diagnose | 8 passed, a real headless Chromium |
-| platform/unit/guards | 2 passed; now checks the union of the append-only and rule triggers against the migrations |
-| platform/unit/body | 3 passed (new; the body reader moved into the platform) |
-| all other suites | unchanged from slice 2, all passed |
-| static/typecheck, static/documentation, static/migrations | pass |
+| Suite | After the review fixes | Before |
+| --- | --- | --- |
+| diagnose/unit/engine | 20 passed | 20 |
+| diagnose/unit/digest | 3 passed | 3 |
+| diagnose/unit/pins | 3 passed (new) | |
+| diagnose/unit/not-owner | 1 passed (new) | |
+| diagnose/integration/diagnose-api | 32 passed, against a real D1 database through Miniflare | 25 |
+| diagnose/static/scope-rules | 4 passed | 4 |
+| diagnose/static/problems | 1 passed (new) | |
+| diagnose/smoke/diagnose | 8 passed, the built application in a local Worker | 7 |
+| diagnose/browser/diagnose | 8 passed, a real headless Chromium | 8 |
+| platform/integration/append-only-keys | 2 passed (new) | |
+| platform/unit/guards | 2 passed; checks the union of the append-only and rule triggers against the migrations | 2 |
+| platform/unit/body | 3 passed | 3 |
+| all other suites | unchanged from slice 2, all passed | |
+| static/typecheck, static/documentation, static/migrations | pass | pass |
+
+## Independent review
+
+A separate Claude instance, started with no part in writing this slice, read commit a644577 and tried to break it (report not kept in the repository; its findings and what was done are here). It ran the static, unit and integration layers (20 of 20 passed) and wrote probes against the real migrations through Miniflare. Result: **1 high, 3 medium, 6 low.** It found no route that reads or writes another company's record.
+
+| Finding | What was wrong | What was done |
+| --- | --- | --- |
+| H1, high, proven | `INSERT OR REPLACE` of a second sign-off overwrote the first. The `no_replace` trigger on `assessment_events` tests only the id; a second sign-off has a fresh id, and the partial unique index that stood in the way resolves a REPLACE by deleting the old row without running DELETE triggers. The original who, when and fingerprint were gone and nothing audited it. | New trigger `assessment_events_one_signoff_only` (migration 0007) refuses any second sign-off for an assessment, plain or replace. Integration test tries a plain insert, `INSERT OR REPLACE`, `REPLACE INTO`, `INSERT OR IGNORE` and an upsert and checks the first row is byte-for-byte unchanged. A platform test now reads every unique key of every append-only table from the migrated database and requires a BEFORE INSERT trigger that looks at each (the same defect in another table would fail it). The `audit_events` and `factory_revisions` keys, which the reviewer did not check, were read: `audit_events` has only its id; `factory_revisions` has its id and `(company, revision)` and its trigger tests both. |
+| M1, medium | The fingerprint covers less than the status note and the page implied. | Wording narrowed in STATUS (what it covers, what it does not). Not widened: covering the whole event log would be a new digest version. Open. |
+| M2, medium | Unbounded decisions per assessment, each permanent and returned on every read. | Trigger `assessment_events_decision_limit`: at most 200 decisions per assessment (an assumption), mapped to 409 / a page message; `MAX_DECISIONS` in code is tested equal to the number in the migration; the limit is per assessment. Paging the history is not done. |
+| M3, medium | `LIBRARY_VERSION` is hand-bumped and nothing tied it to the content. | `pins.test.ts` hashes the library, the budget ceilings, the points and the item cap, and the engine's output for eight fixed descriptions, against a table keyed by version. A change without a bump fails; a bump without a new line fails. The table is append-only by convention only: editing an old line is possible and only a reviewer would see it. |
+| L1, low | A form post could be answered with raw JSON (`changed`, not found). | Every outcome of a form post goes back to the page with a message; another company's assessment gets the same message a missing one does. |
+| L2, low | An assessment with no items could be signed off. | Trigger `assessment_events_signoff_needs_an_item`; 409 `no_items`; page message. |
+| L3, low | The static scope rule is weaker than described (a query joining a bound and an unbound table passes; INSERTs are not checked). | Not changed. Recorded as a limit: the rule is a tripwire. |
+| L4, low | Denied attempts write unthrottled, permanent audit rows. | Not changed. Existing platform pattern; open (see the platform status). |
+| L5, low | STATUS said eight guard triggers; there are ten (now thirteen). The guards test and the health check check names, not behaviour. | Count fixed; the limit is now written in STATUS (limit 6). |
+| L6, low | A company member who is not the owner was told they have no company. | Message changed and unit-tested. |
 
 ## What the first runs found
 
@@ -50,11 +71,27 @@ Each row is one deliberate break of the code, run against the layers that should
 | Page: a wrong point weight in the ranking text | survived at first. The browser test now reads the weights from the page. Caught after the test was added (see the note below) |
 | Page: the fingerprint banner always says "it matches" | survived. The browser and smoke tests sign off and see "it matches", which the broken page also says. The mismatch is checked at the API (a stored decision is changed after dropping the guard, and the read says `digestMatches: false`) but not on the page: tampering with the database behind a running Worker is not set up in the browser harness |
 
+### Mutation checks on the review fixes
+
+Run by `mutate.py` against the static, unit and integration layers: 25 breaks, 24 caught on the first run.
+
+| Break | Result |
+| --- | --- |
+| One-sign-off trigger never fires; fires for any assessment's sign-off; is about decisions instead of sign-offs | caught ×3 |
+| Decision cap at 201; at 199; counts sign-offs too; counts every assessment's decisions, not this one's | caught, caught, **equivalent**, caught after a test was added (the first run survived because the test used one assessment) |
+| Cap constant differs from the trigger; the refusal not mapped; answered 400; form sent to the wrong message | caught ×4 |
+| Empty-assessment trigger never fires; refusal not mapped; form message wrong | caught ×3 |
+| A form post answered with JSON for: `changed`; a missing sign-off record; a missing decision record; the sign-off answer's fallback; a different place for not found | caught ×5 |
+| A library figure edited without a bump; the version bumped without a pin; a ranking point changed; the item cap changed | caught ×4 |
+| A member told they have no company; "already signed off" no longer mapped | caught ×2 |
+
+The equivalent break: counting the sign-off row in a cap that only applies to decision inserts changes nothing, because a decision after a sign-off is refused by the signed-off rule first.
+
 37 breaks of the application code were caught on the first run, plus 4 of the access check again after it moved to the platform, plus 3 of the body reader (one of them survived at first and was closed by a test). Of 6 page breaks, 4 were caught at once, one was closed by a test added in response, and one survives and is recorded here. These show the tests are sensitive to these breaks. They do not show the code is free of defects the author did not think to break.
 
 ## What these results do not show
 
-- No independent review has happened. Slice 1's review found a high finding that its author's own mutation table missed; assume the same is possible here, in the triggers and the scope handling in particular.
+- One agent reviewed the first version and found a high finding that this slice's own mutation table (37 breaks) had missed, as slice 1's review did. Assume a second reviewer could find more, in the triggers and the scope handling in particular. The fixes themselves were not reviewed by anyone but their author and the mutation checks above.
 - The ranking weights and every library figure are placeholders. The tests check that the engine does what its rules say; nothing checks that the rules suit a real factory.
 - Concurrency was tested with a stale decision count and with three sign-offs sent together, inside one process. Two Workers racing were not run; the guarantee rests on one SQL statement, a partial unique index and a trigger, and SQLite serialises writers.
 - The fingerprint detects a change made to the stored rows outside the application. It does not prevent one, and the fingerprint is stored in the same database as the rows it covers.

@@ -12,7 +12,14 @@ export const APPEND_ONLY_TABLES: Record<string, string[]> = {
 /** Triggers that enforce a rule about what may be inserted, by table. */
 export const RULE_TRIGGERS: Record<string, string[]> = {
   assessments: ["assessments_needs_confirmed_description"],
-  assessment_events: ["assessment_events_decision_names_an_item", "assessment_events_signed_off_is_final", "assessment_events_signoff_needs_every_decision"],
+  assessment_events: [
+    "assessment_events_decision_names_an_item",
+    "assessment_events_signed_off_is_final",
+    "assessment_events_signoff_needs_every_decision",
+    "assessment_events_one_signoff_only",
+    "assessment_events_decision_limit",
+    "assessment_events_signoff_needs_an_item",
+  ],
 };
 
 export const ALL_APPEND_ONLY_TRIGGERS: string[] = Object.values(APPEND_ONLY_TABLES).flat();

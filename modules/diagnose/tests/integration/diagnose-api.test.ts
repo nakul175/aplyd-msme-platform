@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
 import { handleSessionWrite } from "../../../platform/src/api/session.ts";
 import type { AppEnv } from "../../../platform/src/env.ts";
 import { ORIGIN, cookieFrom, createTestEnvironment, get, post } from "../../../platform/tests/support/d1.ts";
 import { handleRevisionCreate } from "../../../factory/src/api/factory.ts";
-import { handleAssessmentCreate, handleAssessmentList, handleAssessmentRead, handleDecisionCreate, handleSignOff } from "../../src/api/diagnose.ts";
+import { handleAssessmentCreate, handleAssessmentList, handleAssessmentRead, handleDecisionCreate, handleSignOff, signOffAnswer } from "../../src/api/diagnose.ts";
 import { ENGINE_VERSION } from "../../src/engine.ts";
 import type { Result } from "../../src/engine.ts";
+import { MAX_DECISIONS as MAX_DECISIONS_CONSTANT } from "../../src/db/assessments.ts";
 import { LIBRARY_VERSION } from "../../src/library.ts";
 
 let env: AppEnv;
@@ -366,7 +368,141 @@ test("the database refuses what the application would never send: edits, deletes
   await assert.rejects(insertEvent("signoff", null, null, null), /CHECK|NOT NULL/);
   await insertEvent("signoff", null, null, "d".repeat(64));
   await assert.rejects(insertEvent("decision", item, "reject", null), /signed off/);
-  await assert.rejects(insertEvent("signoff", null, null, "e".repeat(64)), /UNIQUE/);
+  await assert.rejects(insertEvent("signoff", null, null, "e".repeat(64)), /already signed off/);
+});
+
+// Review finding H1: the only thing that stopped a second sign-off was a partial unique index, and INSERT OR REPLACE resolves a
+// unique conflict by deleting the old row without running DELETE triggers. The first sign-off must survive every way of trying.
+test("a second sign-off cannot replace the first: not by a plain insert, INSERT OR REPLACE, REPLACE INTO or an upsert, and the first row is untouched", async () => {
+  const { id, cookie, detail } = await makeOne();
+  await decideAll(A, detail, cookie);
+  assert.equal((await signOff(A, id, cookie, { note: "first" })).status, 201);
+  const before = await db.prepare("SELECT * FROM assessment_events WHERE assessment_id = ? AND kind = 'signoff'").bind(id).all();
+  assert.equal(before.results.length, 1);
+
+  const forged = (verb: string, suffix = "") =>
+    db.prepare(`${verb} INTO assessment_events (assessment_id, company_id, at, user_id, kind, note, digest) VALUES (?, ?, 'forged', 'user-synthetic-owner-a', 'signoff', 'forged', ?) ${suffix}`).bind(id, A, "deadbeef".repeat(8)).run();
+  await assert.rejects(forged("INSERT"), /already signed off/);
+  await assert.rejects(forged("INSERT OR REPLACE"), /already signed off/);
+  await assert.rejects(forged("REPLACE"), /already signed off/);
+  await assert.rejects(forged("INSERT OR IGNORE"), /already signed off/, "an ignorable conflict is not offered: the rule aborts");
+  await assert.rejects(forged("INSERT", "ON CONFLICT DO UPDATE SET note = 'forged'"), /already signed off|append-only/);
+  const after = await db.prepare("SELECT * FROM assessment_events WHERE assessment_id = ? AND kind = 'signoff'").bind(id).all();
+  assert.deepEqual(after.results, before.results, "the sign-off is exactly as it was");
+  assert.equal(((await (await readOne(A, id, cookie)).json()) as Detail).signoff?.digestMatches, true);
+  assert.equal((await audits("assessment.signed_off")).length, 1);
+});
+
+test("a sign-off on another assessment is not blocked by this one's: the rule is per assessment", async () => {
+  const cookie = await ownerA();
+  const first = await makeOne(A, cookie);
+  await decideAll(A, first.detail, cookie);
+  assert.equal((await signOff(A, first.id, cookie)).status, 201);
+  assert.equal((await saveFactory(A, cookie, { basedOn: 1, answers: { ...(await latestAnswers(cookie)), problems: ["energy_cost"] }, confirm: true })).status, 201);
+  const second = await makeOne(A, cookie);
+  assert.notEqual(second.id, first.id);
+  await decideAll(A, second.detail, cookie);
+  assert.equal((await signOff(A, second.id, cookie)).status, 201);
+  assert.equal(await count("assessment_events", "kind = 'signoff'"), 2);
+});
+
+// Review finding M2: every decision is permanent, so the number one assessment can hold is bounded, in the database.
+test("one assessment holds at most MAX_DECISIONS decisions; past that the API says 409, the form says so, and the owner can still sign off", async () => {
+  const { MAX_DECISIONS } = await import("../../src/db/assessments.ts");
+  const { id, cookie, detail } = await makeOne();
+  await decideAll(A, detail, cookie);
+  const item = detail.result.items[0].opportunityId;
+  const insert = () => db.prepare("INSERT INTO assessment_events (assessment_id, company_id, at, user_id, kind, opportunity_id, decision, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'decision', ?, 'defer', 'filler')").bind(id, A, item);
+  const have = await count("assessment_events", "kind = 'decision'");
+  await db.batch(Array.from({ length: MAX_DECISIONS - have }, insert));
+  assert.equal(await count("assessment_events", "kind = 'decision'"), MAX_DECISIONS);
+
+  await assert.rejects(insert().run(), /too many decisions/);
+  const refused = await decide(A, id, cookie, { opportunityId: item, decision: "accept" });
+  assert.equal(refused.status, 409);
+  assert.deepEqual(await refused.json(), { error: "too_many_decisions" });
+  const viaForm = await handleDecisionCreate(new Request(`${ORIGIN}/api/companies/${A}/assessments/${id}/decisions`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, cookie }, body: new URLSearchParams([["opportunity", item], ["decision", "accept"]]) }), env, A, id);
+  assert.equal(viaForm.headers.get("location"), `/diagnose?a=${id}&problem=too_many`);
+  assert.equal(await count("assessment_events", "kind = 'decision'"), MAX_DECISIONS, "nothing was added");
+  assert.equal((await audits("assessment.decision")).length, detail.result.items.length, "a refused decision is not audited as made");
+
+  assert.equal((await signOff(A, id, cookie)).status, 201, "a full assessment can still be signed off");
+});
+
+test("the decision limit is per assessment: one that is full does not stop another from taking a decision", async () => {
+  const { MAX_DECISIONS } = await import("../../src/db/assessments.ts");
+  const first = await makeOne();
+  const item = first.detail.result.items[0].opportunityId;
+  const insert = () => db.prepare("INSERT INTO assessment_events (assessment_id, company_id, at, user_id, kind, opportunity_id, decision, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'decision', ?, 'defer', 'filler')").bind(first.id, A, item);
+  await db.batch(Array.from({ length: MAX_DECISIONS }, insert));
+  await assert.rejects(insert().run(), /too many decisions/);
+  const cookieB = await ownerB();
+  assert.equal((await saveFactory(B, cookieB, { basedOn: 0, answers: REQUIRED, confirm: true })).status, 201);
+  const other = await makeOne(B, cookieB);
+  assert.equal((await decide(B, other.id, cookieB, { opportunityId: other.detail.result.items[0].opportunityId, decision: "accept" })).status, 201, "another company's assessment");
+  assert.equal((await saveFactory(A, first.cookie, { basedOn: 1, answers: { ...(await latestAnswers(first.cookie)), problems: ["energy_cost"] }, confirm: true })).status, 201);
+  const second = await makeOne(A, first.cookie);
+  assert.notEqual(second.id, first.id);
+  assert.equal((await decide(A, second.id, first.cookie, { opportunityId: second.detail.result.items[0].opportunityId, decision: "accept" })).status, 201, "another assessment of the same company");
+});
+
+test("the number in the database trigger is the one in the code", () => {
+  const sql = readFileSync(new URL("../../../../drizzle/0007_diagnose_review_fixes.sql", import.meta.url), "utf8");
+  const [, limit] = /assessment_events_decision_limit[\s\S]*?>= (\d+)/.exec(sql) ?? [];
+  assert.equal(Number(limit), MAX_DECISIONS_CONSTANT);
+});
+
+// Review finding L2: an assessment with no items has nothing to decide, so it has nothing to sign.
+test("an assessment with no items cannot be signed off: 409 from the API, a message on the form, a refusal in the database", async () => {
+  const cookie = await ownerB();
+  assert.equal((await saveFactory(B, cookie, { basedOn: 0, answers: { ...REQUIRED, problems: ["other_problem"] }, confirm: true })).status, 201);
+  const made = await make(B, cookie);
+  assert.equal(made.status, 201);
+  const { id } = (await made.json()) as { id: string };
+  assert.equal(((await (await readOne(B, id, cookie)).json()) as Detail).result.items.length, 0, "the description names nothing the library matches");
+
+  const res = await signOff(B, id, cookie);
+  assert.equal(res.status, 409);
+  assert.deepEqual(await res.json(), { error: "no_items" });
+  const viaForm = await handleSignOff(new Request(`${ORIGIN}/api/companies/${B}/assessments/${id}/signoff`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, cookie }, body: "" }), env, B, id);
+  assert.equal(viaForm.headers.get("location"), `/diagnose?a=${id}&problem=no_items`);
+  await assert.rejects(db.prepare("INSERT INTO assessment_events (assessment_id, company_id, at, user_id, kind, digest) VALUES (?, ?, 'x', 'user-synthetic-owner-b', 'signoff', ?)").bind(id, B, "d".repeat(64)).run(), /no items cannot be signed off/);
+  assert.equal(await count("assessment_events"), 0);
+  assert.equal((await audits("assessment.signed_off")).length, 0);
+});
+
+// Review finding L1: a form post that cannot be done must not be answered with a JSON document.
+test("form posts that find nothing, or race a new decision, are sent back to the page and not answered with JSON", async () => {
+  const { id, cookie, detail } = await makeOne();
+  const formReq = (path: string) => new Request(`${ORIGIN}${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, cookie }, body: new URLSearchParams([["opportunity", detail.result.items[0].opportunityId], ["decision", "accept"]]) });
+  const lost = await handleDecisionCreate(formReq(`/api/companies/${A}/assessments/nope/decisions`), env, A, "nope");
+  assert.equal(lost.status, 303);
+  assert.equal(lost.headers.get("location"), "/diagnose?problem=missing");
+  const lostSign = await handleSignOff(formReq(`/api/companies/${A}/assessments/nope/signoff`), env, A, "nope");
+  assert.equal(lostSign.status, 303);
+  assert.equal(lostSign.headers.get("location"), "/diagnose?problem=missing");
+  // Another company's assessment, named under one's own company, looks exactly the same as a missing one.
+  const other = await makeOne(B, await ownerB().then(async (c) => { await saveFactory(B, c, { basedOn: 0, answers: REQUIRED, confirm: true }); return c; }));
+  const theirs = await handleDecisionCreate(formReq(`/api/companies/${A}/assessments/${other.id}/decisions`), env, A, other.id);
+  assert.equal(theirs.headers.get("location"), lost.headers.get("location"));
+  assert.equal(await count("assessment_events"), 0);
+
+  // The race the sign-off handles: a decision lands after the sign-off read the standing decisions.
+  await decideAll(A, detail, cookie);
+  const { appendSignOff } = await import("../../src/db/assessments.ts");
+  const stale = await appendSignOff(db, { companyId: A, userId: "user-synthetic-owner-a", assessmentId: id, note: "", digest: "0".repeat(64), decisionCount: detail.result.items.length - 1 });
+  assert.deepEqual(stale, { ok: false, reason: "changed" });
+  // The handler answers that outcome with a page for a form post, and with JSON for anything else.
+  const asForm = signOffAnswer(stale, true, id, "0".repeat(64));
+  assert.equal(asForm.status, 303);
+  assert.equal(asForm.headers.get("location"), `/diagnose?a=${id}&problem=changed`);
+  const asJson = signOffAnswer(stale, false, id, "0".repeat(64));
+  assert.equal(asJson.status, 409);
+  assert.equal(((await asJson.json()) as { error: string }).error, "changed");
+  for (const reason of ["undecided", "already_signed_off", "no_items", "not_found"] as const) {
+    assert.equal(signOffAnswer({ ok: false, reason }, true, id, "").status, 303, `${reason} on a form`);
+    assert.notEqual(signOffAnswer({ ok: false, reason }, false, id, "").status, 303, `${reason} as JSON`);
+  }
 });
 
 test("an assessment cannot be stored for a version that is a draft, does not exist, or belongs to another company", async () => {
