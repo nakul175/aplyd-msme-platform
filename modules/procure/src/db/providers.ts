@@ -28,10 +28,11 @@ export async function setTerms(db: D1Database, input: { userId: string; feeInr: 
   const at = new Date().toISOString();
   const insert = db.prepare("INSERT INTO listing_terms (at, user_id, fee_inr, note) VALUES (?, ?, ?, ?)").bind(at, userId, feeInr, note);
   const audit = auditIfChanged(db, "listing_terms.set", { userId, companyId: null, detail: { feeInr } });
-  await db.batch([insert, audit]);
-  const terms = await currentTerms(db);
-  if (!terms) throw new Error("the terms were not stored");
-  return terms;
+  const [inserted] = await db.batch([insert, audit]);
+  // The row just added, not whichever version is newest by now: a second operator's change between the two must not be reported as this one.
+  const row = await db.prepare("SELECT version, at, fee_inr, note FROM listing_terms WHERE version = ?").bind(inserted.meta.last_row_id).first<TermsRow>();
+  if (!row) throw new Error("the terms were not stored");
+  return toTerms(row);
 }
 
 export type CreateProviderResult = { ok: true; id: string } | { ok: false; reason: "duplicate_service" };
@@ -71,8 +72,10 @@ export async function listProvider(db: D1Database, input: { userId: string; prov
   try {
     const [inserted] = await db.batch([insert, audit]);
     if (inserted.meta.changes === 1) {
-      const terms = await currentTerms(db);
-      return { ok: true, feeInr: terms!.feeInr };
+      // The fee on the row just added, not the terms in force by now: a change of fee between the two must not be reported as this listing's.
+      const row = await db.prepare("SELECT fee_inr FROM provider_events WHERE id = ?").bind(inserted.meta.last_row_id).first<{ fee_inr: number }>();
+      if (!row) throw new Error("the listing was not stored");
+      return { ok: true, feeInr: row.fee_inr };
     }
   } catch (error) {
     const text = String(error);

@@ -126,7 +126,7 @@ test("every ?problem= key the deliver API redirects with has a message on /deliv
 
   // /procure: what the engagement endpoint sends there, and what the requirement endpoints send
   const created = [...reasons("CreateResult")].filter((r) => r !== "not_found" && r !== "requirement_withdrawn"); // a withdrawn requirement is sent as "withdrawn", a key the requirement endpoints already use
-  const procureSent = new Set([...literal(api, "procure"), ...created, ...[...read("modules/procure/src/api/requirements.ts").matchAll(/problem=(\w+)/g)].map((m) => m[1]), "engaged", "not_signed_off", "not_accepted"]);
+  const procureSent = new Set([...literal(api, "procure"), ...created, ...[...read("modules/procure/src/api/requirements.ts").matchAll(/problem=(\w+)/g)].map((m) => m[1]), "engaged", "not_signed_off", "not_accepted", "previously_withdrawn"]); // the last three are the requirement data layer's reasons, sent as problem=${reason}
   const procureShown = keysOf("app/procure/page.tsx");
   assert.deepEqual([...procureSent].filter((k) => !procureShown.has(k)).sort(), [], "sent, with no message on /procure");
   assert.deepEqual([...procureShown].filter((k) => !procureSent.has(k)).sort(), [], "a /procure message nothing sends");

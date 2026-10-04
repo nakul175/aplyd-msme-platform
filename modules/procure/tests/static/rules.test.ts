@@ -173,3 +173,11 @@ test("providers are ordered by name alone, in every query that orders them", () 
   const publicQuery = queries(file, "providers").find((m) => /JOIN provider_services/.test(m.sql))!;
   assert.ok(!/fee|terms|listing_terms/i.test(publicQuery.sql.replace(/provider_events/g, "")), "what an owner sees of the providers is not ordered or filtered by fee or terms");
 });
+
+test("the owner's page prints a pool as a lower bound and never reads an exact count", () => {
+  const page = read("app/procure/page.tsx");
+  assert.match(page, /r\.pool\.atLeast/, "the page shows the lower bound");
+  assert.ok(page.includes("`At least ${r.pool.atLeast} companies"), "and says it is a lower bound, so a number is not read as the count");
+  assert.ok(!/\bpool\??\.companies\b/.test(page), "the page does not read an exact count of a pool");
+  assert.ok(!/shown: true[;,]\s*companies/.test(read("modules/procure/src/pool.ts")), "the view of a pool that is shown has no exact count");
+});

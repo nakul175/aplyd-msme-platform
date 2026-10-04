@@ -92,8 +92,9 @@ export async function handleRequirementCreate(request: Request, env: AppEnv, req
     if (made.reason === "not_found") return form ? back("problem=missing") : json(404, { error: "not_found" });
     return form ? back(`problem=${made.reason}`) : json(409, { error: made.reason });
   }
-  if (form) return back(`made=${encodeURIComponent(made.id)}`);
-  return json(made.created ? 201 : 200, { id: made.id, created: made.created, cluster });
+  // Asking again changes nothing, and the answer must not say that something was recorded now (a form shows that it already was).
+  if (form) return made.created ? back(`made=${encodeURIComponent(made.id)}`) : back("problem=already_made");
+  return json(made.created ? 201 : 200, { id: made.id, created: made.created, cluster: made.cluster });
 }
 
 /** POST: withdraw a requirement. It stays on record, marked withdrawn, and leaves its pool. */

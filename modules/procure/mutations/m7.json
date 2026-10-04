@@ -1,0 +1,640 @@
+[
+ {
+  "name": "operator check: role not required",
+  "path": "modules/platform/src/api/authorize.ts",
+  "old": "if (identity.role !== \"operator\" || identity.companyId !== null) {",
+  "new": "if (identity.companyId !== null) {",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "operator check: company-less not required",
+  "path": "modules/platform/src/api/authorize.ts",
+  "old": "if (identity.role !== \"operator\" || identity.companyId !== null) {",
+  "new": "if (identity.role !== \"operator\") {",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "operator write: cross-site check removed",
+  "path": "modules/platform/src/api/authorize.ts",
+  "old": "if (change && isCrossSite(request)) {",
+  "new": "if (false) {",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "operator denial not audited",
+  "path": "modules/platform/src/api/authorize.ts",
+  "old": "    await refuse(env.DB, event, identity, \"operator\");\n",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "signed-in check removed",
+  "path": "modules/platform/src/api/authorize.ts",
+  "old": "export async function authorizeSignedIn(request: Request, env: AppEnv): Promise<{ identity: Identity; db: D1Database } | Response> {\n  if (!env.DB) return json(503, { error: \"storage_unavailable\" });\n  const identity = await resolveIdentity(request, env);\n  if (!identity) return json(401, { error: \"not_signed_in\" });",
+  "new": "export async function authorizeSignedIn(request: Request, env: AppEnv): Promise<{ identity: Identity; db: D1Database } | Response> {\n  if (!env.DB) return json(503, { error: \"storage_unavailable\" });\n  const identity = await resolveIdentity(request, env);\n  if (!identity) return { identity: { userId: \"x\", companyId: null, role: \"x\", displayName: \"x\" }, db: env.DB };",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "pool: companies not distinct (count)",
+  "path": "modules/procure/src/db/pool.ts",
+  "old": "`SELECT COUNT(DISTINCT r.company_id) AS companies FROM requirements r",
+  "new": "`SELECT COUNT(r.company_id) AS companies FROM requirements r",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "pool listing: companies not distinct",
+  "path": "modules/procure/src/db/pool.ts",
+  "old": "COUNT(DISTINCT r.company_id) AS companies FROM requirements r\n        WHERE NOT EXISTS",
+  "new": "COUNT(r.company_id) AS companies FROM requirements r\n        WHERE NOT EXISTS",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "pool: withdrawn requirements counted",
+  "path": "modules/procure/src/db/pool.ts",
+  "old": "        WHERE r.cluster = ? AND r.opportunity_id = ?\n          AND NOT EXISTS (SELECT 1 FROM requirement_events e WHERE e.requirement_id = r.id AND e.kind = 'withdraw')`",
+  "new": "        WHERE r.cluster = ? AND r.opportunity_id = ?`",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "pool listing: withdrawn counted",
+  "path": "modules/procure/src/db/pool.ts",
+  "old": "        WHERE NOT EXISTS (SELECT 1 FROM requirement_events e WHERE e.requirement_id = r.id AND e.kind = 'withdraw')\n        GROUP BY",
+  "new": "        WHERE 1 = 1\n        GROUP BY",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "pool listing: floor not applied",
+  "path": "modules/procure/src/db/pool.ts",
+  "old": "HAVING COUNT(DISTINCT r.company_id) >= ?",
+  "new": "HAVING COUNT(DISTINCT r.company_id) >= 0 AND ? IS NOT NULL",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "pool: cluster not matched",
+  "path": "modules/procure/src/db/pool.ts",
+  "old": "WHERE r.cluster = ? AND r.opportunity_id = ?",
+  "new": "WHERE ? IS NOT NULL AND r.opportunity_id = ?",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "pool: kind not matched",
+  "path": "modules/procure/src/db/pool.ts",
+  "old": "WHERE r.cluster = ? AND r.opportunity_id = ?",
+  "new": "WHERE r.cluster = ? AND ? IS NOT NULL",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "presentPool: floor off by one (> not >=)",
+  "path": "modules/procure/src/pool.ts",
+  "old": "companies >= AGGREGATE_FLOOR",
+  "new": "companies > AGGREGATE_FLOOR",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/unit/pool"
+  ]
+ },
+ {
+  "name": "floor lowered to four",
+  "path": "modules/procure/src/pool.ts",
+  "old": "export const AGGREGATE_FLOOR = 5;",
+  "new": "export const AGGREGATE_FLOOR = 4;",
+  "layers": [
+   "unit",
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/unit/pool"
+  ]
+ },
+ {
+  "name": "presentPool: whole number not required",
+  "path": "modules/procure/src/pool.ts",
+  "old": "Number.isInteger(companies) && companies >= AGGREGATE_FLOOR",
+  "new": "companies >= AGGREGATE_FLOOR",
+  "layers": [
+   "unit"
+  ],
+  "only": [
+   "procure/unit/pool"
+  ]
+ },
+ {
+  "name": "requirement list shows the raw count",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "pool: open ? presentPool(await poolCompanies(db, r.cluster, r.opportunityId)) : null,",
+  "new": "pool: open ? ({ shown: true, companies: await poolCompanies(db, r.cluster, r.opportunityId) } as PoolView) : null,",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "requirement list: withdrawn still shows a pool",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "const open = r.withdrawnAt === null;",
+  "new": "const open = true;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "requirements list not bound to the company",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": "FROM requirements r WHERE r.company_id = ? ORDER BY",
+  "new": "FROM requirements r WHERE ? IS NOT NULL ORDER BY",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "requirement create: duplicate guard removed",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": "WHERE NOT EXISTS (SELECT 1 FROM requirements WHERE company_id = ? AND assessment_id = ? AND opportunity_id = ?)`",
+  "new": "WHERE ? IS NOT NULL AND ? IS NOT NULL AND ? IS NOT NULL`",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "requirement create: existing one looked up without company",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": ".prepare(\"SELECT id FROM requirements WHERE company_id = ? AND assessment_id = ? AND opportunity_id = ?\")",
+  "new": ".prepare(\"SELECT id FROM requirements WHERE ? IS NOT NULL AND assessment_id = ? AND opportunity_id = ?\")",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "withdraw: exists guard removed",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": "WHERE EXISTS (SELECT 1 FROM requirements WHERE id = ? AND company_id = ?)\n         AND NOT EXISTS",
+  "new": "WHERE ? IS NOT NULL AND ? IS NOT NULL\n         AND NOT EXISTS",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "withdraw: once-only guard removed",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": "AND NOT EXISTS (SELECT 1 FROM requirement_events WHERE requirement_id = ? AND company_id = ?)`",
+  "new": "AND ? IS NOT NULL AND ? IS NOT NULL`",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "provider list: not the latest terms",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "WHERE p.id = ? AND t.version = (SELECT MAX(version) FROM listing_terms)",
+  "new": "WHERE p.id = ?",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "provider list: fee altered",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "SELECT p.id, ?, ?, 'list', t.version, t.fee_inr, ?",
+  "new": "SELECT p.id, ?, ?, 'list', t.version, t.fee_inr + 1, ?",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "owners' provider order by listing time",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "ORDER BY p.name COLLATE NOCASE, p.id`,\n    )\n    .bind(opportunityId, cluster)",
+  "new": "ORDER BY p.created_at DESC, p.id`,\n    )\n    .bind(opportunityId, cluster)",
+  "layers": [
+   "integration",
+   "static"
+  ],
+  "only": [
+   "procure/integration/procure-api",
+   "procure/static/rules"
+  ]
+ },
+ {
+  "name": "owners see unlisted providers",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "WHERE s.opportunity_id = ? AND s.cluster = ?\n          AND (SELECT e.kind FROM provider_events e WHERE e.provider_id = p.id ORDER BY e.id DESC LIMIT 1) = 'list'",
+  "new": "WHERE s.opportunity_id = ? AND s.cluster = ?",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "owners see providers of other clusters",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "WHERE s.opportunity_id = ? AND s.cluster = ?\n",
+  "new": "WHERE s.opportunity_id = ? AND ? IS NOT NULL\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "current terms: oldest version in force",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "ORDER BY version DESC LIMIT 1\").first<TermsRow>()",
+  "new": "ORDER BY version ASC LIMIT 1\").first<TermsRow>()",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "provider list: unlisted status read from the first event",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "(SELECT e.kind FROM provider_events e WHERE e.provider_id = p.id ORDER BY e.id DESC LIMIT 1) AS last_kind",
+  "new": "(SELECT e.kind FROM provider_events e WHERE e.provider_id = p.id ORDER BY e.id ASC LIMIT 1) AS last_kind",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: requirements_no_update",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER requirements_no_update BEFORE UPDATE ON requirements\nBEGIN",
+  "new": "CREATE TRIGGER requirements_no_update BEFORE UPDATE ON requirements\nWHEN 0\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: requirement_events_no_delete",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER requirement_events_no_delete BEFORE DELETE ON requirement_events\nBEGIN",
+  "new": "CREATE TRIGGER requirement_events_no_delete BEFORE DELETE ON requirement_events\nWHEN 0\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: provider_events_no_update",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER provider_events_no_update BEFORE UPDATE ON provider_events\nBEGIN",
+  "new": "CREATE TRIGGER provider_events_no_update BEFORE UPDATE ON provider_events\nWHEN 0\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: listing_terms_no_update",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER listing_terms_no_update BEFORE UPDATE ON listing_terms\nBEGIN",
+  "new": "CREATE TRIGGER listing_terms_no_update BEFORE UPDATE ON listing_terms\nWHEN 0\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: providers_no_delete",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER providers_no_delete BEFORE DELETE ON providers\nBEGIN",
+  "new": "CREATE TRIGGER providers_no_delete BEFORE DELETE ON providers\nWHEN 0\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger weakened: requirements_no_replace ignores the item key",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "WHEN NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM requirements WHERE id = NEW.id OR (company_id = NEW.company_id AND assessment_id = NEW.assessment_id AND opportunity_id = NEW.opportunity_id))",
+  "new": "WHEN NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM requirements WHERE id = NEW.id)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger weakened: requirement_events_no_replace ignores the requirement",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "EXISTS (SELECT 1 FROM requirement_events WHERE id = NEW.id OR requirement_id = NEW.requirement_id)",
+  "new": "EXISTS (SELECT 1 FROM requirement_events WHERE id = NEW.id)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: needs a signed-off assessment",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER requirements_needs_signed_off_assessment BEFORE INSERT ON requirements\nWHEN NOT EXISTS",
+  "new": "CREATE TRIGGER requirements_needs_signed_off_assessment BEFORE INSERT ON requirements\nWHEN 0 AND NOT EXISTS",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: needs an accepted item",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER requirements_needs_accepted_item BEFORE INSERT ON requirements\nWHEN COALESCE(",
+  "new": "CREATE TRIGGER requirements_needs_accepted_item BEFORE INSERT ON requirements\nWHEN 0 AND COALESCE(",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger weakened: accepted item reads the first decision, not the latest",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "AND opportunity_id = NEW.opportunity_id ORDER BY id DESC LIMIT 1),",
+  "new": "AND opportunity_id = NEW.opportunity_id ORDER BY id ASC LIMIT 1),",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: listing carries the fee in force",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER provider_events_list_carries_the_fee_in_force BEFORE INSERT ON provider_events\nWHEN NEW.kind = 'list'",
+  "new": "CREATE TRIGGER provider_events_list_carries_the_fee_in_force BEFORE INSERT ON provider_events\nWHEN 0 AND NEW.kind = 'list'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger weakened: the fee is not compared",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "WHERE t.version = NEW.terms_version AND t.fee_inr = NEW.fee_inr AND t.version =",
+  "new": "WHERE t.version = NEW.terms_version AND t.version =",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger weakened: any version, not the latest",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "AND t.version = (SELECT MAX(version) FROM listing_terms)\n )",
+  "new": "\n )",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: list needs a service",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER provider_events_list_needs_a_service BEFORE INSERT ON provider_events\nWHEN NEW.kind = 'list'",
+  "new": "CREATE TRIGGER provider_events_list_needs_a_service BEFORE INSERT ON provider_events\nWHEN 0 AND NEW.kind = 'list'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "trigger dropped: listed and unlisted in turn",
+  "path": "drizzle/0009_procure_guards.sql",
+  "old": "CREATE TRIGGER provider_events_alternate BEFORE INSERT ON provider_events\nWHEN COALESCE(",
+  "new": "CREATE TRIGGER provider_events_alternate BEFORE INSERT ON provider_events\nWHEN 0 AND COALESCE(",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "requirement: cluster not checked",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "if (!isCluster(cluster)) fields.cluster = \"Choose a cluster from the list.\";",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "requirement: idea not checked against the assessment",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "if (!item) return form ? back(\"problem=request\") : json(400, { error: \"invalid\", fields: { opportunityId: \"That idea is not in this assessment.\" } });",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "provider: services not checked against the library",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "typeof opportunityId !== \"string\" || !OPPORTUNITY_IDS.has(opportunityId) || !isCluster(cluster)",
+  "new": "typeof opportunityId !== \"string\" || !isCluster(cluster)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "fee: upper bound removed",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "fee < 1 || fee > MAX_FEE_INR",
+  "new": "fee < 1",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "fee: whole number not required",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "if (!Number.isInteger(fee) || fee < 1",
+  "new": "if (Number.isNaN(fee) || fee < 1",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "fee: string pattern loosened",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "/^\\d{1,8}$/.test(raw.trim()) ? Number(raw.trim())",
+  "new": "/^[\\d.e]{1,8}$/.test(raw.trim()) ? Number(raw.trim())",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "provider list reads a fee from the request",
+  "path": "modules/procure/src/api/providers.ts",
+  "old": "const result = await listProvider(allowed.db, { userId: allowed.identity.userId, providerId, note });",
+  "new": "const asked = bodyField(body, \"feeInr\"); const result = await listProvider(allowed.db, { userId: allowed.identity.userId, providerId, note, feeInr: asked } as never);",
+  "layers": [
+   "static"
+  ],
+  "only": [
+   "procure/static/rules"
+  ]
+ }
+]
