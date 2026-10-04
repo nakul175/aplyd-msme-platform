@@ -11,6 +11,7 @@ Last updated 4 October 2026. Three groups: decided, carried forward but to be re
 | D-03 | APLYD's earnings never vary with which vendor a customer chooses. | Sponsor, September 2026 |
 | D-04 | The platform is built the way Saha was built: a repository on GitHub as the base, then agent-assisted development on top of it, with the lessons in [saha-lessons.md](saha-lessons.md) applied. | Sponsor, 4 October 2026 |
 | D-05 | The product is marketplace++: one journey that takes a small manufacturer from describing its factory, through a gap assessment, pooled procurement and deployment, to running what it bought. It covers AI and other technology. Version 1 of the thesis (a compliance-only readiness companion) is superseded; compliance help becomes one type of opportunity inside the journey. | Sponsor, 4 October 2026, speaking as an MSME owner (see [thesis.md](thesis.md) section 1) |
+| D-06 | Build on the Saha stack: Next.js on vinext, Cloudflare Workers, D1 and Drizzle, pnpm, Node 22, with the pinned versions Saha uses. Saha's hosting-platform layer is not reused (see [saha-lessons.md](saha-lessons.md)). Cloudflare is the stack for synthetic data only; where real data is hosted is still open (OQ-07). | Sponsor, 4 October 2026: instruction to continue building on the Saha experience, and "Go ahead" on slice 1 |
 
 ## Carried forward, to be reconfirmed
 
@@ -40,4 +41,3 @@ These numbers and mechanisms came out of the 13 September framing, which centred
 | --- | --- | --- |
 | P-01 | Start with stages 1 and 2 of the journey (Describe, Diagnose) for one sector in one cluster, run stages 3 to 5 by hand behind them, and test with ten owners before building pooling software ([thesis.md](thesis.md) sections 6 and 7). | Sponsor's yes or no |
 | P-02 | Choose the first sector and cluster. The study covers textiles, electronics, medical devices and pharma; no proposal yet. | OQ-03 |
-| P-03 | Use the Saha stack (Next.js on Cloudflare Workers, D1, Drizzle) so the pipeline, test runner and hosted staging pattern can be reused. | Sponsor's yes or no |

@@ -1,0 +1,12 @@
+{
+  "updatedAt": "2026-10-04",
+  "reason": "Slice 1 walking skeleton: first baseline",
+  "suites": {
+    "integration/platform-api": 14,
+    "smoke/built-app": 6,
+    "static/source-rules": 3,
+    "unit/cross-site": 5,
+    "unit/scope": 5,
+    "unit/session": 6
+  }
+}

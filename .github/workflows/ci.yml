@@ -1,0 +1,40 @@
+# Engineering checks on synthetic data only. No secrets, no hosted database, no deployment.
+name: engineering-checks
+on:
+  pull_request:
+    # A pull request that changes only Markdown or docs/ runs documentation-checks instead.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: engineering-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test catalogue
+        run: node scripts/test.mjs --check-catalogue
+      - name: Install pinned dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+      - name: Type check, documentation and static suites
+        run: node scripts/test.mjs static --guard
+      - name: Build
+        run: pnpm build
+      - name: Unit, integration and smoke suites
+        run: node scripts/test.mjs unit integration smoke --guard
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-summary
+          path: reports/summary.json

@@ -1,6 +1,6 @@
 # What to take from Saha, and what not to
 
-Reference: `nakul175/saha-health` at commit 2adfbde (4 October 2026). Paths below are in that repository. Findings come from reading its AGENTS.md, CLAUDE.md, package.json and CI workflow; the code itself has not been audited here.
+Reference: `nakul175/saha-health` at commit 2adfbde (4 October 2026). Paths below are in that repository. Findings come from reading its AGENTS.md, CLAUDE.md, package.json, CI workflow, `vite.config.ts`, `worker/index.ts`, `pnpm-workspace.yaml`, the head of `scripts/test.mjs` and its deployment configuration; the application code has not been audited here.
 
 ## Take
 
@@ -15,7 +15,7 @@ Reference: `nakul175/saha-health` at commit 2adfbde (4 October 2026). Paths belo
 | Hosted synthetic staging deployed on each merge to `main`, with a freeze switch | AGENTS.md, `docs/current/HOSTED-STAGING.md` | Gives the sponsor something to look at after each slice |
 | HANDOVER.md as the first file any new agent reads | `HANDOVER.md`, `AGENTS.md` | Lets development move between Claude, GPT and people without a re-briefing |
 
-Stack in Saha: Next.js 16 on a Vite-based Cloudflare build (vinext), Drizzle on Cloudflare D1, Playwright for browser tests, pnpm, Node 22 (`package.json`). Proposal P-03 reuses it.
+Stack in Saha: Next.js 16 on a Vite-based Cloudflare build (vinext), Drizzle on Cloudflare D1, Playwright for browser tests, pnpm, Node 22 (`package.json`). Decision D-06 reuses it.
 
 ## Do not repeat
 
@@ -29,3 +29,22 @@ Stack in Saha: Next.js 16 on a Vite-based Cloudflare build (vinext), Drizzle on 
 ## Open point
 
 `CLAUDE.md` states that no person had reviewed the merged code. Whether a named person has since reviewed Saha's authentication or data-scope changes was not checked here (the clone is shallow). Treat review of those paths as a gap to close in this repository, not a pattern to copy.
+
+## What slice 1 took and left
+
+Slice 1 (the walking skeleton) is the first use of the table above. See [modules/platform/STATUS.md](../modules/platform/STATUS.md).
+
+Took, as design rather than copied code:
+
+- The layered runner with a regression guard and a catalogue check. The code is new and smaller (`scripts/test.mjs`). Baselines are per module (`modules/<module>/tests/baseline.json`), not one shared file.
+- The pinned stack: next 16.3.6, vinext 1.0.0-beta.5, vite 8.0.13, wrangler 4.92.0, @cloudflare/vite-plugin 1.37.1, drizzle-orm 0.45.2, pnpm 11.25.0, Node 22.
+- The supply-chain settings in `pnpm-workspace.yaml`: no package younger than seven days, and dependency build scripts only for named packages.
+- The Worker entry through vinext's fetch handler, the `cloudflare:workers` environment import, and running the built application in a local Worker with a local D1 for the smoke layer.
+- The CI shape: a documentation job on every pull request, and the engineering job skipped for documentation-only changes.
+
+Left out, on purpose:
+
+- The hosting-platform layer. Saha's `vite.config.ts` reads a project file under `.openai/hosting.json` and a vendored plugin (`build/sites-vite-plugin.ts`, with a LICENSE file beside it whose terms were not read). Hosting for this platform is not decided (OQ-07), so the build uses the plain Cloudflare plugin.
+- Saha's identity, which comes from that platform's dispatcher. Here a synthetic sign-in works only where `APLYD_ENV` is local, synthetic or test. The real method is OQ-13.
+- Hosted staging deployment, the Cloudflare Access configuration, and the supply-chain gate (SBOM and audit). They need the sponsor's Cloudflare account and are not in slice 1.
+- A browser (Playwright) layer. The smoke layer reads rendered HTML over HTTP; nothing here drives a browser yet.
