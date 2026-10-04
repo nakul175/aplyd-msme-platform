@@ -1,0 +1,11 @@
+{
+  "updatedAt": "2026-10-04",
+  "reason": "slice 5 deliver",
+  "suites": {
+    "browser/deliver": 3,
+    "integration/deliver-api": 23,
+    "smoke/deliver": 7,
+    "static/rules": 9,
+    "unit/state": 6
+  }
+}

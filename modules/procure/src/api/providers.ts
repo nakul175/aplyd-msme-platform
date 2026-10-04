@@ -105,11 +105,11 @@ export async function handleProviderList(request: Request, env: AppEnv, provider
   const form = body.kind === "form";
   const note = readNote(body);
   if (note === null) return form ? redirect("/operator?problem=note") : json(400, { error: "invalid", fields: { note: `Keep the note to text under ${MAX_NOTE_LENGTH} characters.` } });
-  if (providerId.length === 0 || providerId.length > 64) return json(404, { error: "not_found" });
+  if (providerId.length === 0 || providerId.length > 64) return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
 
   const result = await listProvider(allowed.db, { userId: allowed.identity.userId, providerId, note });
   if (result.ok) return form ? redirect("/operator?listed=1") : json(201, { ok: true, feeInr: result.feeInr });
-  if (result.reason === "not_found") return json(404, { error: "not_found" });
+  if (result.reason === "not_found") return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
   return form ? redirect(`/operator?problem=${result.reason}`) : json(409, { error: result.reason });
 }
 
@@ -122,11 +122,11 @@ export async function handleProviderUnlist(request: Request, env: AppEnv, provid
   const form = body.kind === "form";
   const note = readNote(body);
   if (note === null) return form ? redirect("/operator?problem=note") : json(400, { error: "invalid", fields: { note: `Keep the note to text under ${MAX_NOTE_LENGTH} characters.` } });
-  if (providerId.length === 0 || providerId.length > 64) return json(404, { error: "not_found" });
+  if (providerId.length === 0 || providerId.length > 64) return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
 
   const result = await unlistProvider(allowed.db, { userId: allowed.identity.userId, providerId, note });
   if (result.ok) return form ? redirect("/operator?unlisted=1") : json(201, { ok: true });
-  if (result.reason === "not_found") return json(404, { error: "not_found" });
+  if (result.reason === "not_found") return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
   return form ? redirect("/operator?problem=not_listed") : json(409, { error: "not_listed" });
 }
 

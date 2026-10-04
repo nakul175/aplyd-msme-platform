@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "slice 3 review fixes: new triggers, pins, key tripwire, form redirects",
+  "reason": "slice 5 deliver",
   "suites": {
     "browser/describe": 9,
     "integration/factory-api": 23,
