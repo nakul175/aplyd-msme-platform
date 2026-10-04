@@ -7,16 +7,16 @@ Last updated 4 October 2026. Read [AGENTS.md](../AGENTS.md) and [HANDOVER.md](..
 - Node 22.18 or later (the tests are TypeScript run directly by Node) and pnpm 11.25.0 (`corepack enable` picks it up from `package.json`).
 - `pnpm install --frozen-lockfile`. The install refuses packages published in the last seven days and runs dependency build scripts only for the packages named in `pnpm-workspace.yaml`.
 - Copy `.env.example` to `.dev.vars` and fill the names in. `SESSION_SECRET` must be at least 32 bytes of random text (`openssl rand -hex 32`); a shorter one or one repeated character makes sign-in refuse. `pnpm dev` sets `APLYD_ENV=local` itself. A built application carries no environment name, so run it with `APLYD_ENV` set explicitly (the smoke layer does).
-- `pnpm db:local` resets the local database and applies the migrations and the SYNTHETIC seed. `pnpm dev` starts the application at http://localhost:5173.
+- `pnpm db:local` resets the local database and applies the migrations and the SYNTHETIC seed (every `modules/*/db/seed-synthetic.sql`, the platform's first; a seed file must not contain a semicolon followed by a line break inside a string, and must be safe to run twice). `pnpm dev` starts the application at http://localhost:5173.
 
 ## Layout
 
 | Path | Holds |
 | --- | --- |
 | `app/` | The Next.js routes and pages. Thin: they call the module. |
-| `modules/<name>/` | One module per writing agent: `src/`, `tests/`, `STATUS.md`, `VALIDATION.md`. Today only `platform`. |
+| `modules/<name>/` | One module per writing agent: `src/`, `tests/`, `STATUS.md`, `VALIDATION.md`. `platform` (sign-in, scope, audit, test support) and `factory` (Describe). |
 | `worker/` | The Worker entry. |
-| `drizzle/` | Migrations. Generated from `modules/platform/src/db/schema.ts` with `pnpm db:generate`; custom SQL with `pnpm db:generate --custom --name <name>`. Applied migrations are never edited. |
+| `drizzle/` | Migrations. Generated from every `modules/*/src/db/schema.ts` with `pnpm db:generate`; custom SQL with `pnpm db:generate --custom --name <name>`. Applied migrations are never edited. |
 | `scripts/` | The test runner, the documentation check, the local database script. |
 
 ## Tests

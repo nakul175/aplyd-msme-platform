@@ -22,6 +22,20 @@
       "when": 1791134444191,
       "tag": "0002_audit_no_replace",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791135555498,
+      "tag": "0003_factory_revisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791135556662,
+      "tag": "0004_factory_revisions_append_only",
+      "breakpoints": true
     }
   ]
 }

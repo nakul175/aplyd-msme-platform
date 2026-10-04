@@ -1,6 +1,6 @@
 // Applies the SQL files in drizzle/ and the synthetic seed to a D1 database. For tests and local scripts only.
 // The Worker never imports this file (it reads the file system).
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,15 +29,25 @@ export function migrationStatements(): string[] {
   return migrationFiles().flatMap((f) => statements(f));
 }
 
+/** Every module's synthetic seed, the platform's first (the others refer to its companies and users). */
+export function seedFiles(): string[] {
+  const modules = readdirSync(join(ROOT, "modules"))
+    .filter((m) => existsSync(join(ROOT, "modules", m, "db", "seed-synthetic.sql")))
+    .sort((a, b) => (a === "platform" ? -1 : b === "platform" ? 1 : a.localeCompare(b)));
+  return modules.map((m) => join(ROOT, "modules", m, "db", "seed-synthetic.sql"));
+}
+
 export function seedStatements(): string[] {
-  // The seed file has one statement per INSERT; split on the semicolon that ends one.
-  return readFileSync(join(ROOT, "modules/platform/db/seed-synthetic.sql"), "utf8")
-    .split("\n")
-    .filter((l) => !l.trim().startsWith("--"))
-    .join("\n")
-    .split(/;\s*(?:\n|$)/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // A seed file has one statement per INSERT; split on the semicolon that ends one, so no seed text may contain a semicolon followed by a line break.
+  return seedFiles().flatMap((file) =>
+    readFileSync(file, "utf8")
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("--"))
+      .join("\n")
+      .split(/;\s*(?:\n|$)/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
 }
 
 export async function applyMigrations(db: D1Database, options: { seed?: boolean } = {}): Promise<void> {

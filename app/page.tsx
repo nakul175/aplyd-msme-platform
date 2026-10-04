@@ -40,6 +40,11 @@ export default async function Home() {
           <p className="muted">No company is linked to this account, so there is no company record to show.</p>
         )}
       </section>
+      {identity.companyId && identity.role === "owner" ? (
+        <p>
+          <a href="/factory">Describe your factory</a>
+        </p>
+      ) : null}
       <form method="post" action="/api/session">
         <input type="hidden" name="intent" value="sign-out" />
         <button type="submit">Sign out</button>
