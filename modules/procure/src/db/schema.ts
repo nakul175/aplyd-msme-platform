@@ -3,7 +3,7 @@ import { check, foreignKey, index, integer, sqliteTable, text, uniqueIndex } fro
 import { assessments } from "../../../diagnose/src/db/schema.ts";
 import { companies, users } from "../../../platform/src/db/schema.ts";
 
-// Every table here is append-only: triggers (drizzle/0008_procure_guards.sql) refuse UPDATE, DELETE and any INSERT that would
+// Every table here is append-only: triggers (drizzle/0009_procure_guards.sql) refuse UPDATE, DELETE and any INSERT that would
 // replace a row, and enforce the rules about what may be inserted. What changes over time is recorded as events.
 
 // A company's standard requirement: one accepted item of one signed-off assessment, asked for in one cluster. It never changes.
