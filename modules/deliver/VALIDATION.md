@@ -4,7 +4,7 @@ Environment for every result below: a Linux container, Node v22.22.0, pnpm 11.25
 
 ## Results
 
-First run (before the review): in the working tree of branch `slice-5-deploy` after slice 4's final version was merged into it: `pnpm build`, then `node scripts/test.mjs pr --update-baseline --reason "slice 5 deliver"`. After the review fixes: `pnpm build`, then `node scripts/test.mjs pr --update-baseline --reason "slice 5 review fixes"`: **46 suites, all passed**, 5 October 2026, run on a machine that was also running mutation checks. The pull request's own CI result is not recorded here; it has not been read.
+First run (before the review): in the working tree of branch `slice-5-deploy` after slice 4's final version was merged into it: `pnpm build`, then `node scripts/test.mjs pr --update-baseline --reason "slice 5 deliver"`. After the review fixes: `pnpm build`, then `node scripts/test.mjs pr --update-baseline --reason "slice 5 review fixes"`: **46 suites, all passed**, 5 October 2026, run on a machine that was also running mutation checks. Afterwards one suite was added (`platform/static/conflict-markers`, 2 tests, passing, see below), and the static layer was run again; the full run was not repeated for that. The pull request's own CI result is not recorded here; it has not been read.
 
 | Suite | First run | After the review fixes |
 | --- | --- | --- |
@@ -35,6 +35,8 @@ A separate agent (a fresh Claude session given only the diff and the repository 
 | **L5** The page and the API differ on who may view | Documented (limit 14) |
 
 ## What the first runs found
+
+- **Merge-conflict markers in HANDOVER.md, pushed.** Merging slice 4's review fixes into this branch left `<<<<<<<`, `=======` and `>>>>>>>` lines in `HANDOVER.md`, and they were committed and pushed (pull request #6) because nothing checked for them. Found on 5 October 2026 while merging this branch forward. Fixed in a later commit on this branch: the file keeps slice 4's newer entry and this slice's. The documentation check (`scripts/check-documentation.mjs`, run by `static/documentation`) now fails on a conflict marker at the start of a line in any text file of the repository, and a new suite, `platform/static/conflict-markers` (2 tests), runs the script on small trees of its own: clean, a Markdown heading underlined with `=======` (allowed), and a marker in a document, in code, in SQL and in JSON (refused, with the file and line named). The earlier branches (slices 1 to 4) were searched and have none.
 
 - **A cap that could block a payment.** The first design capped the events on a milestone at 30, which could stop an owner recording the payment for work they had accepted. Replaced by a cap on deliveries (14, an assumption), from which at most 29 events follow; a test fills the cap, accepts the last delivery and records the payment.
 - **A trigger that depended on firing order.** SQLite does not define the order triggers run in; two triggers could refuse the same event with different messages. Most rules were rewritten so they do not overlap, and the tests match on the message. The independent review showed this was not finished for deliveries (a 15th delivery while the 14th awaits a decision matches two rules) and for creating an engagement; see limit 16 in STATUS.

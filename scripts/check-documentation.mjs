@@ -3,6 +3,7 @@
 //   1. Every relative Markdown link resolves to a file, and any #anchor to a heading in it.
 //   2. Every decision, proposal, carried-forward position, open question and source ID that is mentioned is defined.
 //   3. Every source in the register has a 64-character SHA-256.
+//   4. No file holds a merge-conflict marker (a merge committed without being resolved put one in HANDOVER.md on slice 5).
 // Exit code 0 when clean, 1 when a problem is found.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -104,9 +105,38 @@ if (existsSync(join(ROOT, "docs/sources.md"))) {
   }
 }
 
+// 4. Conflict markers: a line that starts "<<<<<<< " or ">>>>>>> " (git writes both, with a branch name after them), in any text file
+// that is in the repository. A bare "=======" line is not looked for on its own: Markdown uses it to underline a heading.
+const TEXT = /\.(md|mjs|cjs|js|jsx|ts|tsx|json|sql|yml|yaml|css|html|txt|toml)$/;
+function textFiles() {
+  try {
+    const out = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return out.split("\n").filter(Boolean).filter((f) => TEXT.test(f) && existsSync(join(ROOT, f)));
+  } catch {
+    const found = [];
+    const walk = (dir) => {
+      for (const name of readdirSync(dir)) {
+        if (["node_modules", ".git", "dist", ".next", ".wrangler"].includes(name)) continue;
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (TEXT.test(name)) found.push(relative(ROOT, p));
+      }
+    };
+    walk(ROOT);
+    return found;
+  }
+}
+for (const file of textFiles()) {
+  readFileSync(join(ROOT, file), "utf8")
+    .split("\n")
+    .forEach((line, i) => {
+      if (/^(<{7}|>{7})( |$)/.test(line)) problems.push(`${file}:${i + 1}: a merge-conflict marker is still in the file`);
+    });
+}
+
 if (problems.length) {
   console.error(`Documentation check failed (${problems.length}):`);
   for (const p of [...new Set(problems)]) console.error(`  - ${p}`);
   process.exit(1);
 }
-console.log(`Documentation check passed: ${files.length} Markdown files, ${defined.decision.size} decisions, ${defined.question.size} open questions, ${defined.source.size} sources.`);
+console.log(`Documentation check passed: ${files.length} Markdown files, no conflict markers, ${defined.decision.size} decisions, ${defined.question.size} open questions, ${defined.source.size} sources.`);
