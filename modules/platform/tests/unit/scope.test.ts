@@ -26,3 +26,17 @@ test("an empty or null-like id is never a match for a person without a company",
   assert.equal(canReadCompany(owner(null), ""), false);
   assert.equal(canReadCompany(owner(null), "null"), false);
 });
+
+test("only the exact id matches: case, spacing, prefixes, suffixes, look-alikes and escapes do not", () => {
+  const own = "company-a";
+  assert.equal(canReadCompany(owner(own), own), true, "control");
+  const nearMisses = [
+    "Company-A", "COMPANY-A", " company-a", "company-a ", "company-a\n", "company-a\0", "company-", "company", "company-a-extra", "company-ab",
+    "xcompany-a", "ｃompany-a", "company\u2011a", "company-a%00", "company%2Da", "company-a/", "/company-a", "company-a/..", "company-a?x=1", "company-a#x", "",
+  ];
+  for (const id of nearMisses) assert.equal(canReadCompany(owner(own), id), false, JSON.stringify(id));
+});
+
+test("a person whose company is an empty string reads nothing, even for an empty id", () => {
+  assert.equal(canReadCompany(owner(""), ""), false);
+});

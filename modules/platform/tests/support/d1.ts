@@ -3,6 +3,9 @@ import { Miniflare } from "miniflare";
 import { applyMigrations } from "../../src/db/migrate.ts";
 import type { AppEnv } from "../../src/env.ts";
 
+/** 44 characters: long enough for getSessionSecret. Not a real secret. */
+export const TEST_SECRET = "integration-test-secret-not-real-0123456789";
+
 export async function createTestEnvironment(overrides: Partial<AppEnv> = {}): Promise<{ env: AppEnv; db: D1Database; dispose: () => Promise<void> }> {
   const mf = new Miniflare({
     modules: true,
@@ -12,7 +15,7 @@ export async function createTestEnvironment(overrides: Partial<AppEnv> = {}): Pr
   });
   const db = (await mf.getD1Database("DB")) as unknown as D1Database;
   await applyMigrations(db, { seed: true });
-  const env: AppEnv = { DB: db, APLYD_ENV: "test", SESSION_SECRET: "integration-secret-not-real", ...overrides };
+  const env: AppEnv = { DB: db, APLYD_ENV: "test", SESSION_SECRET: TEST_SECRET, ...overrides };
   return { env, db, dispose: () => mf.dispose() };
 }
 

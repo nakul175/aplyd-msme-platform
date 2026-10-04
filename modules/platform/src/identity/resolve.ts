@@ -1,3 +1,4 @@
+import { getSessionSecret } from "../env.ts";
 import type { AppEnv } from "../env.ts";
 import type { Identity } from "./scope.ts";
 import { SESSION_COOKIE, readCookie, verifySession } from "./session.ts";
@@ -7,10 +8,11 @@ import { SESSION_COOKIE, readCookie, verifySession } from "./session.ts";
  * Company and role are read from the database on every request, so a removed user loses access at once.
  */
 export async function resolveIdentityFromCookieHeader(cookieHeader: string | null, env: AppEnv): Promise<Identity | null> {
-  if (!env.DB || !env.SESSION_SECRET) return null;
+  const secret = getSessionSecret(env);
+  if (!env.DB || !secret) return null;
   const token = readCookie(cookieHeader, SESSION_COOKIE);
   if (!token) return null;
-  const claims = await verifySession(token, env.SESSION_SECRET, Math.floor(Date.now() / 1000));
+  const claims = await verifySession(token, secret, Math.floor(Date.now() / 1000));
   if (!claims) return null;
   const row = await env.DB
     .prepare("SELECT id, company_id, role, display_name FROM users WHERE id = ?")

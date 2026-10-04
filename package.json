@@ -12,7 +12,8 @@
     "build": "vinext build",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "test": "node scripts/test.mjs pr",
+    "db:check": "drizzle-kit check",
+    "test": "node scripts/test.mjs pr --guard",
     "test:static": "node scripts/test.mjs static",
     "test:unit": "node scripts/test.mjs unit",
     "test:integration": "node scripts/test.mjs integration",
@@ -25,8 +26,7 @@
     "drizzle-orm": "0.45.2",
     "next": "16.3.6",
     "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "zod": "3.25.76"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

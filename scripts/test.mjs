@@ -28,6 +28,8 @@ const TIMEOUT_MIN = { static: 10, unit: 10, integration: 15, smoke: 15, browser:
 const COMMAND_SUITES = [
   { id: "static/typecheck", layer: "static", cmd: process.execPath, args: ["node_modules/typescript/bin/tsc", "--noEmit"] },
   { id: "static/documentation", layer: "static", cmd: process.execPath, args: ["scripts/check-documentation.mjs"] },
+  // The migrations, their journal and their snapshots agree with the schema (drizzle-kit check).
+  { id: "static/migrations", layer: "static", cmd: process.execPath, args: ["node_modules/drizzle-kit/bin.cjs", "check"] },
 ];
 
 const args = process.argv.slice(2);
@@ -53,11 +55,25 @@ function discover() {
   const suites = [];
   const errors = [];
   const modulesDir = join(ROOT, "modules");
+  const strayTests = (dir, rel) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const here = `${rel}/${entry.name}`;
+      if (entry.isDirectory()) strayTests(join(dir, entry.name), here);
+      else if (/\.test\.[cm]?[jt]sx?$/.test(entry.name)) errors.push(`${here}: a test file outside modules/<module>/tests/<layer>/ would never run`);
+    }
+  };
   for (const mod of existsSync(modulesDir) ? readdirSync(modulesDir) : []) {
+    for (const entry of readdirSync(join(modulesDir, mod), { withFileTypes: true })) {
+      if (entry.name !== "tests" && entry.isDirectory()) strayTests(join(modulesDir, mod, entry.name), `modules/${mod}/${entry.name}`);
+    }
     const testsDir = join(modulesDir, mod, "tests");
     if (!existsSync(testsDir)) continue;
     for (const entry of readdirSync(testsDir, { withFileTypes: true })) {
-      if (entry.name === "baseline.json" || entry.name === "support") continue;
+      if (entry.name === "support") {
+        strayTests(join(testsDir, "support"), `modules/${mod}/tests/support`);
+        continue;
+      }
+      if (entry.name === "baseline.json") continue;
       if (!entry.isDirectory() || !LAYERS.includes(entry.name)) {
         errors.push(`modules/${mod}/tests/${entry.name}: not a layer directory (${LAYERS.join(", ")}) or support/`);
         continue;
@@ -150,7 +166,7 @@ function run(suite) {
       clearTimeout(timer);
       const count = (name) => Number(out.match(new RegExp(`^# ${name} (\\d+)`, "m"))?.[1] ?? NaN);
       const result = { id: suite.id, key: suite.key, module: suite.module, layer: suite.layer, exitCode: code ?? 1, timedOut, durationMs: Date.now() - started, output: out };
-      if (suite.file) Object.assign(result, { passed: count("pass"), failed: count("fail"), skipped: count("skipped") });
+      if (suite.file) Object.assign(result, { passed: count("pass"), failed: count("fail"), skipped: count("skipped"), todo: count("todo"), cancelled: count("cancelled") });
       done(result);
     });
   });
@@ -159,10 +175,10 @@ function run(suite) {
 const results = [];
 for (const suite of selected) {
   const r = await run(suite);
-  const ok = r.exitCode === 0 && !r.timedOut && (r.failed === undefined || (r.failed === 0 && r.passed > 0 && r.skipped === 0));
+  const ok = r.exitCode === 0 && !r.timedOut && (r.failed === undefined || (r.failed === 0 && r.passed > 0 && r.skipped === 0 && r.todo === 0 && r.cancelled === 0));
   r.ok = ok;
   results.push(r);
-  const detail = r.passed === undefined ? "" : `  ${r.passed} passed${r.failed ? `, ${r.failed} failed` : ""}${r.skipped ? `, ${r.skipped} skipped` : ""}`;
+  const detail = r.passed === undefined ? "" : `  ${r.passed} passed${r.failed ? `, ${r.failed} failed` : ""}${r.skipped ? `, ${r.skipped} skipped` : ""}${r.todo ? `, ${r.todo} todo` : ""}${r.cancelled ? `, ${r.cancelled} cancelled` : ""}`;
   console.log(`${ok ? "PASS" : "FAIL"}  ${suite.id.padEnd(46)} ${fmt(r.durationMs).padStart(7)}${detail}${r.timedOut ? "  (timed out)" : ""}`);
   if (!ok) console.log(r.output.split("\n").slice(-60).join("\n"));
 }
