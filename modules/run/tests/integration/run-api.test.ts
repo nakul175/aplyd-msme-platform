@@ -397,6 +397,91 @@ test("the database itself refuses a review that is early, a baseline that is lat
   assert.equal(await count("outcome_events"), 1);
 });
 
+test("the table's own rules hold for whoever writes: ranges, shapes of each kind, the lists of verdicts, whole numbers, the length of a note", async () => {
+  const p = await planned();
+  let at = new Date().toISOString();
+  const insert = (cols: string, values: unknown[]) =>
+    db.prepare(`INSERT INTO outcome_events (engagement_id, company_id, at, user_id, ${cols}) VALUES (?, ?, ?, 'user-synthetic-owner-a', ${values.map(() => "?").join(", ")})`).bind(p.id, A, at, ...values).run();
+  const baseline = (value: unknown, note = "") => insert("kind, value, note", ["baseline", value, note]);
+  const review = (extra: { no?: unknown; value?: unknown; verdict?: unknown; inUse?: unknown }) =>
+    insert("kind, review_no, value, verdict, in_use, note", ["review", extra.no ?? 1, extra.value ?? 1, extra.verdict ?? "met", extra.inUse ?? "yes", ""]);
+
+  // the range of a figure
+  await assert.rejects(baseline(-1), /CHECK/, "a negative figure");
+  await assert.rejects(baseline(1_000_000_001), /CHECK/, "one over the largest");
+  await assert.rejects(baseline("abc"), /CHECK|whole number/, "text is not a figure (the range check and the whole-number rule both refuse it, and either may answer)");
+  // a figure is a whole number: the column keeps 1.5 as 1.5 and the range check lets it through, so a rule of its own refuses it
+  for (const fraction of [1.5, 0.5, 999_999_999.5, 1e-9]) await assert.rejects(baseline(fraction), /whole number/, `${fraction}`);
+  // the length of a note
+  await assert.rejects(baseline(1, "x".repeat(501)), /CHECK/);
+  // each kind has its own shape
+  await assert.rejects(insert("kind, value, verdict, in_use", ["baseline", 1, "met", "yes"]), /CHECK/, "a baseline has no verdict");
+  await assert.rejects(insert("kind, value, review_no", ["baseline", 1, 1]), /CHECK/, "a baseline has no review number");
+  await assert.rejects(insert("kind, value, in_use", ["baseline", 1, "yes"]), /CHECK/, "a baseline does not say whether it is in use");
+  await assert.rejects(insert("kind, value", ["other", 1]), /CHECK/, "a kind that is neither");
+  assert.equal(await count("outcome_events"), 0, "nothing was written by any of them");
+
+  // The same for a review. It is written on an engagement that has an accepted milestone, at a time long after it, so that none of
+  // the rules about order and dates has anything to say and the table's own rules are the only thing between the row and the table.
+  await accept(p);
+  at = "2099-01-01T00:00:00.000Z";
+  await assert.rejects(review({ value: 2.25 }), /whole number/, "a review's figure too");
+  await assert.rejects(insert("kind, value", ["review", 1]), /CHECK/, "a review needs a number, a verdict and whether it is in use");
+  await assert.rejects(insert("kind, review_no, value, in_use", ["review", 1, 1, "yes"]), /CHECK/, "a review without a verdict");
+  await assert.rejects(insert("kind, review_no, value, verdict", ["review", 1, 1, "met"]), /CHECK/, "a review without whether it is in use");
+  await assert.rejects(insert("kind, value, verdict, in_use", ["review", 1, "met", "yes"]), /CHECK/, "a review without its number");
+  for (const no of [0, 4, -1]) await assert.rejects(review({ no }), /CHECK/, `review number ${no}`);
+  for (const no of [1.5, 2.5, 3.0000001]) await assert.rejects(review({ no }), /whole number/, `review number ${no} is between 1 and 3 and is not a number of a review`);
+  for (const verdict of ["MET", "ok", "", "partly "]) await assert.rejects(review({ verdict }), /CHECK/, `verdict ${JSON.stringify(verdict)}`);
+  for (const inUse of ["YES", "maybe", ""]) await assert.rejects(review({ inUse }), /CHECK/, `in use ${JSON.stringify(inUse)}`);
+  assert.equal(await count("outcome_events"), 0, "nothing was written by any of them");
+  await review({ value: 0 });
+  assert.equal(await count("outcome_events"), 1, "a review that breaks no rule is accepted: the refusals above were for the reasons given");
+});
+
+test("the once-only and the clock rules hold for each engagement on its own: a second engagement of the same company is neither blocked by the first nor opened by it", async () => {
+  const s = await base();
+  const e1 = await engageFor(s, 0);
+  const e2 = await engageFor(s, 1);
+  const milestones: Record<string, string> = {};
+  for (const e of [e1, e2]) {
+    const m = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${e.id}/milestones`, s.a, MILESTONE), env, A, e.id);
+    assert.equal(m.status, 201);
+    milestones[e.id] = ((await m.json()) as { id: string }).id;
+    assert.equal((await deliverEvent(e.id, s.a, { kind: "plan_agreed" })).status, 201);
+  }
+  const insertBaseline = (eid: string, at: string) => db.prepare("INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, value, note) VALUES (?, ?, ?, 'user-synthetic-owner-a', 'baseline', 1, '')").bind(eid, A, at).run();
+  const insertReview = (eid: string, no: number, at: string) => db.prepare("INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, review_no, value, verdict, in_use, note) VALUES (?, ?, ?, 'user-synthetic-owner-a', 'review', ?, 1, 'met', 'yes', '')").bind(eid, A, at, no).run();
+  const now = new Date().toISOString();
+  const past = "2020-01-01T00:00:00.000Z";
+  // engagement 2 was accepted long ago (rows written the way the application would have written them on that day)
+  const direct = (eid: string, kind: string, at: string) => db.prepare("INSERT INTO engagement_events (engagement_id, company_id, at, user_id, kind, milestone_id, note) VALUES (?, ?, ?, 'user-synthetic-owner-a', ?, ?, '')").bind(eid, A, at, kind, milestones[eid]).run();
+  await direct(e2.id, "delivered", past);
+  await direct(e2.id, "accepted", past);
+
+  // a baseline is closed by an acceptance in ITS engagement, not by one elsewhere in the company, and is once for each engagement
+  await assert.rejects(insertBaseline(e2.id, now), /before anything is accepted/, "engagement 2 has an acceptance, so its baseline is too late");
+  await insertBaseline(e1.id, now);
+  await assert.rejects(insertBaseline(e1.id, now), /a baseline is recorded once/);
+  assert.equal(await count("outcome_events", "kind = 'baseline'"), 1);
+
+  // a review needs an acceptance in its own engagement
+  await assert.rejects(insertReview(e1.id, 1, "2099-01-01T00:00:00.000Z"), /needs an accepted milestone/, "engagement 1 has nothing accepted, however much engagement 2 has");
+  // and is timed from its own first acceptance: engagement 2's review 1 is due, because its acceptance was long ago
+  await insertReview(e2.id, 1, now);
+  await assert.rejects(insertReview(e2.id, 1, now), /this review is recorded once/);
+
+  // engagement 1 is accepted now: its review 1 is not due for 30 days, although engagement 2's was due years ago, and it can be recorded although engagement 2's number 1 is
+  assert.equal((await deliverEvent(e1.id, s.a, { kind: "delivered", milestoneId: milestones[e1.id] })).status, 201);
+  assert.equal((await deliverEvent(e1.id, s.a, { kind: "accepted", milestoneId: milestones[e1.id] })).status, 201);
+  const acceptedHere = (await view(e1.id, s.a)).firstAcceptedAt!;
+  await assert.rejects(insertReview(e1.id, 1, now), /not due yet/);
+  await assert.rejects(insertReview(e1.id, 1, after(acceptedHere, 30, -1).toISOString()), /not due yet/);
+  await insertReview(e1.id, 1, after(acceptedHere, 30).toISOString());
+  assert.equal(await count("outcome_events", "kind = 'review' AND review_no = 1"), 2, "each review number is once for each engagement, not once for the company");
+  await assert.rejects(insertBaseline(e1.id, after(acceptedHere, 31).toISOString()), /a baseline is recorded once/);
+});
+
 test("form posts go back to the page with what happened, and are never answered with JSON", async () => {
   const p = await planned();
   const send = (fields: [string, string][], eid = p.id, now?: Date) => handleOutcomeRecord(form(`/api/companies/${A}/engagements/${eid}/outcomes`, p.a, fields), env, A, eid, now ? () => now : undefined);

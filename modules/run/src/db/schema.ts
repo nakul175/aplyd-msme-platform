@@ -30,10 +30,12 @@ export const outcomeEvents = sqliteTable(
     foreignKey({ name: "outcome_events_engagement_fk", columns: [t.engagementId, t.companyId], foreignColumns: [engagements.id, engagements.companyId] }),
     check("outcome_events_value", sql`${t.value} BETWEEN 0 AND 1000000000`),
     check("outcome_events_note", sql`length(${t.note}) <= 500`),
+    // Every column a kind needs is named as NOT NULL as well as in range: a CHECK that is NULL passes, so a bare BETWEEN or IN would
+    // let a review with no number, no verdict or no answer on use into the table.
     check(
       "outcome_events_shape",
       sql`(${t.kind} = 'baseline' AND ${t.reviewNo} IS NULL AND ${t.verdict} IS NULL AND ${t.inUse} IS NULL)
-       OR (${t.kind} = 'review' AND ${t.reviewNo} BETWEEN 1 AND 3 AND ${t.verdict} IN ('met', 'partly', 'not_met') AND ${t.inUse} IN ('yes', 'no'))`,
+       OR (${t.kind} = 'review' AND ${t.reviewNo} IS NOT NULL AND ${t.reviewNo} BETWEEN 1 AND 3 AND ${t.verdict} IS NOT NULL AND ${t.verdict} IN ('met', 'partly', 'not_met') AND ${t.inUse} IS NOT NULL AND ${t.inUse} IN ('yes', 'no'))`,
     ),
   ],
 );

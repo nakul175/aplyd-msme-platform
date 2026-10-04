@@ -36,6 +36,7 @@ export const RULE_TRIGGERS: Record<string, string[]> = {
   engagements: ["engagements_needs_an_open_requirement", "engagements_needs_a_listed_provider"],
   milestones: ["milestones_plan_is_open", "milestones_limit"],
   outcome_events: [
+    "outcome_events_value_is_whole",
     "outcome_events_one_baseline_only",
     "outcome_events_one_review_each",
     "outcome_events_baseline_before_acceptance",

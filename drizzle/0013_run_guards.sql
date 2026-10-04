@@ -21,22 +21,31 @@ BEGIN
 END;
 --> statement-breakpoint
 -- The rules below are written not to overlap (the order in which SQLite runs triggers is not defined), so each refusal has one
--- message: a second baseline or review is "once" before anything else is looked at.
+-- message: a second baseline or review is "once" before anything else is looked at, and a figure or a review number that is not a
+-- whole number is refused by its own rule alone (every other rule leaves it to that one).
+-- The columns have integer affinity, which keeps 1.5 as 1.5, and a range check lets it through (1.5 is between 1 and 3); the
+-- application only sends whole numbers, and this makes the table say so too.
+CREATE TRIGGER outcome_events_value_is_whole BEFORE INSERT ON outcome_events
+WHEN typeof(NEW.value) <> 'integer' OR typeof(COALESCE(NEW.review_no, 0)) <> 'integer'
+BEGIN
+  SELECT RAISE(ABORT, 'a figure and a review number are whole numbers');
+END;
+--> statement-breakpoint
 CREATE TRIGGER outcome_events_one_baseline_only BEFORE INSERT ON outcome_events
-WHEN NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')
+WHEN typeof(NEW.value) = 'integer' AND typeof(COALESCE(NEW.review_no, 0)) = 'integer' AND NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')
 BEGIN
   SELECT RAISE(ABORT, 'a baseline is recorded once');
 END;
 --> statement-breakpoint
 CREATE TRIGGER outcome_events_one_review_each BEFORE INSERT ON outcome_events
-WHEN NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)
+WHEN typeof(NEW.value) = 'integer' AND typeof(COALESCE(NEW.review_no, 0)) = 'integer' AND NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)
 BEGIN
   SELECT RAISE(ABORT, 'this review is recorded once');
 END;
 --> statement-breakpoint
 -- The baseline is what things were before the work: it is taken before anything is accepted, not after.
 CREATE TRIGGER outcome_events_baseline_before_acceptance BEFORE INSERT ON outcome_events
-WHEN NEW.kind = 'baseline'
+WHEN typeof(NEW.value) = 'integer' AND typeof(COALESCE(NEW.review_no, 0)) = 'integer' AND NEW.kind = 'baseline'
  AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')
  AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')
 BEGIN
@@ -47,7 +56,7 @@ END;
 -- REVIEW_DAYS in the code; a test keeps them equal). The time compared is the one the application stamps on the event. If either
 -- time cannot be read as a time the comparison has no answer, and the review is refused rather than let through.
 CREATE TRIGGER outcome_events_review_needs_an_acceptance BEFORE INSERT ON outcome_events
-WHEN NEW.kind = 'review'
+WHEN typeof(NEW.value) = 'integer' AND typeof(COALESCE(NEW.review_no, 0)) = 'integer' AND NEW.kind = 'review'
  AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)
  AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')
 BEGIN
@@ -55,7 +64,7 @@ BEGIN
 END;
 --> statement-breakpoint
 CREATE TRIGGER outcome_events_review_is_due BEFORE INSERT ON outcome_events
-WHEN NEW.kind = 'review'
+WHEN typeof(NEW.value) = 'integer' AND typeof(COALESCE(NEW.review_no, 0)) = 'integer' AND NEW.kind = 'review'
  AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)
  AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')
  AND COALESCE(julianday(NEW.at) >= julianday((SELECT at FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted' ORDER BY id LIMIT 1))

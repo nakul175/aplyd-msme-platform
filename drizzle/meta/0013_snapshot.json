@@ -1801,7 +1801,7 @@
         },
         "outcome_events_shape": {
           "name": "outcome_events_shape",
-          "value": "(\"outcome_events\".\"kind\" = 'baseline' AND \"outcome_events\".\"review_no\" IS NULL AND \"outcome_events\".\"verdict\" IS NULL AND \"outcome_events\".\"in_use\" IS NULL)\n       OR (\"outcome_events\".\"kind\" = 'review' AND \"outcome_events\".\"review_no\" BETWEEN 1 AND 3 AND \"outcome_events\".\"verdict\" IN ('met', 'partly', 'not_met') AND \"outcome_events\".\"in_use\" IN ('yes', 'no'))"
+          "value": "(\"outcome_events\".\"kind\" = 'baseline' AND \"outcome_events\".\"review_no\" IS NULL AND \"outcome_events\".\"verdict\" IS NULL AND \"outcome_events\".\"in_use\" IS NULL)\n       OR (\"outcome_events\".\"kind\" = 'review' AND \"outcome_events\".\"review_no\" IS NOT NULL AND \"outcome_events\".\"review_no\" BETWEEN 1 AND 3 AND \"outcome_events\".\"verdict\" IS NOT NULL AND \"outcome_events\".\"verdict\" IN ('met', 'partly', 'not_met') AND \"outcome_events\".\"in_use\" IS NOT NULL AND \"outcome_events\".\"in_use\" IN ('yes', 'no'))"
         }
       }
     }
