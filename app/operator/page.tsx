@@ -163,55 +163,58 @@ export default async function Operator({ searchParams }: { searchParams: Promise
             <p>None yet. Add one in the form below, then list it so owners can choose it.</p>
           </div>
         ) : (
-          <div className="table-wrap" data-testid="providers">
-            <table className="op-table">
-              <thead>
-                <tr>
-                  <th scope="col">Provider</th>
-                  <th scope="col">What it serves</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">
-                    <span className="sr">Action</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {providers.map((p) => {
-                  const serves = serviceGroups(p.services, titleOf, clusterLabel);
-                  return (
-                    <tr key={p.id} data-testid={`provider-${p.name}`}>
-                      <td>
-                        <span className="op-name">{p.name}</span>
-                        {p.summary ? <span className="op-sub">{p.summary}</span> : null}
-                      </td>
-                      <td data-label="What it serves">{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
-                      <td data-label="Status">
-                        <div className="op-tags">
-                          <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
-                          {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
-                        </div>
-                      </td>
-                      <td>
-                        {p.listed ? (
-                          <form method="post" action={`/api/operator/providers/${p.id}/unlist`}>
-                            <button type="submit" aria-label={`Unlist ${p.name}`}>
-                              Unlist
-                            </button>
-                          </form>
-                        ) : (
-                          <form method="post" action={`/api/operator/providers/${p.id}/list`}>
-                            <button type="submit" className="primary" aria-label={`List ${p.name}`}>
-                              List
-                            </button>
-                          </form>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <p className="help op-scroll-hint">The table is wider than a phone. Scroll it sideways to see every column.</p>
+            <div className="table-wrap" data-testid="providers" role="region" aria-label="Providers table, scrolls sideways" tabIndex={0}>
+              <table className="op-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Provider</th>
+                    <th scope="col">What it serves</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">
+                      <span className="sr">Action</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {providers.map((p) => {
+                    const serves = serviceGroups(p.services, titleOf, clusterLabel);
+                    return (
+                      <tr key={p.id} data-testid={`provider-${p.name}`}>
+                        <td>
+                          <span className="op-name">{p.name}</span>
+                          {p.summary ? <span className="op-sub">{p.summary}</span> : null}
+                        </td>
+                        <td>{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
+                        <td>
+                          <div className="op-tags">
+                            <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
+                            {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
+                          </div>
+                        </td>
+                        <td>
+                          {p.listed ? (
+                            <form method="post" action={`/api/operator/providers/${p.id}/unlist`}>
+                              <button type="submit" aria-label={`Unlist ${p.name}`}>
+                                Unlist
+                              </button>
+                            </form>
+                          ) : (
+                            <form method="post" action={`/api/operator/providers/${p.id}/list`}>
+                              <button type="submit" className="primary" aria-label={`List ${p.name}`}>
+                                List
+                              </button>
+                            </form>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 
