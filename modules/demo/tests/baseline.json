@@ -1,0 +1,12 @@
+{
+  "updatedAt": "2026-10-05",
+  "reason": "Slice 9: demonstration suites (unit, static, smoke, browser) and the import-following exemption test in platform source-rules",
+  "suites": {
+    "browser/walk": 2,
+    "smoke/demo": 10,
+    "static/script-labels": 3,
+    "unit/cast": 10,
+    "unit/script": 5,
+    "unit/seed-checks": 2
+  }
+}
