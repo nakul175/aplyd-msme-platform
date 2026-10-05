@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STAGE_IDS, isOwnersTurn, nextStep, stageLine, stageStatuses } from "../../src/progress.ts";
 import type { EngagementFacts, Facts } from "../../src/progress.ts";
-import { DAY, KEYS, NOW, RULES, STAGE_ORDER, badPlurals, expectedRule, expectedStatuses, isoAt, rawWordsIn, smallEngagements, smallPrefixes, stageWordsIn } from "../support/model.ts";
+import { DAY, KEYS, NOW, RULES, STAGE_ORDER, badPlurals, expectedLinePattern, expectedRule, expectedStatuses, isoAt, rawWordsIn, smallEngagements, smallPrefixes, stageWordsIn } from "../support/model.ts";
 import type { Key } from "../support/model.ts";
 
 const at = (days: number) => isoAt(NOW.getTime() - days * DAY);
@@ -77,6 +77,7 @@ function check(facts: Facts): void {
   for (const id of STAGE_IDS) {
     const line = stageLine(id, facts, NOW);
     assert.ok(rawWordsIn(line).length === 0 && stageWordsIn(line).length === 0 && badPlurals(line).length === 0 && line.trim().length > 0, `${id}: "${line}" ${note()}`);
+    assert.match(line, expectedLinePattern(id, facts, NOW), `${id}: "${line}" ${note()}`);
   }
 }
 

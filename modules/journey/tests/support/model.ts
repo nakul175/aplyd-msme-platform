@@ -144,6 +144,42 @@ export function expectedStatuses(f: Facts, now: Date): Record<StageId, "done" | 
   return out;
 }
 
+/**
+ * What the line under a stage must say, as a pattern, by the first condition that holds in the table of docs/design/LLD.md 4.7 ("stageLine
+ * tests its branches in this order"). The patterns hold the phrases the table and the functional specification use, not whole sentences,
+ * and the numbers are checked apart.
+ */
+export function expectedLinePattern(stage: StageId, f: Facts, now: Date): RegExp {
+  const { factory, assessment, engagements } = f;
+  switch (stage) {
+    case "describe":
+      if (factory.latestRevision === null) return /^Not started/;
+      if (factory.confirmedRevision === null) return /draft is saved.*Not confirmed yet/;
+      return factory.confirmedRevision === factory.latestRevision ? /^Confirmed\./ : /is confirmed.*newer draft/;
+    case "diagnose":
+      if (factory.confirmedRevision === null) return /^Waits for a confirmed description/;
+      if (assessment === null) return /^Not started/;
+      if (assessment.items === 0) return /^No idea fits your answers yet/;
+      return assessment.signedOff ? /^Signed off\./ : /Not signed off\.$/;
+    case "procure":
+      if (assessment?.signedOff !== true) return /^Waits for your signed-off decisions/;
+      if (f.requirements === 0) return /^Nothing asked for yet/;
+      return /requirements?, \d+ providers? chosen\.$/;
+    case "deliver":
+      if (engagements.length === 0) return /^Waits for a chosen provider/;
+      if (!engagements.some((g) => g.planAgreed)) return engagements.every((g) => g.closed) ? /^Closed before a plan was agreed\./ : /^Plan not agreed yet/;
+      return /milestones? accepted\.$/;
+    case "run": {
+      if (engagements.length === 0) return /^Waits for work to start/;
+      if (engagements.some((g) => openReviewsOf(g, now).length > 0)) return /reviews? (is|are) open\.$/;
+      if (engagements.length > 1) return /^\d+ of \d+ starting numbers recorded\. \d+ reviews? recorded\.$/;
+      const g = engagements[0]!;
+      if (g.baselineRecorded) return /^Starting number recorded\./;
+      return g.firstAcceptedAt !== null || g.closed ? /^No starting number was recorded\./ : /^No starting number yet\./;
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------------
 // Generators of facts (seeded)
 

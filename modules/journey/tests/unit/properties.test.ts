@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NO_FACTS, STAGES, STAGE_IDS, isOwnersTurn, nextStep, stageStatuses, stageLine } from "../../src/progress.ts";
 import type { Facts, StageId } from "../../src/progress.ts";
-import { DAY, KEYS, KNOWN_PAGES, NOTHING_NEEDED_KEYS, NOW, OTHERS_ACT, OWNER_ACTION, PAGE_OF, REVIEW_AFTER_DAYS, RULES, STAGE_ORDER, canTakeBaseline, cases, deepFreeze, deliveryWaiting, describeCase, eventNamed, expectedRule, expectedStatuses, isoAt, newWorld, openReviewsOf, badPlurals, rawWordsIn, rng, smallEngagements, smallPrefixes, stageWordsIn, walk, worldFacts } from "../support/model.ts";
+import { DAY, KEYS, KNOWN_PAGES, NOTHING_NEEDED_KEYS, NOW, OTHERS_ACT, OWNER_ACTION, PAGE_OF, REVIEW_AFTER_DAYS, RULES, STAGE_ORDER, canTakeBaseline, cases, deepFreeze, deliveryWaiting, describeCase, eventNamed, expectedLinePattern, expectedRule, expectedStatuses, isoAt, newWorld, openReviewsOf, badPlurals, rawWordsIn, rng, smallEngagements, smallPrefixes, stageWordsIn, walk, worldFacts } from "../support/model.ts";
 import type { Case, Key, Tier } from "../support/model.ts";
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -410,6 +410,15 @@ test("the line under each stage never shows a raw key, a stage id, 'undefined', 
       const line = stageLine(id, c.facts, c.now);
       assert.equal(typeof line, "string");
       assert.deepEqual(rawWordsIn(line).filter((w) => w !== "NaN" && w !== "Infinity"), [], `${id}: "${line}"`);
+    }
+  });
+});
+
+test("the line under each stage says what the facts say, by the documented order of conditions", () => {
+  forEach(SENSIBLE, (c) => {
+    for (const id of STAGE_IDS) {
+      const line = stageLine(id, c.facts, c.now);
+      assert.match(line, expectedLinePattern(id, c.facts, c.now), `${id}: "${line}"`);
     }
   });
 });
