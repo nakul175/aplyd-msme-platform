@@ -45,6 +45,6 @@ With `pnpm build` and `scripts/serve.mjs` on port 9431 with the demonstration ca
 
 ## Not run, and what fails
 
-- **`docs/static/docindex` fails on this branch** once this file and STATUS.md exist: the documentation index must list every Markdown file, and the index belongs to another agent this wave. The two rows it needs are in the slice's report. It passed before these two files were added.
+- **Two documentation suites fail on this branch** once this file and STATUS.md exist, and passed before they were added: `docs/static/docindex` (the documentation index must list every Markdown file) and `docs/static/findings` (the findings register must cite every module's STATUS and VALIDATION page). The index and the register belong to another agent this wave, so they are not edited here; the rows they need are in the slice's report.
 - Not run: the full guard (`node scripts/test.mjs pr --guard`), the smoke layer, and the integration and browser suites of the other modules. The integrator runs the full guard after merging.
 - No person has read the code. No separate agent has reviewed it.
