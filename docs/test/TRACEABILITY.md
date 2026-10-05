@@ -81,7 +81,7 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-ID-09 | Providers take part. | Should | Not built | TC-ID-79 | 0 | not-testable-yet | to be linked |
 | BR-DESC-01 | Answer a structured description. | Must | Built | TC-DESC-01 to TC-DESC-17, TC-DESC-53, TC-DESC-54 | 19 | covered-partly | to be linked |
 | BR-DESC-02 | Every save is a version. | Must | Built | TC-DESC-18 to TC-DESC-28, TC-DESC-60, TC-DESC-61 | 13 | covered-automated | to be linked |
-| BR-DESC-03 | Draft, then confirm. | Must | Built | TC-DESC-29 to TC-DESC-45, TC-DESC-55 to TC-DESC-59, TC-DESC-62 to TC-DESC-67 | 27 | covered-partly | to be linked |
+| BR-DESC-03 | Draft, then confirm. | Must | Partial | TC-DESC-29 to TC-DESC-45, TC-DESC-55 to TC-DESC-59, TC-DESC-62 to TC-DESC-67 | 27 | covered-partly | to be linked |
 | BR-DESC-04 | Describe by voice. | Must | Not built | TC-DESC-46 | 0 | not-testable-yet | to be linked |
 | BR-DESC-05 | Describe with photos. | Should | Not built | TC-DESC-47 | 0 | not-testable-yet | to be linked |
 | BR-DESC-06 | In the owner's own language. | Must | Not built | TC-DESC-48 | 0 | not-testable-yet | to be linked |
@@ -139,9 +139,9 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-OPS-06 | A way to see the system's health and its audit trail. | Should | Partial | TC-ID-74, TC-OPS-08 to TC-OPS-10 | 4 | covered-partly | to be linked |
 | BR-OPS-07 | A presenter can show the journey in about 15 minutes. | Should | Built | TC-GOV-33, TC-GOV-34, TC-DIAG-26, TC-OPS-11 to TC-OPS-29, TC-OPS-67 to TC-OPS-70 | 26 | covered-automated | to be linked |
 | BR-OPS-08 | A hosted synthetic demonstration behind an access gate. | Should | Built | TC-OPS-30 to TC-OPS-66 | 37 | covered-automated | to be linked |
-| BR-UX-01 | Every page says what it is for and what to do next. | Must | Not built | TC-UX-01 | 0 | people-only | to be linked |
-| BR-UX-02 | One view of the journey. | Must | Not built | TC-UX-02 | 0 | people-only | to be linked |
-| BR-UX-03 | Plain words. | Must | Not built | TC-UX-03 | 0 | not-testable-yet | to be linked |
+| BR-UX-01 | Every page says what it is for and what to do next. | Must | Unverified | TC-UX-01 | 0 | people-only | to be linked |
+| BR-UX-02 | One view of the journey. | Must | Unverified | TC-UX-02 | 0 | people-only | to be linked |
+| BR-UX-03 | Plain words. | Must | Unverified | TC-UX-03 | 0 | not-testable-yet | to be linked |
 | BR-UX-04 | The interface in the owner's language. | Must | Not built | TC-UX-04 | 0 | not-testable-yet | to be linked |
 | BR-UX-05 | Works on a phone. | Should | Unverified | TC-UX-05 | 0 | designed-only | to be linked |
 | BR-UX-06 | A refusal says what to do. | Must | Partial | TC-DESC-32, TC-DESC-44, TC-DESC-57 to TC-DESC-59, TC-DIAG-63, TC-DIAG-65, TC-DIAG-66, TC-DIAG-72, TC-DIAG-73, TC-PROC-13, TC-PROC-14, TC-PROC-23, TC-DEPL-45, TC-RUN-25, TC-RUN-42, TC-RUN-45, TC-UX-06 to TC-UX-13 | 24 | covered-partly | to be linked |
