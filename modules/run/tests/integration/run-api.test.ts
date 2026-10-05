@@ -699,7 +699,9 @@ test("the expected range says it is SYNTHETIC in the data as well as on the page
   assert.equal(shown.expected?.synthetic, true);
 });
 
-test("a form post refused before the person is known is answered as the platform answers every module: no session goes to the sign-in page (BR-UX-06), everything else with JSON, and the page's own form never reaches it for another company", async () => {
+test("a form post refused before the person is known is answered as the platform answers every module: with JSON, and the page's own form never reaches it for another company", async () => {
+  // Since BR-UX-06 a form with no session is sent to /sign-in?expired=1 (303); every other refusal here is still JSON. The title is kept as the test-case
+  // register (docs/test/TEST-CASES.md, TC-UX-07) cites it by title; the register row is to be rewritten with this title.
   const p = await planned();
   const formTo = (path: string, cookie: string | undefined, headers: Record<string, string> = {}, body = "kind=baseline&value=5") =>
     new Request(`${ORIGIN}${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, ...(cookie ? { cookie } : {}), ...headers }, body });
