@@ -111,3 +111,5 @@
 .dg-stand .btn, .dg-compare .btn { justify-self: start; min-height: 2.75rem; }
 @media (max-width: 30rem) { .dg-stand .btn, .dg-compare .btn { justify-self: stretch; } }
 .dg-stand-answers > .facts { margin-left: 1.25rem; margin-top: var(--s-2); }
+/* A link a finger has to hit: at least 44 pixels tall, and still part of its sentence. */
+.dg-jump a, .dg-list a { display: inline-flex; align-items: center; min-height: 2.75rem; }

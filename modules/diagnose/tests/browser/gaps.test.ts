@@ -26,6 +26,16 @@ async function confirmChange(page: Page, change: () => Promise<void>): Promise<v
 
 /** True when the page needs no sideways scroll. */
 const fitsTheScreen = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+/** Every link, fold and button in the page body that is shown and shorter than 44 pixels, named; empty when a finger can hit them all. */
+const tooSmall = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("main a, main summary, main button")]
+      .filter((n) => {
+        const r = n.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && r.height < 43.5;
+      })
+      .map((n) => `${n.tagName} "${(n.textContent ?? "").trim().slice(0, 40)}" ${Math.round(n.getBoundingClientRect().height)}px`),
+  );
 /** The height in pixels of the smallest thing a finger has to hit among these. */
 async function smallestTarget(page: Page, selector: string): Promise<number> {
   const heights = await page.locator(selector).evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().height));
@@ -124,6 +134,7 @@ test("one assessment: the five parts are readable in plain words without the ide
     // A phone: no sideways scroll, and what a finger has to hit is at least 44 pixels high.
     assert.ok(await fitsTheScreen(page), "no sideways scroll at 390 pixels");
     assert.ok((await smallestTarget(page, "[data-testid='stand'] summary")) >= 44, "the folds are tall enough to tap");
+    assert.deepEqual(await tooSmall(page), [], "every link, fold and button on the page is at least 44 pixels tall");
     assert.deepEqual(problems, [], "no page errors, console errors or failed requests");
     assert.deepEqual(h.blockedRequests, []);
   });
@@ -178,6 +189,7 @@ test("a second assessment, made after an answer is changed and confirmed, shows 
     assert.equal(await page.locator("main").count(), 1);
     assert.equal(await page.getByRole("note").count(), 1);
     assert.ok(await fitsTheScreen(page), "no sideways scroll at 390 pixels with the comparison open");
+    assert.deepEqual(await tooSmall(page), [], "every link, fold and button is at least 44 pixels tall with the comparison open");
 
     // The first assessment is untouched, and from it there is nothing earlier to compare with: the page says so and offers the way to the newer one.
     await page.getByTestId("assessments").getByRole("link", { name: "From version 1" }).click();

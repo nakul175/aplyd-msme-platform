@@ -480,7 +480,7 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
               Drafted by a set of rules on {view.createdAt.slice(0, 10)}, not by an AI model. You check it: decide on each idea below, then sign it off. Library version {view.libraryVersion}, engine version {view.engineVersion}.
             </p>
             {view.result.inputs.problems.length ? <p className="dg-problems">Problems you named: {view.result.inputs.problems.join("; ")}.</p> : <p className="dg-problems">You named no problems, so there is nothing to match.</p>}
-            <p className="muted" data-testid="jump">
+            <p className="muted dg-jump" data-testid="jump">
               {cmp ? "What changed since the earlier assessment is just below. " : ""}
               <a href="#stand">Go to where your factory stands</a>, which comes after the ideas.
             </p>
