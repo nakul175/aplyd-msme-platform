@@ -15,7 +15,7 @@ export type Tone = "info" | "success" | "warn" | "danger";
  * A message the page shows after something happened: `status` for a thing that went well, `alert` for a thing that needs attention. The
  * role is what a screen reader announces and what a test finds it by; the tone is only its colour. Pass `data-testid` as on any element.
  */
-export function Notice({ tone, role, children, ...rest }: { tone?: Tone; role?: "status" | "alert"; children: ReactNode } & Omit<HTMLAttributes<HTMLDivElement>, "role">) {
+export function Notice({ tone, role, children, ...rest }: { tone?: Tone; role?: "status" | "alert" | "note"; children: ReactNode } & Omit<HTMLAttributes<HTMLDivElement>, "role">) {
   return (
     <div className="notice" role={role} data-tone={tone} {...rest}>
       {children}
@@ -23,7 +23,7 @@ export function Notice({ tone, role, children, ...rest }: { tone?: Tone; role?: 
   );
 }
 
-export function Tag({ tone, children }: { tone?: "ok" | "turn" | "brand" | "danger"; children: ReactNode }) {
+export function Tag({ tone, children }: { tone?: "ok" | "turn" | "warn" | "brand" | "danger"; children: ReactNode }) {
   return (
     <span className="tag" data-tone={tone}>
       {children}
@@ -134,7 +134,7 @@ export function Strip({ status, current }: { status: Record<StageId, StageStatus
  * The frame of an owner's page: the five steps, this page's head, the page, and what to do next if that is somewhere else. A visitor or a
  * person who is not an owner gets the page's own content without the steps (the page decides what to show them before it gets here).
  */
-export async function Page({ stage, identity, title, lede, children }: { stage: StageId; identity: Identity | null; title: string; lede?: ReactNode; children: ReactNode }) {
+export async function Page({ stage, identity, title, lede, hideNext, children }: { stage: StageId; identity: Identity | null; title: string; lede?: ReactNode; /** The page already points to the next step itself. */ hideNext?: boolean; children: ReactNode }) {
   const e = env as unknown as AppEnv;
   const facts = identity?.companyId && identity.role === "owner" && e.DB ? await loadFacts(e.DB, identity.companyId) : null;
   return (
@@ -142,7 +142,7 @@ export async function Page({ stage, identity, title, lede, children }: { stage: 
       {facts ? <Strip status={stageStatuses(facts, new Date())} current={stage} /> : null}
       <PageHead stage={stage} title={title} lede={lede} />
       {children}
-      {facts ? <NextUp facts={facts} stage={stage} /> : null}
+      {facts && !hideNext ? <NextUp facts={facts} stage={stage} /> : null}
     </>
   );
 }

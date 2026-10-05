@@ -26,6 +26,9 @@ const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 const appFiles = git("--", "app");
 const routeFiles = appFiles.filter((f) => /(^|\/)route\.[a-z]+$/.test(f));
 const pageFiles = appFiles.filter((f) => /\/page\.tsx$/.test(f) || f === "app/page.tsx");
+/** Parts every page shares (the bar at the top holds the sign-out form). Their forms are posted from every page, so section 5 lists them under one row. */
+const EVERY_PAGE = "(every page)";
+const sharedFiles = appFiles.filter((f) => /^app\/_ui\/.*\.tsx$/.test(f));
 const routes = routeFiles.filter((f) => f.endsWith("/route.ts")).map((file) => ({ file, methods: exportedMethods(read(file)) }));
 const pages = pagePaths(pageFiles);
 
@@ -121,6 +124,13 @@ function formsAgree(md: string): string[] {
       const id = idOf(action, "POST");
       if (!id) out.push(`${f}: a form posts to ${action}, which has no POST operation in the reference`);
       else posted.set(page, [...new Set([...(posted.get(page) ?? []), id])].sort());
+    }
+  }
+  for (const f of sharedFiles) {
+    for (const action of formActions(f, read(f))) {
+      const id = idOf(action, "POST");
+      if (!id) out.push(`${f}: a form posts to ${action}, which has no POST operation in the reference`);
+      else posted.set(EVERY_PAGE, [...new Set([...(posted.get(EVERY_PAGE) ?? []), id])].sort());
     }
   }
   const postedTo = new Set([...posted.values()].flat());

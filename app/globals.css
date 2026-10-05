@@ -230,7 +230,8 @@ details.card > * + * { margin-top: var(--s-3); }
 @media (max-width: 30rem) { .facts { grid-template-columns: 1fr; gap: 0; } .facts dd { margin-bottom: var(--s-2); } }
 
 /* ---------- chips and notices ---------- */
-.tag { display: inline-flex; align-items: center; gap: 0.3em; border: 1px solid var(--line-strong); border-radius: 999px; padding: 0.05rem 0.55rem; font-size: 0.75rem; font-weight: 650; line-height: 1.5; color: var(--muted); background: var(--surface); white-space: nowrap; vertical-align: middle; }
+.tag { display: inline-flex; align-items: center; gap: 0.3em; border: 1px solid var(--line-strong); border-radius: 999px; padding: 0.05rem 0.55rem; font-size: 0.75rem; font-weight: 650; line-height: 1.5; color: var(--muted); background: var(--surface); vertical-align: middle; }
+.tag[data-tone="warn"] { color: var(--warn-text); background: var(--warn-tint); border-color: color-mix(in srgb, var(--turn) 55%, transparent); }
 .tag[data-tone="ok"] { color: var(--ok); background: var(--ok-tint); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
 .tag[data-tone="turn"] { color: var(--turn-text); background: var(--turn-tint); border-color: color-mix(in srgb, var(--turn) 55%, transparent); }
 .tag[data-tone="brand"] { color: var(--brand); background: var(--brand-tint); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }

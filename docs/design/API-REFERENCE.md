@@ -1729,11 +1729,11 @@ Every code an operation can answer with, as the `error` field of the body (`stat
 
 ## 5. Pages that post forms
 
-No page is an operation: every page is a GET that reads data through the same functions the API uses. No page exports POST, and the application uses no server actions. The forms below post to the API and are answered with a redirect back to a page (section 2.7). A page the table does not list posts nothing. The sync test reads every `<form method="post">` in `app/**/page.tsx` and compares it with this table.
+No page is an operation: every page is a GET that reads data through the same functions the API uses. No page exports POST, and the application uses no server actions. The forms below post to the API and are answered with a redirect back to a page (section 2.7). A page the table does not list posts nothing. The sync test reads every `<form method="post">` in `app/**/page.tsx`, and in the parts every page shares (`app/_ui/*.tsx`, listed as `(every page)`), and compares it with this table.
 
 | Page | Posts to |
 | --- | --- |
-| `/` | API-03 (sign-out) |
+| `(every page)` | API-03 (sign-out, in the bar at the top, `app/_ui/appbar.tsx`) |
 | `/sign-in` | API-03 (sign-in) |
 | `/factory` | API-06 |
 | `/diagnose` | API-08, API-10, API-11 |

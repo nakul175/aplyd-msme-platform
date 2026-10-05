@@ -95,7 +95,7 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
   const state = signOffState(decided, total, signed !== null);
   const ready = state === "ready";
   const nextIdea = view && !signed ? firstUndecided(view.result.items, new Set(decisionOf.keys())) : null;
-  // After a sign-off the owner's turn is somewhere else: the same step the strip and the foot of the page name, with its own words on the button.
+  // After a sign-off the owner's turn is somewhere else: the same step the strip names, with its own words on the button; the page points to it here, so the frame does not repeat it at the foot.
   const onward = signed ? afterSignOff(nextStep(await loadFacts(db, companyId), new Date())) : null;
   // The make button is the page's main action until an assessment exists for the confirmed description; after that it is a quiet way to make it again.
   const madeFromConfirmed = confirmed ? hasAssessmentFrom(all, confirmed.revision) : false;
@@ -119,7 +119,7 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
     ) : null;
 
   return (
-    <Page stage="diagnose" identity={identity} title="What to do about it" lede="Here is a short, ranked list of ideas for your factory: for each one you say yes, not yet or no, and then sign off.">
+    <Page stage="diagnose" identity={identity} hideNext={onward !== null} title="What to do about it" lede="Here is a short, ranked list of ideas for your factory: for each one you say yes, not yet or no, and then sign off.">
       {q.saved ? (
         <Notice role="status" tone="success" data-testid="saved">
           Your decision was saved.
