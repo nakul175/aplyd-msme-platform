@@ -88,9 +88,11 @@ test("identity is never taken from request headers", async () => {
 });
 
 test("a user removed from the database loses access at once", async () => {
-  const cookie = await signIn("owner-a@synthetic.invalid");
-  await db.prepare("DELETE FROM users WHERE id = ?").bind("user-synthetic-owner-a").run();
-  assert.equal((await handleCompanyRead(get(`/api/companies/${A}`, cookie), env, A)).status, 401);
+  // Owner B has written nothing, so the user can be deleted. A user who has saved a factory revision cannot be deleted at all (foreign key), by design.
+  const cookie = await signIn("owner-b@synthetic.invalid");
+  assert.equal((await handleCompanyRead(get(`/api/companies/${B}`, cookie), env, B)).status, 200);
+  await db.prepare("DELETE FROM users WHERE id = ?").bind("user-synthetic-owner-b").run();
+  assert.equal((await handleCompanyRead(get(`/api/companies/${B}`, cookie), env, B)).status, 401);
 });
 
 test("an unknown user is refused and nothing is written, so unauthenticated requests cannot fill the audit log", async () => {

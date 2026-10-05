@@ -32,3 +32,13 @@ label, select, button { font: inherit; }
 select, button { padding: 0.4rem 0.6rem; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+fieldset.card { margin: 1rem 0; }
+legend { font-weight: 600; padding: 0 0.4rem; }
+.question { margin: 0 0 1.1rem; }
+.label { display: block; margin: 0 0 0.25rem; font-weight: 500; }
+.help { margin: 0 0 0.3rem; font-size: 0.9rem; }
+.options { display: grid; gap: 0.25rem; }
+.option { display: flex; gap: 0.5rem; align-items: baseline; font-weight: 400; }
+input[type="text"], input[type="number"], textarea { font: inherit; width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; }
+.notice { border-left: 4px solid var(--accent); padding: 0.4rem 0.75rem; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.actions button { margin-right: 0.5rem; }

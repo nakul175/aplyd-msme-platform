@@ -21,7 +21,7 @@ This is slice 1, the walking skeleton. It is application plumbing with no produc
 ## Not built
 
 - Real sign-in (OQ-13). Hosted staging and its access layer, and the deployment workflow (needs the sponsor's Cloudflare account and OQ-07).
-- Creating or editing a company record. Slice 2 (Describe) does that, as appended revisions, not edits.
+- Creating or editing a company record. Slice 2 (Describe, [modules/factory/STATUS.md](../factory/STATUS.md)) adds a factory description to a company as appended versions; the company record itself is still read-only.
 - The supply-chain gate (SBOM and audit).
 - Any money, vendor, pooling or aggregate code. The invariants in AGENTS.md about vendor-neutral earnings, certification, selling data and the five-company floor have no code to test yet; each gets its test in the slice that adds the code.
 
