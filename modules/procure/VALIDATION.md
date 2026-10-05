@@ -100,3 +100,37 @@ The review's L4 (a service could be added to a listed provider by a direct inser
 - **The pool floor is a rule about publication, not a privacy guarantee.** Differencing at the boundary is possible and is limit 2 in the status page.
 - **Every figure on the pages is a placeholder**: three invented clusters, no real provider, no real fee. Nothing here is evidence about whether owners or providers want this (see the ten-owner worksheet).
 - **The pull request's CI result** was not read when this page was written.
+
+## Slice 10b: the two pages rebuilt on the shared interface (5 October 2026)
+
+`/procure` and `/operator` were rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The two pages after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner or operator has used the pages.
+
+### What was run (real results, on the branch `slice-10b-procure-operator`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | clean |
+| `procure/unit/view` (new: 15 tests of the state sentences, tags, counts, the operator's summary, fee count, service grouping) | 15 passed |
+| `procure/unit/clusters`, `procure/unit/pool` | 2 passed, 5 passed |
+| `procure/static/problems`, `procure/static/rules` | 2 passed, 10 passed (the second pins that the page prints a pool only as a lower bound) |
+| `platform/static/page-lookups` (every message looked up with `Object.hasOwn`) | 2 passed |
+| `journey/unit/contrast`, `journey/unit/progress` (the colour pairs and the step wording the pages are built from) | 8 passed, 22 passed |
+| `procure/browser/procure` | 3 passed (43.6 s) |
+| `procure/smoke/procure` | 6 passed (12.4 s) |
+| Other suites that walk these two pages: `deliver/smoke/deliver`, `platform/smoke/built-app`, `demo/smoke/demo`, `deliver/browser/deliver`, `journey/browser/journey`, `demo/browser/walk` | 8, 12, 10, 3, 1 and 2 passed |
+| The whole static layer | 21 of 23 suites passed; the two failures are not from this slice: `docs/static/api-sync` ("section 5 lists page /, which posts no form", the home page of the foundation commit) and `static/documentation` (links to documents not written yet) |
+| `node scripts/test.mjs --check-catalogue` | clean, 82 suites |
+
+No existing test was changed: every assertion of the three procure browser tests and six smoke tests passes as it was written. The integration suite (`procure/integration/procure-api`, 34 tests) was not run, because nothing it covers was touched.
+
+### What was looked at
+
+Both pages were opened in Chromium at 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners A (described only, so the first visit), C (the finished example, a provider chosen), D (a provider chosen and a second requirement with no provider yet), F (two requirements, none with a provider chosen), G (four ideas ready to ask for, one requirement with providers to choose from) and as the operator, with a fee set, with none and no providers (a server without the demonstration), after adding a provider (the Not listed row), and with `?problem=` and `?listed=1`. The script that took them reported no horizontal scroll on any page. Things found by looking and fixed: the cluster explanation repeated on every idea card (now once, above them); a "turn" colour on ideas that were only optional once a requirement existed (`readyTone`); two primary buttons to the same page on a requirement with a provider chosen (the one in the card is now plain); the List and Unlist buttons wrapping over three lines (now one word, with the provider's name as the accessible name); a date breaking at its hyphen on a phone; a cluster name breaking onto a new line; a lede ending in a one-word line.
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk.** The forms are plain HTML with real labels, and the browser tests click and fill them; nobody tabbed through the pages or listened to them.
+- **Chromium only**, with the synthetic sign-in. No other browser, no real phone, no slow connection.
+- **Not independent**, and **no mutation checks** were run for this slice: the pages' wording is pinned by the existing tests and by the unit test of `src/view.ts`, which is a small set.
+- **The wording is unproven with owners.** The sentences were written for a person who has never seen the service, but nobody who owns a factory has read them (the ten-owner test is where that is checked).
+- **Two sentences were added** next to buttons (the provider cannot be changed afterwards; the cluster cannot be changed after a requirement is made). Each restates a limit already in this module's and the deliver module's status pages; neither is checked by a test of its own.
