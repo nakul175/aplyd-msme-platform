@@ -1,8 +1,8 @@
 # Functional specification document: APLYD MSME platform
 
-Version 0.1. Date: 5 October 2026. Status: draft, not reviewed by a person.
+Version 0.2. Date: 5 October 2026. Status: draft, not reviewed by a person.
 
-This document says what the APLYD MSME platform does, function by function and screen by screen, and what it would have to do to meet the business requirements that are not yet built. Behaviour that exists in the code on 5 October 2026 is marked AS BUILT or PARTIAL and was read in the source. Behaviour that the business requirements call for and the code does not do is marked TO BE. Every company, person, provider, figure and rule in the application is SYNTHETIC. No person has reviewed the code or this document, and no function in it has been accepted.
+This document says what the APLYD MSME platform does, function by function and screen by screen, and what it would have to do to meet the business requirements that are not yet built. Behaviour that exists in the code on 5 October 2026 is marked AS BUILT or PARTIAL and was read in the source. Behaviour that the business requirements call for and the code does not do is marked TO BE. Every company, person, provider, figure and rule in the application is SYNTHETIC. No person has reviewed the code or this document, and no function in it has been accepted. Version 0.2 revises sections 3 and 5, the functions FR-UX-15 to FR-UX-24 and the rows that name them for the redesigned interface (slice 10); no owner of a factory has used the redesigned pages.
 
 How this relates to the other documents: the requirements come from the [business requirements document](../brd/BRD.md) (116 requirements, referred to here as BRs). This document is read with the [documentation index](../DOCUMENTATION-INDEX.md) and the [glossary](../GLOSSARY.md). It is refined by the [high-level design](../design/HLD.md), the [low-level design](../design/LLD.md), the [wireframes](../design/WIREFRAMES.md) (also as [HTML](../design/wireframes.html)), the [data dictionary](../design/DATA-DICTIONARY.md), the [API reference](../design/API-REFERENCE.md) and the [security and privacy document](../design/SECURITY-AND-PRIVACY.md). The [test strategy](../test/TEST-STRATEGY.md), [test scenarios](../test/TEST-SCENARIOS.md), [test cases](../test/TEST-CASES.md) and [traceability matrix](../test/TRACEABILITY.md) check it, and the [runbook](../ops/RUNBOOK.md) covers running the demonstration host.
 
@@ -49,6 +49,8 @@ Other conventions:
 ### 1.4 How the specification was made
 
 [Certain] The author read the source of every module (`modules/*/src`), every page and route in `app/`, `worker/index.ts`, the migrations in `drizzle/`, the launcher `scripts/serve.mjs`, and the status page of each module. Where a status page and the code disagree the code is taken as the authority and the disagreement is recorded in section 12. The BRD's status words (Built, Partial, Not built, Open, Unverified) are taken from the BRD and are not re-assessed here, except where the code shows something the BRD does not say.
+
+[Certain] For version 0.2 (5 October 2026) the author re-read `app/` (`layout.tsx`, `globals.css`, `_ui/` and every page) and the helpers that feed the pages (`modules/journey/src/progress.ts` and `facts.ts`, `modules/factory/src/progress.ts`, `modules/diagnose/src/progress.ts`, `modules/procure/src/view.ts`, `modules/deliver/src/summary.ts`, `modules/run/src/view.ts`), and compared the text of each page with a capture of the rendered pages made on 5 October 2026 on the synthetic demonstration data, at a phone width of 390 px and a desktop width of 1280 px. The capture is not stored in the repository, and the author of this version started no server, browser or test run. The messages in section 8 did not change: a script compared each quoted sentence with the source, and the sentences it could not match (JSON codes, sentences built from a constant and sentences split by a link) were read by hand.
 
 ### 1.5 What every function must keep true
 
@@ -102,7 +104,7 @@ Pages
 
 | Function | Visitor | Owner | Member | Operator |
 | --- | --- | --- | --- | --- |
-| Home `/` | Allowed: "You are not signed in." and a link | Allowed: company record and five stage links | Allowed: company record, no stage links | Allowed: no company message and the operator link |
+| Home `/` | Allowed: what the service is, "You are not signed in." and the link "Sign in" | Allowed: the next step, the five steps with where each stands, the company record | Allowed: "You are signed in" and the company record, no steps | Allowed: the operator's opening block with the link to `/operator`, and no company record |
 | Sign-in `/sign-in` | Allowed | Allowed (no redirect) | Allowed | Allowed |
 | Describe `/factory` | Page message: sign in | Allowed | Page message: for the owner | Page message: for the owner |
 | Diagnose `/diagnose` | Page message: sign in | Allowed | Page message: member wording | Page message: not linked to a company |
@@ -165,7 +167,7 @@ flowchart LR
   home --> demo["Demo: /demo, only in demonstration mode"]
 ```
 
-The stages are linked in order by what the data allows, not by redirects. No page sends a person on to the next one. Each stage page works out what the person may do from the records, so the order is enforced by the records and the database (section 6), and by the forms the page chooses to show.
+The stages are linked in order by what the data allows. The pages do not send the person from one stage to the next by a redirect. Since the interface was redesigned (slice 10) a page does point onward in words: the home page opens with the owner's next step and a button to it, the foot of an owner's stage page repeats it when it is somewhere else, and after a sign-off the Diagnose page names it itself (FR-UX-18, FR-UX-20, SCR-04). Each stage page still works out what the person may do from the records, so the order is enforced by the records and the database (section 6) and by the forms the page chooses to show. The strip and the buttons only point.
 
 | From | To | What must exist first | What the person sees if it does not |
 | --- | --- | --- | --- |
@@ -177,48 +179,75 @@ The stages are linked in order by what the data allows, not by redirects. No pag
 
 The operator is not part of the owner's path. The operator lists providers, which is what makes the "choose a provider" form appear for owners.
 
+The five stages have three names each. The first column is the name this document uses. The second is the one word on the five-step strip and in "How it works" on the home page (`short` in `STAGES`, `modules/journey/src/progress.ts`). The third is the page's own name, which is its title and the home page's link (`page`). The fourth is the sentence on the home page's stage card and in "How it works" (`what`).
+
+| Stage in this document | Word on the strip | Page name | Address | Sentence on the home page |
+| --- | --- | --- | --- | --- |
+| 1 Describe | Describe | Describe your factory | `/factory` | Answer plain questions about what you make, how the shop floor runs and what hurts. You can stop and come back. |
+| 2 Diagnose | Decide | What to do about it | `/diagnose` | Get a short, ranked list of ideas for your factory, each with its cost, its risk and what has to come first. You say yes, not yet or no. |
+| 3 Procure | Choose | What you need | `/procure` | For each idea you said yes to, say what you need and see which listed providers could do it. |
+| 4 Deploy | Deliver | Delivery | `/deliver` | Agree a plan in milestones. Write down how you will check each one before work starts, then accept or reject each delivery. |
+| 5 Run | Measure | Results | `/run` | Write down your number before the work, then again after 30, 90 and 180 days, to see whether it did what was expected. |
+
+A unit test checks that a strip word and a button's words are never the name of a page's link, so that a person, or a test, who looks for a page by its name finds one link (`modules/journey/tests/unit/progress.test.ts`).
+
 ### 3.2 Navigation links as built
 
-There is no menu, navigation bar or breadcrumb. The layout (`app/layout.tsx`) adds only the SYNTHETIC banner and a `main` element. Every page has the same browser title, "APLYD MSME platform". The links that exist are these, and nothing else is clickable apart from buttons.
+[Certain] Every page has a bar at the top (the mark and, for a signed-in person, who they are and a "Sign out" button), a footer and a link that skips to the page. An owner's stage page also has the five-step strip above its title and a "Your next step" card at its foot when the owner's turn is on another stage (section 5.1, FR-UX-15, FR-UX-17, FR-UX-18). There is no menu and no breadcrumb. Every page still has the one browser title "APLYD MSME platform": `metadata` in `app/layout.tsx` is the only place a title is set. The links that exist are these, and nothing else is clickable apart from buttons.
+
+On every page
+
+| Element | Condition | Link text | Goes to |
+| --- | --- | --- | --- |
+| Skip link | Always; seen when it has the keyboard focus | Skip to the page | `#main`, the page's `main` element |
+| App bar | Always | APLYD (the link's accessible name is "APLYD home") | `/` |
+| App bar | Signed in | Sign out (a button) | Posts to `/api/session`, then back to `/` |
+| Five-step strip | An owner with a company, on Describe, Diagnose, Procure, Deliver and Run only | Describe; Decide; Choose; Deliver; Measure. A screen reader also hears ", done", ", your turn" or ", not started" after each | `/factory`; `/diagnose`; `/procure`; `/deliver`; `/run` |
+| "Your next step" card | An owner with a company, on a stage page, when the next step is on another stage and is not "You are up to date" (not shown on Diagnose after a sign-off that names the step itself) | The button words of the rule that fired (the table under FR-UX-20) | The address of that rule's stage |
+
+On each page
 
 | Page | Condition | Link text | Goes to |
 | --- | --- | --- | --- |
-| Home | Not signed in | Sign in | `/sign-in` |
-| Home | Owner with a company | Describe your factory; What to do about it; What you need; Delivery; Results | `/factory`; `/diagnose`; `/procure`; `/deliver`; `/run` |
-| Home | Operator with no company | Providers and the listing fee | `/operator` |
-| Home | Signed in | Sign out (a button) | Posts to `/api/session`, then back to `/` |
-| Sign-in | Always | None. There is no link back to the home page | Not applicable |
+| Home | Not signed in | Sign in (a button-shaped link) | `/sign-in` |
+| Home | Owner with a company | The button of the next step (words in the table under FR-UX-20) | The next step's stage |
+| Home | Owner with a company | Describe your factory; What to do about it; What you need; Delivery; Results (the five stage cards) | `/factory`; `/diagnose`; `/procure`; `/deliver`; `/run` |
+| Home | Operator with no company | Providers and the listing fee (a button-shaped link) | `/operator` |
+| Sign-in | Always | None on the page. The mark in the app bar goes to `/` | Not applicable |
 | Describe | Not signed in | Sign in | `/sign-in` |
 | Describe | Not an owner | Back | `/` |
 | Describe | Viewing an older version | Go to the newest version | `/factory` |
-| Describe | Always (owner) | Version N, one per saved version, newest 100 | `/factory?rev=N` |
-| Describe | Owner | Back | `/` |
+| Describe | Owner, when any version is saved | Version N, one per saved version, newest 100, inside "Earlier versions" | `/factory?rev=N` |
 | Diagnose | Not signed in | Sign in | `/sign-in` |
 | Diagnose | Not an owner | Back | `/` |
-| Diagnose | No confirmed description | Describe your factory | `/factory` |
+| Diagnose | No confirmed description | Describe your factory (a button-shaped link) | `/factory` |
+| Diagnose | Some ideas decided and some not | Go to the next idea to decide | `#idea-<idea id>` on the same page |
+| Diagnose | Owner, after sign-off, when the next step is on Procure, Deliver or Run | The step's button words | The step's stage |
 | Diagnose | Owner | From version N, one per assessment | `/diagnose?a=<assessment id>` |
-| Diagnose | Owner | Back | `/` |
 | Procure | Not signed in | Sign in | `/sign-in` |
 | Procure | Not an owner | Back | `/` |
 | Procure | No signed-off assessment | Go to your assessment | `/diagnose` |
-| Procure | Provider chosen | Go to delivery | `/deliver` |
+| Procure | A provider is to be chosen and an idea is ready to ask for | Jump to your requirements | `#requirements` on the same page |
+| Procure | Provider chosen | Go to delivery (a button-shaped link) | `/deliver` |
 | Procure | Owner | Back to your assessment; Home | `/diagnose`; `/` |
 | Deliver | Not signed in | Sign in | `/sign-in` |
 | Deliver | Not an owner | Back | `/` |
 | Deliver | No engagement | What you need | `/procure` |
-| Deliver | Owner | What you need; Home | `/procure`; `/` |
+| Deliver | A delivery waits for the owner's decision | Go to milestone N (with " of <title>" when there is more than one engagement) | `#ms-<milestone id>` on the same page |
+| Deliver | Owner | What you need; Home (in a `nav` named "More pages") | `/procure`; `/` |
 | Run | Not signed in | Sign in | `/sign-in` |
 | Run | Not an owner | Back | `/` |
 | Run | No engagement | What you need; Delivery | `/procure`; `/deliver` |
 | Run | Nothing accepted yet | Delivery | `/deliver` |
+| Run | A review is open or the starting number can be recorded | Go to review N, or Go to the starting number (with " of <title>" when there is more than one engagement) | `#rv-<engagement id>-<N>` or `#bl-<engagement id>` on the same page |
 | Run | A next idea exists | Make a requirement for it | `/procure` |
-| Run | Owner | Delivery; What you need; Home | `/deliver`; `/procure`; `/` |
+| Run | Owner | Delivery; What you need; Home (in a `nav` named "More pages") | `/deliver`; `/procure`; `/` |
 | Operator | Not signed in | Sign in | `/sign-in` |
 | Operator | Not an operator | Back | `/` |
 | Operator | Operator | Home | `/` |
 | Demo | Demonstration mode | sign-in page; Home | `/sign-in`; `/` |
 
-Gaps against BR-UX-02 (one view of the journey) and BR-UX-01 (every page says what to do next) are in section 5. The home page is a list of links; the sign-in page cannot be left except by signing in or using the browser's back button.
+The earlier version of this section said that there was no navigation bar, that the home page was a list of links and that the sign-in page had no link back. All three have changed. Describe and Diagnose no longer end with "Back" for an owner, because the strip and the bar replace it. Procure still ends with "Back to your assessment" and "Home", and Deliver and Run with their "More pages" links. Gaps against BR-UX-02 (one view of the journey) and BR-UX-01 (every page says what to do next) are smaller: the code does what they ask on the owner's pages, and the BRD still calls them Not built because it was written first (section 12, item 24). No owner has used the pages, so the tests those requirements name have not been run.
 
 ## 4. Functional specification by area
 
@@ -239,7 +268,7 @@ Purpose: say who the person is, keep each company's records apart, and record wh
 | Actor | Visitor |
 | Trigger | The visitor follows "Sign in" from the home page or a stage page and submits the sign-in form |
 | Preconditions | The application was started with `APLYD_ENV` set to local, synthetic or test (the default of the hosted demonstration); a database is bound; a session secret of at least 32 bytes that is not one repeated character is set; the chosen person exists as a synthetic user |
-| Main flow | 1. The visitor opens `/sign-in`.<br>2. The page lists the synthetic users as "name (role)", ordered by display name.<br>3. The visitor chooses one and presses "Sign in".<br>4. The browser posts the email to `/api/session`.<br>5. The application refuses a cross-site post, reads the body, finds the user whose email matches and who is synthetic, signs a session token, writes `session.created` and sets the cookie.<br>6. The browser is redirected to `/`, which shows "Signed in as" the person and the role |
+| Main flow | 1. The visitor opens `/sign-in`.<br>2. The page lists the synthetic users as "name (role)", ordered by display name.<br>3. The visitor chooses one and presses "Sign in".<br>4. The browser posts the email to `/api/session`.<br>5. The application refuses a cross-site post, reads the body, finds the user whose email matches and who is synthetic, signs a session token, writes `session.created` and sets the cookie.<br>6. The browser is redirected to `/`, which shows the person's name and role in the app bar and the line "Signed in as" the person and the role |
 | Alternative and failure flows | A. The environment is not synthetic, or no database is bound: the page says "Sign-in is not available in this environment." and a direct post gets 503 `sign_in_not_available`.<br>B. The user is not found (including an empty email): a form is redirected to `/sign-in?refused=1` and shows "That user was not found."; a program gets 401 `unknown_user`. Nothing is audited.<br>C. The post came from another site: 403 `cross_site_refused`.<br>D. The content type is neither form nor JSON: 415 `unsupported_content_type`; the body cannot be read: 400 `bad_request` |
 | Postconditions | The cookie `aplyd_session` is set for 28,800 seconds; one `session.created` audit event exists with the user and the company |
 | Screens | SCR-02, SCR-01 |
@@ -249,12 +278,12 @@ Purpose: say who the person is, keep each company's records apart, and record wh
 | Item | Description |
 | --- | --- |
 | Actor | Owner, member or operator (a visitor can also post it) |
-| Trigger | The person presses "Sign out" on the home page |
+| Trigger | The person presses "Sign out" in the app bar, which every page shows to a signed-in person |
 | Preconditions | None. A cookie is not needed |
 | Main flow | 1. The form posts `intent=sign-out` to `/api/session`.<br>2. The application identifies the person if it can and writes `session.ended`.<br>3. The cookie is cleared (`Max-Age=0`).<br>4. The browser is redirected to `/`, which shows the visitor view |
 | Alternative and failure flows | A. No valid session: the cookie is cleared and nothing is audited.<br>B. Cross-site post: 403 `cross_site_refused` and the cookie is not cleared.<br>C. A program gets 200 `{"signedOut":true}` instead of a redirect |
 | Postconditions | The browser holds no session cookie. The token that was issued is not revoked and would still verify until its expiry if someone kept a copy (BR-ID-07, FR-ID-16) |
-| Screens | SCR-01 |
+| Screens | SCR-01, where the browser lands. The button is in the app bar of every screen (FR-UX-15) |
 
 #### UC-ID-03 Ask for another company's record
 
@@ -307,7 +336,7 @@ Purpose: say who the person is, keep each company's records apart, and record wh
 | FR-ID-09 | The operator role has no company and no access to any company's records; the operator functions are for that role only. | BR-ID-04 | `authorizeOperatorRead` and `authorizeOperatorChange` in `modules/platform/src/api/authorize.ts`: role must be `operator` and company id must be null, else 403 `forbidden` and audit `operator.read.denied` or `operator.write.denied`. A person without a company matches no company, so the operator gets 404 on every company route. | 403 or 404; audit | AS BUILT |
 | FR-ID-10 | A request that changes something and was started from another site is refused before any other check. | BR-NFR-01, BR-ID-03 | `isCrossSite` in `modules/platform/src/identity/cross-site.ts`. GET, HEAD and OPTIONS are never refused. For any other method: if an `Origin` header is present and its origin differs from the request's own origin, or is not a URL, refused; if there is no `Origin`, refused only when `Sec-Fetch-Site` is `cross-site`; with neither header the request is allowed. The body of a refused request is read and discarded. No BR names this rule (section 12). | 403 `cross_site_refused` | AS BUILT |
 | FR-ID-11 | Every change, and every refused attempt by a known person, is written to an audit log that cannot be edited or deleted. | BR-ID-06 | `audit_events` (`at`, `event`, `user_id`, `company_id`, `detail`). `auditIfChanged` writes the entry in the same database batch as the change and only when the change took effect (`changes() > 0`). `recordAudit` writes refusals. Requests with no session are not audited, and neither are refused sign-ins. The table has no update, delete or replace (triggers `audit_events_no_update`, `_no_delete`, `_no_replace`, listed in `modules/platform/src/db/guards.ts`). There is no hash chain: a change made to the database itself would not be seen. No page or function reads the log (FR-OPS-11). Event names are in section 9. | `audit_events` rows | AS BUILT |
-| FR-ID-12 | The home page tells a visitor they are not signed in, and tells a signed-in person who they are, shows their company record and links to the pages they may use. | BR-ID-01, BR-ID-03 | `app/page.tsx`. The company record is loaded for the person's own company only (`loadOwnCompany`). Five stage links are shown only when the person has a company and the role `owner`. The operator link is shown only for the role `operator` with no company. | SCR-01 | AS BUILT |
+| FR-ID-12 | The home page tells a visitor what the service is and that they are not signed in. For a signed-in person it says who they are and shows their company record; for an owner it adds the next step and the five steps, and for the operator the link to the provider list. | BR-ID-01, BR-ID-03 | `app/page.tsx`. The company record is loaded for the person's own company only (`loadOwnCompany`). The owner's next step and five stage cards are shown only when the person has a company and the role `owner` (FR-UX-19 to FR-UX-22). The operator's opening block and its link are shown only for the role `operator` with no company. The name and the role are also in the app bar of every page, with the sign-out button (FR-UX-15). | SCR-01 | AS BUILT |
 | FR-ID-13 | A signed-in person can read their own company's record through the programming interface. | BR-ID-03 | `GET /api/companies/{id}`, `modules/platform/src/api/companies.ts`. Query bound to the person's company. | 200 with `id`, `name`, `synthetic`, `createdAt`; or 401, 404, 503 | AS BUILT |
 
 ### 4.2 Describe (DESC)
@@ -775,10 +804,69 @@ These rows hold behaviours that belong to no single stage. A row appears only wh
 
 | ID | Statement | Traces to (BR IDs) | Rules and validation | Outputs and records | Status |
 | --- | --- | --- | --- | --- | --- |
-| FR-UX-01 | Every page and every figure that is not real is marked SYNTHETIC. | BR-UX-08, BR-DATA-01 | `app/layout.tsx` shows the banner "SYNTHETIC environment. Do not enter real company or personal data." (`role="note"`) when `APLYD_ENV` is local, synthetic or test. Each of Describe, Diagnose, Procure, Deliver, Run and Operator opens with a SYNTHETIC tag, the home page tags the company record, and the library figures are marked as placeholders. The tag on a stage page is unconditional. | SCR-01 to SCR-09 | AS BUILT |
+| FR-UX-01 | Every page and every figure that is not real is marked SYNTHETIC. | BR-UX-08, BR-DATA-01 | `app/layout.tsx` shows the banner "SYNTHETIC environment. Do not enter real company or personal data." (`role="note"`) above the app bar when `APLYD_ENV` is local, synthetic or test. The tag SYNTHETIC is placed as follows: on Describe, in the card "Where your description stands"; on Diagnose, Procure, Run and the operator page, at the start of a sentence under the notices; on Delivery, in the card "About this page" at the foot of the page; on the home page, on the company record. The sign-in page says "Synthetic environment" in its first sentence, and the demonstration page has its own notice. The library figures are marked as placeholders. The tag on a stage page is unconditional. | SCR-01 to SCR-09 | AS BUILT |
 | FR-UX-02 | When a form post is refused after the person is known, the person goes back to the page and is told in a sentence what happened. | BR-UX-06 | A form post gets 303 to the page with `problem=<code>`, `saved=<code>` or similar. The page prints the sentence for a code it knows (`Object.hasOwn` on its list) and ignores any other code. Problems use `role="alert"`, confirmations `role="status"`. Not covered: a refusal before the person is known (no session, 404, 403, 413, an expired session) is JSON even for a form (FR-UX-09). | MSG-nn in section 8 | PARTIAL |
-| FR-UX-03 | A page with nothing on it says what will appear and what causes it. | BR-UX-07 | Each stage page has a sentence for the empty case (SCR-04 to SCR-07). Not covered: the Diagnose page ignores an unknown `?a=` silently, and the sign-in page has no link back (section 5). | SCR-03 to SCR-08 | PARTIAL |
+| FR-UX-03 | A page with nothing on it says what will appear and what causes it. | BR-UX-07 | Each stage page has a sentence for the empty case (SCR-04 to SCR-07). Not covered: the Diagnose page ignores an unknown `?a=` silently (section 5). The sign-in page's lack of a link back was closed by the mark in the app bar (FR-UX-15). | SCR-03 to SCR-08 | PARTIAL |
 | FR-UX-04 | A signed-in person who is not the owner of a company is told in a sentence that the page is not for them. | BR-ID-05, BR-UX-06 | Describe, Procure, Deliver and Run: "This page is for the owner of a company. Your account is not linked to one." with a link "Back". Diagnose gives a member of a company a different sentence (`notOwnerMessage`). Operator: "This page is for a platform operator." No data is shown. | SCR-03 to SCR-08 | AS BUILT |
+| FR-UX-15 | Every page has the same frame: a link that skips to the page, the SYNTHETIC banner, a bar with the mark and the signed-in person, the page, and a footer. | BR-UX-05, BR-UX-08, BR-UX-09 | `app/layout.tsx` and `app/_ui/appbar.tsx`. In order: the link "Skip to the page" (to `#main`, seen when it has focus); the banner of FR-UX-01 when the environment is synthetic; the app bar; `main` with the id `main`; the footer. The app bar holds the mark "APLYD" (with "for manufacturers" from 40 rem wide), a link to `/` whose accessible name is "APLYD home". For a signed-in person it also shows two initials, the display name and the role (the name and role from 40 rem wide) and a "Sign out" button that posts `intent=sign-out` to `/api/session` (FR-ID-05). A visitor sees the mark only: the sign-in link is on the page, once. The footer says "APLYD MSME platform. An early version, built to be tested with manufacturers." and "English only for now." The page is one column of at most 62 rem. Nothing was measured on a phone or with a screen reader: the BRD calls BR-UX-05 and BR-UX-09 Unverified, and they still are | SCR-01 to SCR-09 | AS BUILT |
+| FR-UX-16 | Each page opens with a head: for an owner's stage page a line "Step N of 5" and the stage's word, the page title as the one top heading, and one sentence that says what the page is for. | BR-UX-01 | `PageHead` in `app/_ui/parts.tsx`. The line is "Step <n> of 5 · <word>" and is drawn only when the page names its stage: Describe (1, Describe), Diagnose (2, Decide), Procure (3, Choose), Deliver (4, Deliver), Run (5, Measure). A visitor or a person who is not an owner gets the title alone, with no line and no sentence. Each page sets its own sentence (the "Below the title" row of its screen in section 5). The sign-in, operator and demonstration pages have a sentence and no step line. Not covered: BR-UX-01's own test (8 of 10 owners can say what the page is for and what they would do next) has not been run, and the operator, sign-in and demonstration pages show no next step | SCR-01 to SCR-09 | PARTIAL |
+| FR-UX-17 | On each stage page an owner sees the five steps in a row, each marked done, your turn or not yet, with the page they are on marked, and each a link to its page. | BR-UX-02, BR-UX-03 | `Strip` in `app/_ui/parts.tsx`, fed by `stageStatuses` (FR-UX-21). A `nav` named "Your five steps" holding an ordered list. Each item has a dot (the step's number, or a tick when it is done), the word of the stage (Describe, Decide, Choose, Deliver, Measure: one plain word each, none the name of a page's link) and, for a screen reader, ", done", ", your turn" or ", not started". The item for the page the person is on has `aria-current="page"` and an underline. The line between two dots is in the service's colour when the step before is done. It is five columns at every width, a phone included. `Page` draws it only for a person with the role `owner`, a company and a bound database. It is not on the home page (which has its own list, FR-UX-22), the sign-in page, the operator page or the demonstration page. Not covered: BR-UX-02's own test (an owner can say which stage they are at and press one button to continue) has not been run | SCR-03 to SCR-07 | PARTIAL |
+| FR-UX-18 | At the foot of an owner's stage page, when the owner's turn is on another stage, a card says what the next step is and gives one button to it. | BR-UX-01, BR-UX-02 | `NextUp` in `app/_ui/parts.tsx`: an `aside` named "What is next" (`data-testid="next-up"`) with the line "Your next step", the title and body of the step of FR-UX-20, and a button with its words. It is shown only when the step's stage is not the page's own stage and the step is not "You are up to date". After a sign-off the Diagnose page passes `hideNext` when `afterSignOff` (`modules/diagnose/src/progress.ts`) finds a step further on, and shows that step itself in the sign-off card, so the step is not shown twice. `afterSignOff` returns nothing when the owner's turn is Describe or Diagnose, or when the owner is up to date. Not shown to a visitor, a person who is not an owner, the operator, or on the home page, which has the step as its first block | SCR-03 to SCR-07 | PARTIAL |
+| FR-UX-19 | The owner's place in the journey is worked out from the records each time a page is drawn, and nothing about it is stored. | BR-UX-02 | `loadFacts(db, companyId)` in `modules/journey/src/facts.ts` returns `Facts` (`modules/journey/src/progress.ts`): `factory` (newest version number or null, and whether any version is confirmed); `assessment` (number of ideas, number decided, whether signed off, or null); `requirements` (those not withdrawn); `requirementsWithoutProvider` (of those, the ones with no engagement); and `engagements`, each with whether its plan is agreed, whether it is closed, one state for each milestone, whether a starting number is recorded, the date of the first acceptance and the review numbers recorded. It calls the stage modules' own reads for the company in the person's own identity, holds no query of its own and writes nothing. The assessment that counts is the newest one that was signed off, or else the newest, so a newer unsigned assessment is not asked about while a signed-off one is what the work came from | None. Nothing is written | PARTIAL |
+| FR-UX-20 | The platform names the one step that is the owner's turn: the stage, a title, a sentence, the words on a button and where the button goes. | BR-UX-01, BR-UX-02 | `nextStep(facts, now)` in `modules/journey/src/progress.ts`. Inputs: `Facts` (FR-UX-19) and the time. It is a pure function: the same facts and the same time give the same step, so a person can check by hand why the home page says what it says. It writes nothing and decides nothing for the owner. The first rule that fits wins, in the order of the table "The next-step rules" below: thirteen rules, each with a stable key, so a test can say which one it expects. The rules for the early stages come before the rules for work in progress, so an unsigned assessment outranks a delivery. The time matters only through the review days (`reviewSlots`, `modules/run/src/state.ts`): a day passing can change the step with no write. A unit test (`modules/journey/tests/unit/progress.test.ts`) has a case for each rule and, as its own comment says, checks each on the facts that make it fire and on the facts that make the rule before it fire instead; it also checks that the button words are never a page's name. Not covered: no browser or smoke test reads the step, the strip or the card on a page (the journey test only follows the home page's stage links by their names), and whether an owner understands the step is not known | `NextStep`: `stage`, `key`, `title`, `body`, `cta` (the button words) and `href` (the stage's address). Not stored | PARTIAL |
+| FR-UX-21 | Each of the five stages is shown as done, your turn or not yet, and has one line that says where it stands. | BR-UX-02 | `stageStatuses(facts, now)` and `stageLine(stage, facts, now)` in `modules/journey/src/progress.ts`. A stage is "current" (your turn) when it is the stage of the step of FR-UX-20 and that step is not "You are up to date". Otherwise it is "done" when: Describe, any version is confirmed; Diagnose, the counted assessment is signed off; Procure, any engagement exists; Deliver, any engagement is complete (it is closed and every milestone is accepted or paid); Run, any engagement has reviews 1, 2 and 3 recorded. Otherwise it is "todo". The current test comes first, so a stage that was done can be the owner's turn again. The home page words them "Your turn", "Done" and "Not yet" (SCR-01); the strip says "your turn", "done" and "not started" to a screen reader (FR-UX-17). The lines are in the table "The line under each stage" below. When the owner is up to date no stage is current | Not stored | PARTIAL |
+| FR-UX-22 | The home page shows an owner their next step first, then where each of the five steps stands, then the company record; it shows a visitor what the service is and one way in; it shows the operator the way to the provider list. | BR-UX-01, BR-UX-02, BR-UX-03 | `app/page.tsx` (SCR-01). The owner's first block is the step of FR-UX-20 in full: the line "Your next step", the title as the top heading, the sentence and the button. Then the five stages as cards: each has the stage's number or a tick, a link with the page's name, a tag ("Done", "Your turn" or "Not yet") and the stage's sentence and line (FR-UX-21). A visitor sees what the service is, the five steps in plain words, four things an owner can rely on, and a note that this is an early version. Not covered: a signed-in person who has a company and is not its owner gets the hero "You are signed in" with the sentence "This account is not linked to a company, so there are no steps to work through here.", which is untrue of a member (section 12, item 23). BR-UX-02's own test has not been run | SCR-01 | PARTIAL |
+| FR-UX-23 | A page says, in a tag and one sentence, whether it is the owner's turn, somebody else's, or nobody's, and shows counts as a bar with the words under it. | BR-UX-01, BR-UX-07 | `Tag` and `Meter` in `app/_ui/parts.tsx`. A tag has a tone (done, your turn, warning, service colour, problem or none) that is only a colour: every tag carries words, and a bar always has its words under it. Each page's helper works the words out from what the page already read and never stores them: Describe, `modules/factory/src/progress.ts` (`progressOf`, `progressWords`, `confirmWords`); Diagnose, `modules/diagnose/src/progress.ts` (`signOffState`, `signOffWords`, `firstUndecided`, `scoreLine`); Procure, `modules/procure/src/view.ts` (`requirementState`, `procureCounts`, `procureSentence`, `procureTags`, `readyTone`); Deliver, `modules/deliver/src/summary.ts` (`deliverySummary`, `primaryAction`, `firstWaitingDecision`); Run, `modules/run/src/view.ts` (`resultsSummary`, `firstTurn`, `REVIEW_TAG`); Operator, `operatorSummary`. The wording is in each screen in section 5. Within one engagement, Deliver (`primaryAction`) and Run (`firstOpenReview`) draw one action as the main button and the others quietly | SCR-03 to SCR-08 | AS BUILT |
+| FR-UX-24 | Caveats and long explanations stay on the page in a collapsed section, and the words that must always be seen stay in view. | BR-UX-01, BR-UX-08 | `details` elements. Describe: "Earlier versions" (open while an older version is read). Diagnose: "What signing off means" (collapsed while the sign-off cannot yet be pressed, plain text once it can), "Source and score" under each idea, "How the ideas were ranked" and "Ideas left out (N)". Procure: "Others asking, and providers listed for this" (only for a requirement that has a provider chosen). Run: "About these numbers and dates". Always in view: the SYNTHETIC line or tag on each stage page (FR-UX-01), the sentences that no money moves, the tags "Needed to confirm", and the statement of what drafted the ideas. Deliver's caveats are in the card "About this page" at the foot of the page, not collapsed. A collapsed section is closed when the page loads, except "Earlier versions" when an old version is open; no script opens or closes anything | SCR-03 to SCR-07 | AS BUILT |
+
+Rows FR-UX-15 to FR-UX-24 were added on 5 October 2026, after slice 10 redesigned the interface. They follow the TO BE rows FR-UX-05 to FR-UX-14 (section 10) in the numbering, because numbers are never reused, and they are in this section because they are built. Their status is PARTIAL where the BRD calls the requirement Not built and the code now does what it asks: the part that is missing is the BRD's own test with owners, which has not been run. The BRD has not been changed (section 12, item 24).
+
+##### The next-step rules (FR-UX-20)
+
+`nextStep` in `modules/journey/src/progress.ts` tries the rules in this order and returns the first that fits. The "Stage" column is the stage whose page the button opens. `N`, `D` and `I` stand for numbers worked out from the facts. The titles, sentences and button words are copied from the code.
+
+| Order | Key | Fires when | Stage | Title | Sentence | Button |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `describe` | No version of the description is saved | Describe | Start by describing your factory | Plain questions about what you make, how work moves through the shop floor and what hurts. Nothing is lost if you stop halfway: every save is kept. | Start with your factory |
+| 2 | `confirm` | A version is saved and none is confirmed | Describe | Confirm your description | Your answers are saved as a draft. When they are accurate, confirm them: that is what the ideas are worked out from. | Review and confirm |
+| 3 | `diagnose` | A version is confirmed and there is no assessment | Diagnose | See what is worth doing | Your answers go through a fixed set of rules and come back as a short ranked list of ideas, each with its cost, its risk and what has to come first. | Get your ranked ideas |
+| 4 | `decide` | The counted assessment is not signed off and fewer ideas are decided than it has | Diagnose | Decide on N ideas (or "Decide on 1 idea") | You have decided on D of I. For each one say yes, not yet or no. Only the ideas you say yes to go on to the next stage. | Continue deciding |
+| 5 | `sign_off` | The counted assessment is not signed off and the decided ideas are not fewer than its ideas | Diagnose | Sign off your decisions | You have decided on every idea. Signing off says these decisions are yours and lets you go on to say what you need. | Sign off |
+| 6 | `judge_delivery` | Any milestone of any engagement is in the state delivered. The rule does not look at whether the engagement is closed | Deploy | A delivery is waiting for your decision | The provider says a milestone is done. Check it against the test you wrote before work started, then accept or reject it. | Check the work done |
+| 7 | `review_due` | Any review of any engagement is due: its day (30, 90 or 180 days after the first acceptance) has come and it is not recorded | Run | Review N is open (one review), or K reviews are open | Measure the same thing you measured before the work, and say whether it did what was expected. | Record a review |
+| 8 | `agree_plan` | Any engagement has no agreed plan and is not closed | Deploy | Agree a plan with your provider | Break the work into milestones. For each one write what is delivered, how you will check it, a date and a price. | Plan the work |
+| 9 | `record_baseline` | Any engagement has an agreed plan, no starting number and no accepted milestone | Run | Write down your starting number | Record today's number before anything is accepted, so that later you can see what changed. It can only be recorded once, and only before the first milestone is accepted. | Record the number |
+| 10 | `choose_provider` | Some requirement that is not withdrawn has no provider chosen | Procure | Choose a provider | You have said what you need. Pick which of the listed providers you want to work with. | Choose a provider |
+| 11 | `make_requirement` | No requirement that is not withdrawn exists and there is no engagement | Procure | Say what you need | Pick an idea you said yes to and say what you need. You will see which listed providers could do it. | Make a request |
+| 12 | `keep_going` | Some engagement is not closed and is in progress (its plan is agreed) | Run | Work is under way | "Nothing needs you today. The next review opens on <date>." with the earliest day of a review that is not yet due, or, when there is none, "Nothing needs you today. Accept each milestone as it is delivered; the review dates start from the first one you accept." | Check on the work |
+| 13 | `caught_up` | None of the above | Run | You are up to date | Nothing needs you today. You can go back over any stage. | Look back at the numbers |
+
+Where the owner is sent: the button's address is the stage's page (`/factory`, `/diagnose`, `/procure`, `/deliver` or `/run`), which is the page named in the "Stage" column; the rule names no record and no anchor. The rules for Describe, Diagnose and signing off (1 to 5) are tried first and use the counted assessment of FR-UX-19; rules 6 to 11 are tried only when the counted assessment is signed off, because rules 4 and 5 return for any assessment that is not.
+
+Two behaviours of the rules were read in the code and not run. Rule 5 also fires for an assessment with no ideas (decided 0 of 0), although the Diagnose page then says there is nothing to sign off and refuses the sign-off. Rule 6 also fires for a closed engagement that holds a delivered milestone, although the Delivery page then lets nothing be decided. Both are recorded in section 12 (items 25 and 26).
+
+##### The line under each stage (FR-UX-21)
+
+`stageLine` in `modules/journey/src/progress.ts`, shown on the home page's stage cards. `N`, `D`, `I`, `A` and `T` stand for numbers; a word in a count is singular when the count is 1.
+
+| Stage | When | Line |
+| --- | --- | --- |
+| Describe | No version saved | Not started |
+| Describe | A version is confirmed | Confirmed. Newest version is N. |
+| Describe | A version is saved and none is confirmed | A draft is saved (version N). Not confirmed yet. |
+| Diagnose | No version is confirmed | Waits for a confirmed description |
+| Diagnose | No assessment | Not started |
+| Diagnose | The counted assessment is signed off | Signed off. You decided on D of I ideas. |
+| Diagnose | It is not signed off | Decided on D of I ideas. Not signed off. |
+| Procure | The counted assessment is not signed off | Waits for your signed-off decisions |
+| Procure | No requirement that is not withdrawn | Nothing asked for yet |
+| Procure | Otherwise | N requirements, M providers chosen. (for example "1 requirement, 1 provider chosen.") |
+| Deploy | No engagement | Waits for a chosen provider |
+| Deploy | No engagement has an agreed plan | Plan not agreed yet |
+| Deploy | Otherwise | A of T milestones accepted. (A counts milestones that are accepted or paid, over all engagements) |
+| Run | No engagement | Waits for work to start |
+| Run | Some review is open | N reviews are open. (or "1 review is open.") |
+| Run | Otherwise | "Starting number recorded." or "No starting number yet.", then "N reviews recorded." (or "1 review recorded.") |
 
 #### Functional requirements: DATA
 
@@ -802,7 +890,7 @@ These rows hold behaviours that belong to no single stage. A row appears only wh
 
 ## 5. Screen catalogue
 
-There are nine screens, all pages in `app/`. They are listed in the order of the journey: home, sign-in, Describe, Diagnose, Procure, Deploy, Run, operator, demonstration. Each is rendered on the server on every request (`export const dynamic = "force-dynamic"`), uses plain HTML forms, and uses no client component anywhere in `app/` [Certain].
+There are nine screens, all pages in `app/`. They are listed in the order of the journey: home, sign-in, Describe, Diagnose, Procure, Deploy, Run, operator, demonstration. Each is rendered on the server on every request (`export const dynamic = "force-dynamic"`), uses plain HTML forms, and uses no client component anywhere in `app/` [Certain]. This section was rewritten on 5 October 2026 for the interface as redesigned in slice 10: it describes the pages as they are built, and where the earlier wording is quoted it is marked as the earlier version. How the screens are laid out is in the [wireframes](../design/WIREFRAMES.md) and, with the same SCR numbers, in the [wireframes page](../design/wireframes.html). The stage names in the table are the ones in section 1; the one-word names on the strip are in section 3.1.
 
 | Screen | Address | Source | Stage |
 | --- | --- | --- | --- |
@@ -818,60 +906,82 @@ There are nine screens, all pages in `app/`. They are listed in the order of the
 
 ### 5.1 What every screen shares
 
-- Layout. `app/layout.tsx` puts every page in one `main` column of at most 40 rem, adds a dark colour scheme for browsers that ask for it, and shows the banner "SYNTHETIC environment. Do not enter real company or personal data." (`role="note"`) above it when `APLYD_ENV` is local, synthetic or test. There is no navigation bar, header or footer.
-- Browser title and language. Every page has the title "APLYD MSME platform", the description "Describe, diagnose, procure, deploy and run technology for a small manufacturer." and the language `en`. A person with several tabs open cannot tell the pages apart by title.
-- Entitlement. Every stage page answers 200 to everyone and decides what to show: a visitor gets one sentence with a link "Sign in"; a person who may not use the page gets one sentence and a link "Back" to `/`. No data is shown in either case (section 2.3).
-- Notices. A form post that comes back to a page does so through the address, for example `/procure?problem=engaged`. The page prints a sentence from a fixed list for a code it knows and nothing for any other code, as `role="alert"` for a refusal and `role="status"` for a confirmation. Exceptions, where any value shows a confirmation, are listed in section 12.
+- Frame (FR-UX-15). Top to bottom: the link "Skip to the page"; the banner "SYNTHETIC environment. Do not enter real company or personal data." (`role="note"`) when `APLYD_ENV` is local, synthetic or test; the app bar; the page in `main`; the footer. The app bar holds the mark "APLYD", which links to `/`, and for a signed-in person two initials, the display name, the role and a "Sign out" button. The footer has two lines: "APLYD MSME platform. An early version, built to be tested with manufacturers." and "English only for now."
+- Page head (FR-UX-16). On an owner's stage page: the line "Step N of 5 · <word>", the title as the one top heading, and one sentence below it. The sentence of each page is in its "Below the title" row.
+- Owner's stage pages (Describe, Diagnose, Procure, Deliver, Run). Above the head, the five-step strip (FR-UX-17). Below the page, when the owner's turn is on another stage, the card "Your next step" (FR-UX-18). Neither is drawn for a visitor or a person who is not an owner. The operator, sign-in and demonstration pages have neither.
+- Layout. One column of at most 62 rem, with a side gutter that grows from 1 rem to 2 rem. A second column appears only on wider screens: on the home page from 52 rem wide; for paired short fields, option lists longer than five choices, the head of an engagement on Delivery and Results and the operator's summary row from 40 rem wide; for an idea and its decision form on Diagnose from 62 rem wide. Below 40 rem every page is one column, the operator's table of providers becomes one block for each provider, and on Describe the buttons "Save as draft" and "Confirm this is accurate" sit in a bar stuck to the bottom of the screen (not stuck on a screen lower than 34 rem). The strip is five columns at every width. Buttons, fields and option rows are at least 2.75 rem tall (44 px at the default size); the "Sign out" button is 2.25 rem.
+- Colour and type. Colours are tokens in `app/globals.css`, in a light set, a dark set the browser chooses with `prefers-color-scheme: dark`, and a dark set that an attribute on the page would choose (no page sets it). The type is the device's own (`system-ui` first, with a Devanagari face named in the list and none shipped), and nothing is loaded from another site. A unit test (`modules/journey/tests/unit/contrast.test.ts`) reads the three token sets and measures the colour pairs: text at 4.5 to 1 and the edge of a control at 3 to 1. It measures the tokens, not the rendered pages.
+- Browser title and language. Every page still has the title "APLYD MSME platform", the description "Describe, diagnose, procure, deploy and run technology for a small manufacturer." and the language `en`. A person with several tabs open cannot tell the pages apart by title; the page's own top heading and the strip say which it is.
+- Entitlement. Every stage page answers 200 to everyone and decides what to show. A visitor gets the page's title and one card with the link "Sign in" and the rest of one sentence, for example "Sign in to describe your factory." A person who may not use the page gets the title and one card with a sentence and a link "Back" to `/`. No data is shown in either case, and there is no strip, step line or sentence under the title (section 2.3).
+- Notices. A form post that comes back to a page does so through the address, for example `/procure?problem=engaged`. The page prints a sentence from a fixed list for a code it knows and nothing for any other code, as `role="alert"` for a refusal and `role="status"` for a confirmation. A notice has a tone (information, success, warning or problem) that is only its colour. Exceptions, where any value shows a confirmation, are listed in section 12 (item 5).
+- Tags, bars and summaries (FR-UX-23). A tag is a small label with words in it; its colour is never the only carrier of the meaning. A bar always has its words under it ("3 of 5 ideas decided."). Most pages have a card near the top, "Where things stand" or "Where your description stands", with a tag and one sentence that say whose turn it is.
+- Collapsed sections (FR-UX-24). Caveats and long explanations are in `details` elements and are closed when the page loads. The SYNTHETIC line, the sentences that no money moves and the tags "Needed to confirm" are not collapsed.
 - Format. Dates are the first ten characters of an ISO timestamp, so they are UTC dates. Money is "₹" and a number with Indian grouping (for example ₹1,00,000), produced by `toLocaleString("en-IN")`.
-- A "tag" is a small bordered label next to a title.
-- Gaps that apply to every screen and are not repeated below: BR-UX-01 (one browser title; no sentence at the top of each page that says what it is for and what to do next, with one clear action); BR-UX-04 (English only); BR-UX-05 and BR-UX-09 (unverified: the layout is one column and fields have labels and a visible focus outline, but no phone or accessibility check has been done); BR-UX-10 (nothing can be printed or exported); BR-UX-11 (the channel is the web only). The proposed layouts are in the [wireframes](../design/WIREFRAMES.md).
+- Gaps that apply to every screen and are not repeated below. BR-UX-01 and BR-UX-02: the code does what they ask on the owner's pages, and neither has been tried with an owner; the sign-in, operator and demonstration pages show no next step. BR-UX-03: terms such as assessment, requirement, cluster, engagement and fingerprint are still on pages, and nothing compares a page's terms with the [glossary](../GLOSSARY.md). BR-UX-04: English only. BR-UX-05 and BR-UX-09: the layout, the labels, the skip link, the visible focus outline and the colour tokens are built, and no page has been walked on a phone, with a screen reader or in an accessibility audit, so both stay unverified. BR-UX-10: nothing can be printed or exported and no stylesheet has a print rule. BR-UX-11: the channel is the web only. The BRD's status words for BR-UX-01, BR-UX-02, BR-UX-03, BR-UX-05 and BR-UX-09 were written before slice 10 (section 12, item 24).
 
 ### 5.2 SCR-01 Home
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/`, `app/page.tsx` |
-| Purpose | Tell the person whether they are signed in and as whom, show their own company's record, and link to the pages they may use |
+| Address and source | `/`, `app/page.tsx`. The step, the stage statuses and the stage lines come from `modules/journey/src/progress.ts`; the facts from `modules/journey/src/facts.ts` (FR-UX-19 to FR-UX-22) |
+| Purpose | Tell a visitor what the service is and give one way in; tell an owner what the next step is and where each of the five steps stands; show the person's own company record; give the operator the way to the provider list |
 | Who may open it | Anyone |
-| What others see | A visitor sees only the sign-in prompt. A member sees the company record and no stage links. The operator sees no company record and the operator link |
-| Sections in order | Visitor: title; "You are not signed in."; link "Sign in". Signed in: title; "Signed in as" the display name and the role as a tag; the card "Company record"; the five stage links for an owner; the operator link for the operator; the sign-out form |
-| Fields | One hidden field `intent` with the value `sign-out`. No visible field |
+| What others see | Four views. A visitor. An owner (a company and the role `owner`). The operator (the role `operator` and no company). Any other signed-in person, including a member of a company |
+| Sections in order | Visitor: the opening block; "How it works"; two cards, "What you can rely on" and "About this version". Owner: the opening block "Your next step"; the line "Signed in as"; "Your five steps" with, beside it from 52 rem wide and below it on a phone, the card "Company record" and the card "What you can rely on". Operator: the opening block "The platform operator"; the line "Signed in as"; the card "Company record". Any other signed-in person: the opening block "You are signed in"; the line "Signed in as"; the card "Company record" |
+| Fields | None. The sign-out form is in the app bar, not on the page |
 | Messages | MSG-01 to MSG-03 |
+
+Wording of the page's own text
+
+| Place | Text |
+| --- | --- |
+| Visitor, top heading | APLYD MSME platform |
+| Visitor, first line | Find the technology that fits your factory, and get it working. |
+| Visitor, paragraph | Tell us how your factory runs. You get a short, ranked list of what is worth doing, a plan you can check one milestone at a time, and your own numbers to see whether it paid off. |
+| Visitor, beside the button | You are not signed in. |
+| How it works | Five lines, each the strip word in bold and the stage's sentence (the table in section 3.1) |
+| What you can rely on | "Nothing is overwritten. Every save is kept as a new version, so you can always see what you said before."; "Other companies cannot see yours. The rule is kept on the server, not just hidden on the page."; "You decide. The ideas are ranked by fixed rules you can read, and nothing goes on without your yes."; "No money moves here. You write down what you agree and what you pay. The service holds and sends nothing." |
+| About this version | It is an early version, in English only. It works for one factory at a time, and it does not yet take photos or voice. Nothing here is a finding about a real factory. |
+| Owner, opening block | The line "Your next step"; the title as the top heading; the sentence; the button. All four come from the rule that fired (the table under FR-UX-20) |
+| Signed-in line | "Signed in as <display name>" and the role as a tag |
+| Your five steps | One card for each stage, in order: a dot with the number (a tick when done); a link with the page's name; a tag "Done", "Your turn" or "Not yet"; the stage's sentence; the stage's line (the table under FR-UX-21) |
+| Company record | The company name as a heading; a tag SYNTHETIC when the company is synthetic; "Record created <date>." Or MSG-03 |
+| Operator, opening block | The line "The platform operator"; the heading "Keep the list of providers"; "Add providers, say which ideas each one can do, and list them so owners can choose. One listing fee, the same for every provider. You see providers and counts, never a company's record."; the button "Providers and the listing fee" |
+| Any other signed-in person, opening block | The line "APLYD MSME platform"; the heading "You are signed in"; "This account is not linked to a company, so there are no steps to work through here." |
 
 Buttons and links
 
 | Label | Kind | Shown when | Destination |
 | --- | --- | --- | --- |
-| Sign in | Link | Not signed in | `/sign-in` |
-| Describe your factory | Link | Owner with a company | `/factory` |
-| What to do about it | Link | Owner with a company | `/diagnose` |
-| What you need | Link | Owner with a company | `/procure` |
-| Delivery | Link | Owner with a company | `/deliver` |
-| Results | Link | Owner with a company | `/run` |
-| Providers and the listing fee | Link | Role `operator` and no company | `/operator` |
-| Sign out | Button | Signed in | Posts to `/api/session`, then back to `/` |
+| Sign in | Button-shaped link | Not signed in | `/sign-in` |
+| The step's button words | Button-shaped link | Owner | The step's stage (the table under FR-UX-20) |
+| Describe your factory; What to do about it; What you need; Delivery; Results | Links, one in each stage card | Owner | `/factory`; `/diagnose`; `/procure`; `/deliver`; `/run` |
+| Providers and the listing fee | Button-shaped link | Role `operator` and no company | `/operator` |
+| Sign out | Button, in the app bar | Signed in | Posts to `/api/session`, then back to `/` |
 
 States
 
 | State | What the person sees |
 | --- | --- |
-| Not signed in | "APLYD MSME platform", "You are not signed in." and the link. Also what a person sees when no database is bound or the session cannot be verified |
-| Owner | "Signed in as <name>" and the role tag; the company card with the company name, a SYNTHETIC tag when the company is synthetic, and "Record created <date>."; five links; "Sign out" |
-| Member | The same, with no stage links |
-| Operator, or any person with no company | "No company is linked to this account, so there is no company record to show." The operator also sees the operator link |
+| Visitor | The visitor view. Also what a person sees when no database is bound or the session cannot be verified |
+| Owner who has done nothing | "Start by describing your factory"; the first card is "Your turn", the others "Not yet" with their waiting lines (for example "Waits for a confirmed description") |
+| Owner part-way | The step of the rule that fired. Stages before it are "Done" (when their own test passes), the stage of the step is "Your turn", and later stages "Not yet" |
+| Owner up to date | "You are up to date" with the button "Look back at the numbers"; no card is marked "Your turn" |
+| Operator | The operator view. The card "Company record" holds MSG-03 |
+| Member of a company, or any other signed-in person | "You are signed in" and the card "Company record": the company's record for a member, MSG-03 for a person with none. The sentence in the opening block says the account is not linked to a company, which is untrue of a member (section 12, item 23) |
 | Empty, error, refused | Not applicable. The page has no form that can fail |
 
-Gaps. BR-UX-02: the home page is a list of links; it does not show the five stages, which are done, which is current, or one button for the next step (FR-UX-06). BR-UX-03: the link names are the page titles, not the stage names Describe, Diagnose, Procure, Deploy and Run. A member has nothing to open (FR-ID-15).
+Gaps. BR-UX-02 and BR-UX-01: built, not tried with an owner (FR-UX-22). BR-UX-03: the stage cards link by the page's own name ("What to do about it") and the strip and "How it works" use the one-word names (Decide), so one stage has two names on the owner's screens; the platform's own terms remain in the stage sentences ("a plan in milestones") and the stage lines ("requirement", "provider chosen"). A member has nothing to open (FR-ID-15). The first block's button, for an owner, goes to the stage's page and not to the control that does the step (the rule table names no anchor).
 
 ### 5.3 SCR-02 Sign-in
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/sign-in`, `app/sign-in/page.tsx` |
-| Purpose | Let a person choose one of the synthetic users and sign in as that user |
+| Address and source | `/sign-in`, `app/sign-in/page.tsx`. Query value: `refused` |
+| Purpose | Let a person choose one of the synthetic users and sign in as that user, and say who the two kinds of user are |
 | Who may open it | Anyone, including a person who is already signed in (no redirect) |
-| What others see | Everyone sees the same page. Where the environment is not synthetic or no database is bound, the page holds only "Sign in" and "Sign-in is not available in this environment." |
-| Sections in order | Title "Sign in"; "Synthetic environment: choose a synthetic user. There is no password."; the alert "That user was not found." when `?refused=1`; the form |
+| What others see | Everyone sees the same page. Where the environment is not synthetic or no database is bound, the page holds only the title "Sign in" and "Sign-in is not available in this environment." |
+| Sections in order | The title "Sign in" with the sentence "Synthetic environment: choose a synthetic user. There is no password."; the alert "That user was not found." when `?refused=1`; the form; the card "Who is who". The page is a narrow column |
 | Messages | MSG-04 to MSG-09 |
 
 Fields
@@ -880,33 +990,36 @@ Fields
 | --- | --- | --- | --- | --- |
 | Synthetic user | `email` | Drop-down list | One option for each user with `is_synthetic = 1`, ordered by display name; shown as "display name (role)"; the value is the email address | Yes |
 
+Wording of the page's own text. The card "Who is who" has two entries. "Owner": "Describes a factory and works through the five steps. Sees that company and no other." "Operator": "Keeps the list of providers and the listing fee. Never sees a company's record."
+
 Buttons and links
 
 | Label | Kind | Destination |
 | --- | --- | --- |
-| Sign in | Button | Posts to `/api/session`; success goes to `/`, refusal to `/sign-in?refused=1` |
+| Sign in | Button, large, with an arrow | Posts to `/api/session`; success goes to `/`, refusal to `/sign-in?refused=1` |
+| APLYD (in the app bar) | Link | `/` |
 
 States
 
 | State | What the person sees |
 | --- | --- |
-| Not available | Title and "Sign-in is not available in this environment." |
+| Not available | The title and "Sign-in is not available in this environment." in a card |
 | Populated | The list of synthetic users: the two companies' owners, the operator, and in demonstration mode the five further owners (section 4.7) |
 | Refused | The alert above the form |
 | Error | If the session secret is missing the form is still shown, and the post answers with JSON `{"error":"sign_in_not_available"}` instead of a page |
 | Empty | A list with no option cannot be submitted because the field is required |
 
-Gaps. BR-UX-06: a failure that comes from the secret or a cross-site post is JSON, not a sentence. The page has no link to the home page or to anything else (section 3.2). The page does not say who the operator is or which user is for what, and the list shows role names, not what the person can do.
+Gaps. BR-UX-06: a failure that comes from the secret or a cross-site post is JSON, not a sentence. The earlier version of this screen had no way back; the mark in the app bar now links to `/`, and that is the only link. The drop-down shows role names, and the card says what an owner and an operator do, not which listed person is which.
 
 ### 5.4 SCR-03 Describe your factory
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/factory`, `app/factory/page.tsx`. Query values: `rev`, `saved`, `confirmed`, `missing`, `problem`, `fields`, `stale` |
+| Address and source | `/factory`, `app/factory/page.tsx`, `app/factory/factory.css`; the counts and words under the title come from `modules/factory/src/progress.ts` (`progressOf`, `progressWords`, `confirmWords`). Query values: `rev`, `saved`, `confirmed`, `missing`, `problem`, `fields`, `stale` |
 | Purpose | Let the owner answer the questionnaire, save it as a version, confirm a version as accurate and look at earlier versions |
 | Who may open it | An owner of a company |
-| What others see | A visitor: "Sign in to describe your factory." with the link. Anyone else: "This page is for the owner of a company. Your account is not linked to one." and a link "Back" |
-| Sections in order | Title; the SYNTHETIC line; the notices; the status line; the notice about an older version (only then); the form with five sections, the note, the two buttons and a help line; "Earlier versions"; "Back" |
+| What others see | A visitor: the title and "Sign in to describe your factory." with the link. Anyone else: the title, "This page is for the owner of a company. Your account is not linked to one." and a link "Back" |
+| Sections in order | For an owner: the strip; the head ("Step 1 of 5 · Describe", the title and a sentence); the notices; the card "Where your description stands"; the notice about an older version (only then); the form, with five section cards, a card holding the note and a sentence on confirming, and a bar with the two buttons; "Earlier versions" (a collapsed section) or one sentence when there are none; and, when the owner's turn is on another stage, the card "Your next step" |
 | Messages | MSG-19 to MSG-46 |
 
 Wording of the page's own text
@@ -914,13 +1027,15 @@ Wording of the page's own text
 | Place | Text |
 | --- | --- |
 | Title | Describe your factory |
-| Below the title | SYNTHETIC tag, then "Answer what you can. You can stop and come back: every save is kept as a new version, and nothing is overwritten." |
-| Status | "Newest version: N, confirmed as accurate, saved <date>." or "Newest version: N, a draft, saved <date>." or "Nothing saved yet." |
+| Below the title | "Answer what you can and stop whenever you like: every save is kept as a new version, and nothing is overwritten." |
+| Card "Where your description stands" | Tags: "Confirmed" with a tick (green), or "Draft" (marigold), or "Not started" (marigold), and SYNTHETIC. Then the status line: "Newest version: N, confirmed as accurate, saved <date>." or "Newest version: N, a draft, saved <date>." or "Nothing saved yet." Then a bar with the words "A of Q questions answered in the newest saved version" ("A of Q questions answered" when nothing is saved). A is the number of questions the saved answers cover and Q the number that apply: 23, plus "If something else, what?" for a sector of "Something else" and for the problem "Something else". The count is of what was saved, so it does not move while the person types. Last, one help line: "A of 5 questions needed to confirm are answered." or "All 5 questions needed to confirm are answered. You can confirm this version." for a saved version that is not confirmed; nothing for a confirmed version; "A draft can be saved after answering just one question." when nothing is saved |
 | Older version | "You are looking at version N, saved <date>. It cannot be changed. Go to the newest version to make changes." |
-| Below the buttons | "Confirming says the description is accurate and ready for the next step. You can still save a newer version later." |
-| History | "Earlier versions"; entries "Version N · <date> · confirmed" or "draft", and " · <note>" when there is one; "None yet."; "The newest H of N versions are listed. Older ones are kept." when there are more than 100 |
+| Each question | The label; under it a line that holds the tag "Needed to confirm" for the five questions that are needed (not on an older version) and the help text where there is some (for the problems: "Choose up to 3."); then the control. A question with several choices is a group whose legend is its label |
+| Section card | The section's title as a legend and, where it has one, its intro sentence |
+| Note | "What changed since last time? (optional)", then "Confirming says the description is accurate and ready for the next step. You can still save a newer version later." |
+| History | "Earlier versions", closed when the page loads and open while an older version is read. Inside it: "The newest H of N versions are listed. Older ones are kept." when there are more than 100; and an entry for each listed version: the link "Version N", the tag "confirmed" or "draft", the date, the tag "Shown above" on the version being read and, when there is one, the note. With no version saved there is no such section, and the page says "No earlier versions yet. Your first save will be version 1." |
 
-Fields. Every field is optional on the page: no question has the HTML `required` attribute. The server needs the five marked "Yes" before it will confirm. The name of each answer in the post is `a.` and the key. A radio button, once chosen, cannot be cleared on the page; a check box or text can. The form also carries the hidden field `based_on`, the number of the newest version (0 if none).
+Fields. Every field is optional on the page: no question has the HTML `required` attribute. The server needs the five marked "Yes" before it will confirm, and the page now says so beside each of the five with the tag "Needed to confirm" (the earlier version did not). The name of each answer in the post is `a.` and the key. A radio button, once chosen, cannot be cleared on the page; a check box or text can. The form also carries the hidden field `based_on`, the number of the newest version (0 if none). Two short questions, "State" and "District or industrial area", sit side by side from 40 rem wide; a list of more than five choices is in two columns from the same width.
 
 **About your unit**
 
@@ -962,7 +1077,7 @@ Fields. Every field is optional on the page: no question has the HTML `required`
 | --- | --- | --- | --- | --- | --- | --- |
 | 20 | a.problems | Your biggest problems | Check boxes | Up to 3 of the options; the page says "Choose up to 3." | Yes | Late deliveries (late_deliveries); Rejections and rework (rejects_rework); Machine breakdowns (breakdowns); Power and fuel cost (energy_cost); Cost of raw material (material_cost); Finding and keeping skilled workers (skilled_labour); Customers paying late (payment_delays); Certificates, standards and rules (compliance_certification); Finding new buyers (finding_buyers); Running out of material or stock (stock_shortages); Safety of people and machines (safety); Not enough working capital (working_capital); Something else (other_problem) |
 | 21 | a.problem_other | If something else, what? | Text box | Up to 200 characters | No |  |
-| 22 | a.own_words | In your own words: describe your factory and what you would fix first | Text area, 4 rows | Up to 2000 characters | No |  |
+| 22 | a.own_words | In your own words: describe your factory and what you would fix first | Text area, 7 rows | Up to 2000 characters | No |  |
 
 **What you can spend and decide**
 
@@ -972,16 +1087,20 @@ Fields. Every field is optional on the page: no question has the HTML `required`
 | 24 | a.decides | Who decides on spending like this? | Radio buttons, one choice | One of the options | No | I do (owner_alone); I do, with my family (owner_family); Partners or a board (partners_board) |
 | 25 | a.readiness | How soon would you act on a good plan? | Radio buttons, one choice | One of the options | No | Right away (ready_now); Within a year (within_year); I am only exploring (just_exploring) |
 
+One more field is not in the numbered tables: "What changed since last time? (optional)", named `note`, a text box of up to 500 characters (`MAX_NOTE_LENGTH`) below the five sections. It is not needed to confirm. The earlier version of this section did not list it.
+
 Buttons and links
 
 | Label | Kind | Shown when | Destination |
 | --- | --- | --- | --- |
 | Save as draft | Button (`intent` = `save`) | Newest version, owner | Posts to `/api/companies/{company id}/factory/revisions`; returns to `/factory?saved=N` |
-| Confirm this is accurate | Button (`intent` = `confirm`) | Newest version, owner | The same post; confirms if the five questions are answered |
-| Version N | Link | One for each of the newest 100 versions | `/factory?rev=N` |
+| Confirm this is accurate | Button (`intent` = `confirm`), the main button | Newest version, owner | The same post; confirms if the five questions are answered |
+| Version N | Link, inside "Earlier versions" | One for each of the newest 100 versions | `/factory?rev=N` |
 | Go to the newest version | Link | Viewing an older version | `/factory` |
 | Sign in | Link | Not signed in | `/sign-in` |
-| Back | Link | Always (owner), and for a person who is not an owner | `/` |
+| Back | Link | A person who is not an owner | `/` |
+
+The two buttons are in a bar stuck to the bottom of the screen while the owner scrolls through the questions.
 
 States
 
@@ -989,25 +1108,25 @@ States
 | --- | --- |
 | Not signed in | Title and "Sign in to describe your factory." |
 | Not an owner | Title, "This page is for the owner of a company. Your account is not linked to one." and "Back". A member of a company is told this too |
-| Empty | "Nothing saved yet.", the empty form, "None yet." under "Earlier versions" |
-| Populated | The newest version in the form, the status line and the list of earlier versions |
+| Empty | The tag "Not started"; "Nothing saved yet."; the bar at "0 of 23 questions answered"; "A draft can be saved after answering just one question."; the empty form; "No earlier versions yet. Your first save will be version 1." |
+| Populated | The newest version in the form, the card with its tag, status line, bar and help line, and the closed section "Earlier versions" |
 | Saved | "Version N saved as a draft." or "Version N saved and confirmed as accurate." |
 | Saved as a draft although confirm was pressed | The saved notice and "It was saved as a draft, not confirmed. To confirm, please answer: " the labels of the missing questions joined by "; " |
 | Refused | The sentence for `invalid` (with " Check: " and the labels, when known), `note`, `request` or `too_many`; or the stale sentence |
-| Older version | Read-only form, no buttons, the notice above |
+| Older version | Read-only form, no buttons and no tags "Needed to confirm", the notice above; the section "Earlier versions" is open |
 | Session expired when posting | Not a page: the browser shows JSON (BR-UX-06, FR-UX-09) |
 
-Gaps. BR-UX-06: when answers are refused the page lists the questions to check by label and does not say what is wrong with each, and it does not mark them in the form. BR-UX-07: the five questions needed to confirm are not marked on the form, so the owner learns which they are only after pressing "Confirm this is accurate". BR-UX-01: after a confirmation the page does not link to the next stage. BR-DESC-04 to BR-DESC-07: no voice, photo, own-language or AI-assisted entry (FR-DESC-09 to FR-DESC-12). The page is long: 25 questions with no progress indication.
+Gaps. BR-UX-06: when answers are refused the page lists the questions to check by label and does not say what is wrong with each, and it does not mark them in the form. BR-UX-07: the five questions needed to confirm are now marked on the form; the page still does not mark the ones that were refused. BR-UX-01: the page has no link of its own to the next stage. The card "Your next step" at the foot of the page is not drawn while the next step is Describe; once a version is confirmed it shows the owner's next step (for a first confirmation, "See what is worth doing" with the button "Get your ranked ideas"). BR-DESC-04 to BR-DESC-07: no voice, photo, own-language or AI-assisted entry (FR-DESC-09 to FR-DESC-12). The page is still long (23 to 25 questions in five sections); the bar of answered questions shows how far the owner is and there is no way to jump between sections.
 
 ### 5.5 SCR-04 What to do about it
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/diagnose`, `app/diagnose/page.tsx`. Query values: `a` (an assessment id), `saved`, `signed`, `problem`, `needs` |
+| Address and source | `/diagnose`, `app/diagnose/page.tsx`, `app/diagnose/diagnose.css`; the words about progress come from `modules/diagnose/src/progress.ts`. Query values: `a` (an assessment id), `saved`, `signed`, `problem`, `needs` |
 | Purpose | Let the owner make an assessment from the confirmed description, read the ranked ideas, decide on each, and sign the assessment off |
 | Who may open it | An owner of a company |
-| What others see | A visitor: "Sign in to see your assessment." with the link. A member of a company: "This page is for the owner of the company. You are signed in as a member of it, and only the owner can make and sign off an assessment." Anyone else: "This page is for the owner of a company. Your account is not linked to one." Both with a link "Back" |
-| Sections in order | Title; the SYNTHETIC line; the notices; either the card for "no confirmed description" or the make form; the assessment (heading, "drafted by" line, problems named, the ideas, "How the ideas were ranked", "Ideas left out", the sign-off card); "Your assessments"; "Back" |
+| What others see | A visitor: the title and "Sign in to see your assessment." with the link. A member of a company: "This page is for the owner of the company. You are signed in as a member of it, and only the owner can make and sign off an assessment." Anyone else: "This page is for the owner of a company. Your account is not linked to one." Both with a link "Back" |
+| Sections in order | For an owner: the strip; the head ("Step 2 of 5 · Decide", the title and a sentence); the notices; the SYNTHETIC line; either the card for "no confirmed description" or, until an assessment exists from the confirmed version, the large card "See what is worth doing"; the assessment (its head, the sign-off card, "The ideas, ranked", the ideas, "How the ideas were ranked", "Ideas left out"); "Your assessments"; and the card "Your next step" at the foot, except after a sign-off that names the step itself |
 | Messages | MSG-47 to MSG-75 |
 
 Wording of the page's own text
@@ -1015,20 +1134,22 @@ Wording of the page's own text
 | Place | Text |
 | --- | --- |
 | Title | What to do about it |
-| Below the title | SYNTHETIC tag, then "The ideas and every figure on this page are placeholders written to test the service. They are not advice and not estimates." |
-| No confirmed description | "An assessment is made from a description of your factory that you have confirmed as accurate. You have not confirmed one yet." and the link "Describe your factory" |
-| Make form | "Your confirmed description is version N, saved <date>."; the button; "Making it again from the same version gives the same assessment. Confirm a newer version of your description to get a new one." |
-| Assessment heading | "Assessment from version N of your description" |
+| Below the title | "Here is a short, ranked list of ideas for your factory: for each one you say yes, not yet or no, and then sign off." |
+| SYNTHETIC line | The tag SYNTHETIC, then "The ideas and every figure on this page are placeholders written to test the service. They are not advice and not estimates." |
+| No confirmed description | A card: "An assessment is made from a description of your factory that you have confirmed as accurate. You have not confirmed one yet." and a large button-shaped link "Describe your factory" |
+| Make card | The heading "See what is worth doing"; "Your confirmed description is version N, saved <date>."; "Your answers go through a fixed set of rules and come back as a short ranked list of ideas, each with its cost, its risk and what has to come first."; the button "Make an assessment from version N"; "Making it again from the same version gives the same assessment. Confirm a newer version of your description to get a new one." It is a large card until an assessment exists from the confirmed version. After that the same sentence, button and help line appear, quietly, at the foot of "Your assessments" |
+| Assessment heading | "Assessment from version N of your description". When it was made from an older version than the newest confirmed one: the tag "Older version" and "Your newest confirmed description is version N." |
 | Drafted by | "Drafted by a set of rules on <date>, not by an AI model. You check it: decide on each idea below, then sign it off. Library version L, engine version E." |
 | Problems named | "Problems you named: ...; ...." or "You named no problems, so there is nothing to match." |
-| No ideas | `Nothing in the library matches the problems you named. Naming "something else" cannot be matched.` |
-| Ranking details | "How the ideas were ranked": the points of `POINTS` and `MAX_ITEMS`, ending "Whether an idea uses AI plays no part in the ranking." |
-| Left out | "Ideas left out (N)" and, for each, the title and the reason |
-| Sign-off, open | "Sign off", "N of M ideas decided.", "Signing off says you have read every idea and the decisions are yours. After that nothing on it can be changed. To change your mind, confirm a newer description and make a new assessment." |
-| Sign-off, done | "Signed off", "Signed off on <date>." and "Your note: ..." if any, "Fingerprint of what was signed: " the first 16 characters and "(checked just now: it matches)" or "(checked just now: IT DOES NOT MATCH what is stored)" |
-| List | "Your assessments"; "From version N · <date> · signed off" or "D of I decided"; "None yet." |
+| Sign-off card, before the sign-off | The heading "Sign off"; a bar "D of I ideas decided."; one sentence: "Decide on K more ideas to be able to sign off." (or "1 more idea"), "You have decided on every idea. You can sign off now." or "There is nothing in this assessment to decide on."; when some ideas are decided and some not, the link "Go to the next idea to decide" and "You can change a decision until you sign off."; when none is decided, "You can change a decision until you sign off." only; when every idea is decided, the field "A note (optional)"; the button "Sign off this assessment" (large and the main button when it can be pressed, disabled when it cannot); and "Signing off says you have read every idea and the decisions are yours. After that nothing on it can be changed. To change your mind, confirm a newer description and make a new assessment." That last sentence is plain text when the button can be pressed and is inside a closed section "What signing off means" when it cannot |
+| Sign-off card, after the sign-off | The heading "Signed off" with a tick; "Signed off on <date>." and "Your note: ..." if any; the bar; when the owner's turn is on Procure, Deliver or Run, "Next: <the step's title>." with the step's button and its sentence; "Fingerprint of what was signed: " the first 16 characters and "(checked just now: it matches)" or "(checked just now: IT DOES NOT MATCH what is stored)" |
+| No ideas | `Nothing in the library matches the problems you named. Naming "something else" cannot be matched.` The sign-off button is disabled, and a sign-off is refused |
+| Ideas | The heading "The ideas, ranked", then one card for each idea (below) |
+| Ranking details | "How the ideas were ranked", a closed section: the points of `POINTS` and `MAX_ITEMS`, ending "Whether an idea uses AI plays no part in the ranking." |
+| Left out | "Ideas left out (N)", a closed section; for each, the title and the reason |
+| List | "Your assessments"; "From version N · <date> · signed off" or "D of I decided", with the tag "Shown above" on the one on view; "None yet." |
 
-Each idea is a card with, in order: its rank and title; the tags "Uses AI" or "No AI needed", "Low risk", "Medium risk" or "High risk", and "Ready to start", "A few things to check first" or "Needs something else first"; the summary; "Why it is here: " and the reasons; the facts "What it could do" (measure, low to high, unit, and "(SYNTHETIC placeholder, not an estimate)"), "One-time cost", "Every year after" and "First year in all" followed by one of "Fits within your yearly budget.", "Could stretch your yearly budget.", "Is more than your yearly budget." or "You did not give a budget, so this is not compared."; "Hidden costs to expect: "; "Do first: " when there is anything; "Check: " and "You did not answer a question needed to judge this." when there is anything; "The risk: "; "Source: an assumption (SYNTHETIC)."; then the decision form, or after sign-off "Your decision: " and the label, with the note in brackets, or "none".
+Each idea is a card with, in order: its rank and title; the tags "Your decision: Accept", "Your decision: Later" or "Your decision: No" (green with a tick for Accept), or "Not decided yet" (marigold; after the sign-off "No decision", grey), then "Uses AI" or "No AI needed", then "Ready to start", "A few things to check first" or "Needs something else first", then "Low risk", "Medium risk" or "High risk" (red for high); the summary; "Answers: " the problems it answers; the facts "What it could do" (measure, low to high, unit, and "(SYNTHETIC placeholder, not an estimate)"), "One-time cost", "Every year after" and "First year in all" followed by one of "Fits within your yearly budget.", "Could stretch your yearly budget.", "Is more than your yearly budget." or "You did not give a budget, so this is not compared."; "Do first: " and "Check: " (with "You did not answer a question needed to judge this.") when there is anything; "Hidden costs to expect: "; "The risk: "; "Why it is here: "; a closed section "Source and score" with "Source: an assumption (SYNTHETIC)." and "How it scored: P for the problems it answers, R for readiness, A for your yearly budget, K for risk and U for a missing answer: S in all." (P, R, A, K, U and S are numbers; each after the first has a plus sign when it is above zero and a minus sign when it is below; the total is the sum, so it can be checked by hand); then the decision form, or after sign-off "Your decision: " and the label, with the note in brackets, or "none". On a screen 62 rem wide or more the decision form is a column beside the idea.
 
 Fields
 
@@ -1038,17 +1159,19 @@ Fields
 | Your decision on this idea | `decision` | Radio buttons: "Accept: I want to do this" (`accept`), "Later: not now" (`defer`), "No: not for me" (`reject`) | One of three; the current decision is pre-selected | Yes |
 | (hidden) | `opportunity` | The idea's id | Set by the page | Yes |
 | A note for yourself (optional) | `note` | Text box, one for each idea | 500 characters; pre-filled with the current note | No |
-| A note (optional), in the sign-off card | `note` | Text box | 500 characters | No |
+| A note (optional), in the sign-off card | `note` | Text box, shown only when every idea is decided | 500 characters | No |
 
 Buttons and links
 
 | Label | Kind | Shown when | Destination |
 | --- | --- | --- | --- |
 | Make an assessment from version N | Button | There is a confirmed description | Posts to `/api/companies/{id}/assessments` |
-| Save decision on <title> | Button | Assessment not signed off | Posts to `/api/companies/{id}/assessments/{aid}/decisions` |
+| Save decision on <title> | Button; the main button on the first idea with no decision | Assessment not signed off | Posts to `/api/companies/{id}/assessments/{aid}/decisions` |
 | Sign off this assessment | Button, disabled until there is at least one idea and every idea has a decision | Assessment not signed off | Posts to `/api/companies/{id}/assessments/{aid}/signoff` |
+| Go to the next idea to decide | Link | Some ideas decided and some not | `#idea-<idea id>` on the same page |
+| The next step's button words | Button-shaped link | Signed off, and the next step is on Procure, Deliver or Run | The step's stage |
 | From version N | Link, one for each assessment | Always | `/diagnose?a=<assessment id>` |
-| Describe your factory | Link | No confirmed description | `/factory` |
+| Describe your factory | Button-shaped link | No confirmed description | `/factory` |
 | Sign in, Back | Links | Not signed in; not an owner | `/sign-in`; `/` |
 
 States
@@ -1056,25 +1179,26 @@ States
 | State | What the person sees |
 | --- | --- |
 | Not signed in, not an owner | The sentences above |
-| No confirmed description | The card with the link, and "None yet." in the list |
-| Confirmed, no assessment | The make form and "None yet." |
-| Assessment, not signed off | The ideas with forms, "N of M ideas decided.", the sign-off button disabled until all are decided |
-| Signed off | Ideas with "Your decision:", the sign-off card with the fingerprint |
-| No ideas | The "Nothing in the library matches" notice; the sign-off button is disabled, and a sign-off is refused |
+| No confirmed description | The card with the link, and no list |
+| Confirmed, no assessment | The large card "See what is worth doing" |
+| Assessment, not signed off | The sign-off card with the bar and the sentence, the ideas with forms and "Not decided yet" tags, the sign-off button disabled until all are decided |
+| Signed off | The "Signed off" card with the fingerprint and, where there is one, the next step; ideas with "Your decision:"; no forms |
+| Assessment from an older version | The tag "Older version" with the number of the newest confirmed version; the quiet make form in "Your assessments" |
+| No ideas | The notice above; the sign-off button is disabled |
 | Refused or saved | The sentences for the `problem`, `saved`, `signed` and `needs` values |
-| Unknown assessment in the address | No assessment, no message; the make form and the list |
+| Unknown assessment in the address | No assessment, no message; the make card or form and the list |
 
-Gaps. BR-UX-03: the page uses the platform's own terms (assessment, sign off, fingerprint, library version, engine version). BR-UX-06: an unknown `?a=` is ignored silently. BR-DIAG-02: no figure has a source and "Do first" stands in for prerequisites. BR-DIAG-08: no gap view of data, people, systems, money and quality. BR-DIAG-10: no financing options. BR-DIAG-11: no comparison between assessments. The score of each idea is not shown, only the general points table. A person with eight ideas has eight forms on one page.
+Gaps. BR-UX-03: the page uses the platform's own terms (assessment, sign off, fingerprint, library version, engine version), and the heading "Sign off" is explained only in the closed section or the sentence under it. BR-UX-06: an unknown `?a=` is ignored silently. BR-DIAG-02: no figure has a source other than "an assumption" (the earlier version did not show the score of an idea; "Source and score" now does). BR-DIAG-08: no gap view of data, people, systems, money and quality. BR-DIAG-10: no financing options. BR-DIAG-11: no comparison between assessments. A person with eight ideas has eight forms on one page, with a link to the next undecided one.
 
 ### 5.6 SCR-05 What you need
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/procure`, `app/procure/page.tsx`. Query values: `made`, `withdrawn`, `problem` |
+| Address and source | `/procure`, `app/procure/page.tsx`, `app/procure/procure.css`; the sentence, tags and per-requirement state come from `modules/procure/src/view.ts`. Query values: `made`, `withdrawn`, `problem` |
 | Purpose | Let the owner turn an accepted idea into a requirement in a cluster, see how many companies ask for the same, see the providers listed for it, choose one, or withdraw the requirement |
 | Who may open it | An owner of a company |
-| What others see | A visitor: "Sign in to see your requirements." with the link. Anyone else: "This page is for the owner of a company. Your account is not linked to one." and "Back" |
-| Sections in order | Title; the SYNTHETIC line; the notices; the card "Ideas you accepted"; "Your requirements"; the links |
+| What others see | A visitor: the title and "Sign in to see your requirements." with the link. Anyone else: "This page is for the owner of a company. Your account is not linked to one." and "Back" |
+| Sections in order | For an owner: the strip; the head ("Step 3 of 5 · Choose", the title and a sentence); the notices; the SYNTHETIC line; the card "Where this stands" (only when an idea is accepted or a requirement exists); "Ideas you accepted"; "Your requirements"; the links; and the card "Your next step" at the foot when the owner's turn is elsewhere |
 | Messages | MSG-76 to MSG-101 |
 
 Wording of the page's own text
@@ -1082,16 +1206,20 @@ Wording of the page's own text
 | Place | Text |
 | --- | --- |
 | Title | What you need |
-| Below the title | SYNTHETIC tag, then "The ideas, the clusters and the providers on this page are placeholders written to test the service. No quote, price, contract or payment exists here: this only records what you are asking for." |
-| No signed-off assessment | "A requirement is made from an idea you accepted in an assessment you signed off. You have not signed one off yet. " and the link "Go to your assessment" |
+| Below the title | "Say what you need for each idea you accepted, then choose a provider." |
+| SYNTHETIC line | The tag SYNTHETIC, then "The ideas, the clusters and the providers on this page are placeholders written to test the service. No quote, price, contract or payment exists here: this only records what you are asking for." |
+| Card "Where this stands" | One sentence (below), tags, a bar "A of B accepted ideas asked for" ("accepted idea" when B is 1) and, when a provider is to be chosen and an idea is ready, the link "Jump to your requirements" |
+| The sentence | When a provider is to be chosen: "Next: choose a provider for the requirement below that has none yet." or "Next: choose a provider for the N requirements below that have none yet.", with " You can also ask for K more ideas." added when ideas are ready. Otherwise, with ideas ready and nothing open: "Next: pick an idea below and say which cluster you ask in." (with " Withdrawn requirements are not made again." when one was withdrawn). With ideas ready and something open: "Nothing is waiting for you. You can ask for K more ideas below." With requirements waiting for a listing: "Nothing is needed from you now. A provider has to be listed before you can choose one." With every open requirement chosen: "Every open requirement has a provider. The next step is the plan, on the delivery page." Otherwise: "Nothing is open." |
+| The tags | In this order, left out when the count is zero: "N ideas ready to ask for" (marigold while nothing else is open, otherwise the service's colour); "N requirements need a provider" (marigold); "N waiting for a provider to be listed" (grey); "N providers chosen" (green); "N withdrawn" (grey). "idea", "requirement needs" and "provider" are singular when N is 1 |
+| No signed-off assessment | "A requirement is made from an idea you accepted in an assessment you signed off. You have not signed one off yet. " the link "Go to your assessment", and "Start there: decide on each idea (yes, not yet or no), sign off, then come back here to say what you need." |
 | Nothing accepted | "You signed off your latest assessment without accepting any idea, so there is nothing to ask for. To change your mind, confirm a newer description and make a new assessment." |
-| Accepted ideas | "From your assessment of <date>, signed off <date>."; for each idea its title, "Uses AI" or "No AI needed", the summary and "Cost, from the assessment: one-time X, every year after Y (SYNTHETIC placeholders)." |
-| After a requirement is made | "Requirement recorded for <cluster>." or "Requirement recorded for <cluster>, then withdrawn." |
-| A requirement | Title; tags for the cluster and "Open" or "Withdrawn"; "Withdrawn on <date>. It no longer counts in any pool."; the pool sentence; "Providers listed for this" and "(SYNTHETIC; in name order. APLYD's earnings do not depend on which one you choose.)"; the names, each with " — " and the summary; "No provider is listed for this in your cluster yet." |
-| Pool sentence | "At least N companies in this cluster have asked for the same thing." or "Fewer than 5 companies have asked for this in your cluster, so the number is not shown to anyone, to protect the companies that asked." |
-| Choose a provider | "This records your choice and opens a plan you write with them. It does not contact the provider, agree a price or move any money." |
-| Provider chosen | "You chose <name>." and the link "Go to delivery", then ". A requirement with a provider chosen stays; close the engagement there if it ends." |
-| List | "Your requirements"; "None yet." |
+| Accepted ideas | "From your assessment of <date>, signed off <date>." Then "Ready to ask for" with "Choose a cluster for each idea you want to ask for. You are pooled only with companies that ask for the same idea in the same cluster. The size of a pool is shown only from five companies." and, for each idea without a requirement, a card: the title; the tags "Ready to ask for" and "Uses AI" or "No AI needed"; the summary; "Cost, from the assessment: one-time X, every year after Y (SYNTHETIC placeholders)."; the form; "This only records what you are asking for. You can withdraw it until you choose a provider, but you cannot change its cluster." When every idea has a requirement: "You have asked for every idea you accepted. Your requirements are below." Then "Already asked for", one card for each idea with a requirement: the title, the tag "Asked for" (green) or "Withdrawn", and "Requirement recorded for <cluster>." or "Requirement recorded for <cluster>, then withdrawn." |
+| A requirement | The title; tags for the cluster, then "Withdrawn", or "Open" and a state tag: "No provider chosen yet" (marigold when a provider is listed, grey when none is) or "Provider chosen" (green). Withdrawn: "Withdrawn on <date>. It no longer counts in any pool." Provider chosen: "You chose <name>. A requirement with a provider chosen stays: close the engagement on the delivery page if it ends." with the button-shaped link "Go to delivery", and a closed section "Others asking, and providers listed for this". Otherwise one sentence ("Your turn: choose the provider you want to work with." or "Waiting for a provider to be listed for this. Nothing is needed from you yet."), then the providers, the choose form when there is a provider, the pool and the withdraw form |
+| Providers | "Providers listed for this" and "(SYNTHETIC; in name order. APLYD's earnings do not depend on which one you choose.)"; each provider's name, " — " and its summary, then "Serves this idea in <cluster>."; or "No provider is listed for this in your cluster yet. When one is listed for this idea in your cluster, it appears here." |
+| Pool | "Others asking for the same thing" and "At least N companies in this cluster have asked for the same thing." or "Fewer than 5 companies have asked for this in your cluster, so the number is not shown to anyone, to protect the companies that asked." |
+| Choose a provider | "This records your choice and opens a plan you write with them. It does not contact the provider, agree a price or move any money. You cannot change the provider for this requirement afterwards." |
+| Withdraw | "A withdrawn requirement stays on record and is not made again. To ask again, make a new assessment." |
+| List | "Your requirements"; "None yet. Make one from an idea above: it appears here with the providers listed for it." or, with nothing accepted, "None yet. A requirement starts from an idea you accepted." |
 
 Fields
 
@@ -1100,17 +1228,18 @@ Fields
 | (hidden) | `assessment`, `opportunity` | The assessment id and the idea id | Set by the page | Yes |
 | Which cluster do you ask in? | `cluster` | Drop-down list: "Choose a cluster" (a disabled first line), "SYNTHETIC cluster 1", "SYNTHETIC cluster 2", "SYNTHETIC cluster 3" | One of the three | Yes |
 | Which provider do you want to work with? | `provider` | Drop-down list: "Choose a provider" and the listed providers by name | One of the listed providers | Yes |
-| A note for yourself (optional) | `note` | Text box | 500 characters | No |
+| A note for yourself (optional) | `note` | Text box, in the withdraw form | 500 characters | No |
 
 Buttons and links
 
 | Label | Kind | Shown when | Destination |
 | --- | --- | --- | --- |
-| Make a requirement from <title> | Button | An accepted idea without a requirement | Posts to `/api/companies/{id}/requirements` |
-| Choose a provider for <title> | Button | An open requirement with no engagement and at least one listed provider | Posts to `/api/companies/{id}/requirements/{rid}/engagement`; success goes to `/deliver?made=1` |
-| Withdraw <title> | Button | An open requirement with no engagement | Posts to `/api/companies/{id}/requirements/{rid}/withdraw` |
+| Make a requirement from <title> | Button, the main button | An accepted idea without a requirement | Posts to `/api/companies/{id}/requirements` |
+| Choose a provider for <title> | Button, the main button | An open requirement with no engagement and at least one listed provider | Posts to `/api/companies/{id}/requirements/{rid}/engagement`; success goes to `/deliver?made=1` |
+| Withdraw <title> | Button, red | An open requirement with no engagement | Posts to `/api/companies/{id}/requirements/{rid}/withdraw` |
 | Go to your assessment | Link | No signed-off assessment | `/diagnose` |
-| Go to delivery | Link | A provider has been chosen | `/deliver` |
+| Jump to your requirements | Link | A provider is to be chosen and an idea is ready to ask for | `#requirements` on the same page |
+| Go to delivery | Button-shaped link | A provider has been chosen | `/deliver` |
 | Back to your assessment; Home | Links | Always (owner) | `/diagnose`; `/` |
 
 States
@@ -1118,12 +1247,13 @@ States
 | State | What the person sees |
 | --- | --- |
 | Not signed in, not an owner | The sentences above |
-| No signed-off assessment, or nothing accepted | The sentences above and "None yet." |
-| Accepted, no requirement | The idea with the cluster form |
+| No signed-off assessment, or nothing accepted | The sentences above and "None yet." in "Your requirements" |
+| Accepted, no requirement | The card "Where this stands" with "Next: pick an idea below and say which cluster you ask in."; each idea with the cluster form |
 | Open requirement, pool under five | The "Fewer than 5" sentence |
 | Open requirement, pool of five or more | "At least N companies ..." with N a multiple of five |
-| No provider listed | "No provider is listed for this in your cluster yet." and no choose form; the withdraw form remains |
-| Provider chosen | "You chose <name>." and no forms |
+| No provider listed | "No provider is listed for this in your cluster yet. ..." and no choose form; the withdraw form remains |
+| Provider listed | The state tag "No provider chosen yet" in marigold, "Your turn: choose the provider you want to work with." and the choose form |
+| Provider chosen | "You chose <name>." and "Go to delivery"; the pool and providers in a closed section; no forms |
 | Withdrawn | Tags and the withdrawal sentence only |
 | Refused or saved | The sentences for `made`, `withdrawn` and the twelve `problem` values |
 
@@ -1133,11 +1263,11 @@ Gaps. BR-UX-03: the page uses "requirement", "cluster" and "engagement". BR-UX-0
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/deliver`, `app/deliver/page.tsx`. Query values: `made`, `saved`, `problem` |
+| Address and source | `/deliver`, `app/deliver/page.tsx`, `app/deliver/deliver.css`; the summary comes from `modules/deliver/src/summary.ts`. Query values: `made`, `saved`, `problem` |
 | Purpose | Let the owner write and agree a milestone plan with the chosen provider, record what happened to each milestone in the fixed order, record a payment made outside the service, and close the engagement |
 | Who may open it | An owner of a company |
-| What others see | A visitor: "Sign in to see your engagements." with the link. Anyone else: "This page is for the owner of a company. Your account is not linked to one." and "Back" |
-| Sections in order | Title; the SYNTHETIC paragraph; the notices; the list of engagements, each a card with its title, tags, provider, totals, dates, the milestones, the add-milestone and agree-plan forms (before agreement) and the close form; the links |
+| What others see | A visitor: the title and "Sign in to see your engagements." with the link. Anyone else: "This page is for the owner of a company. Your account is not linked to one." and "Back" |
+| Sections in order | For an owner: the strip; the head ("Step 4 of 5 · Deliver", the title and a sentence); the notices; then either the empty card or the card "Where things stand" and the list of engagements, each a card with its head, its milestones, the add-milestone and agree-plan steps (before agreement) and the close form; the card "About this page"; the links; and the card "Your next step" at the foot when the owner's turn is elsewhere |
 | Messages | MSG-102 to MSG-134 |
 
 Wording of the page's own text
@@ -1145,21 +1275,25 @@ Wording of the page's own text
 | Place | Text |
 | --- | --- |
 | Title | Delivery |
-| Below the title | SYNTHETIC tag, then "The providers and plans here are placeholders written to test the service. This page is your own record of a piece of work: the plan you agree with a provider, whether each part arrived and passed your test, and what you paid. It does not contact the provider, hold money or move any. The provider does not use this service and has not seen any of it. A payment is one you made yourself, outside this service, and are noting down." |
+| Below the title | "Write the plan, record each delivery, accept or reject it against your test, and note what you paid." |
 | Empty | "No engagement yet. Choose a provider for one of your requirements on " the link "What you need" |
-| Engagement | The requirement's title; tags for the status (Planning, In progress, Complete, Ended early) and the cluster; "Provider: <name> — <summary>"; "Plan total ₹X. Payments you have recorded: ₹Y."; "You agreed the plan on <date>."; "Closed on <date>." |
-| Milestones | "Milestones"; "None yet. A plan is a list of parts, each with a date, a price and the test you will check it by."; each milestone: "N. <title>", a state tag (Not started, Delivered, waiting for you, Accepted, Rejected, Paid), "Due <date>. Price ₹X" and "; you recorded a payment of ₹Y", "How you will check it: ...", and its history lines "<date> <event>: <note>" |
+| Card "Where things stand" | One tag: "Your turn" (marigold) when a delivery waits for the owner or a plan is to be agreed; otherwise "Waiting for the provider" (grey) when milestones wait to be delivered; otherwise "Nothing to do now" (green); otherwise "All closed". Then one sentence: "N milestones are waiting for your decision." ("1 milestone is waiting for your decision."); or "Write your plan and agree it. Nothing can be delivered, accepted or paid before then."; or "Every engagement here is closed. Everything stays on record."; or "Nothing needs your decision right now. N milestones are waiting to be delivered."; or "Nothing needs your decision right now." When a delivery waits, a link "Go to milestone N" (with " of <title>" when there is more than one engagement) |
+| Engagement head | The requirement's title; tags for the status (Planning, In progress, Complete, Ended early) and the cluster; "Provider: <name> — <summary>"; a bar "A of T milestones accepted" ("No milestones yet" when there is none); "You agreed the plan on <date>."; "Closed on <date>." |
+| Milestones | "Milestones"; "The plan is agreed. No milestone can be added or changed now." or, while the plan is written and has a milestone, "You are writing the plan. Add each part of the work as a milestone, then agree the plan."; with none, "None yet. A plan is a list of parts, each with a date, a price and the test you will check it by." Each milestone is a numbered step: "N. <title>"; a state tag (Not started; Delivered, waiting for you; Accepted; Rejected; Paid); "Due <date>" and "Price ₹X"; "How you will check it: ..."; "Payment noted: you recorded a payment of ₹Y, made outside this service." when there is one; its history, "Recorded on this milestone", as lines "<date> <event>: <note>"; then the forms its state allows. After the milestones: "Plan total ₹X." and "Payments you have recorded: ₹Y." |
+| Forms on a milestone | Delivered: "When the provider says this part is done", "The provider does not use this service, so you record what they told you. The milestone then waits for your decision." Decision: "Check it against the test above, then decide." and "Accept it if it passes the test you wrote. Reject it if it does not: it can then be delivered again. Your answer is recorded and stays on record." Payment: "Note down what you paid", "It starts as the agreed price. Change it to what you actually paid. Whole rupees, digits only." and "A payment is one you made yourself, outside this service, and are noting down. No money is sent from here." |
 | Delivery cap | "This milestone was rejected after being delivered N times, as many as can be recorded, so it cannot be delivered again. Close the engagement to end it; everything stays on record." |
-| Plan | "Add a milestone"; "The plan holds the most milestones it can (12)."; "Agreeing the plan locks it: no milestone can be added or changed after. Nothing can be delivered, accepted or paid before then." |
+| Plan | Step 1, "Add a milestone", with "It joins the plan above. You can add more before you agree the plan." or, with 12, "The plan holds the most milestones it can (12)." Step 2, "Agree the plan", with "Agreeing the plan locks it: no milestone can be added or changed after. Nothing can be delivered, accepted or paid before then." |
+| Close | "Done with this engagement?" and "Closing ends the engagement: nothing more can be recorded on it. Everything stays on record." |
+| About this page | A card at the foot with the tag SYNTHETIC and "The providers and plans here are placeholders written to test the service."; "This page is your own record of a piece of work: the plan you agree with a provider, whether each part arrived and passed your test, and what you paid. It does not contact the provider, hold money or move any."; "The provider does not use this service and has not seen any of it. A payment is one you made yourself, outside this service, and are noting down." In the earlier version these sentences were one paragraph under the title |
 
 Fields
 
 | Label | Name | Type | Limits | Required |
 | --- | --- | --- | --- | --- |
-| What is delivered | `title` | Text box | 120 characters | Yes |
-| How you will check it | `test` | Text box | 500 characters | Yes |
-| Due date (YYYY-MM-DD) | `due` | Text box, example 2026-12-15 | 10 characters; a real date from 2000 to 2100 | Yes |
-| Price for this milestone, in rupees (up to ₹10,00,00,000) | `amount` | Text box, numeric keypad | 9 digits; 1 to 10,00,00,000 | Yes |
+| What is delivered | `title` | Text box. Help: "What the provider hands over for this part of the work." | 120 characters | Yes |
+| How you will check it | `test` | Text box. Help: "Write the test now, before any work starts. You accept or reject the work against it." | 500 characters | Yes |
+| Due date (YYYY-MM-DD) | `due` | Text box, example 2026-12-15. Help: "A real date, written like 2026-12-15." | 10 characters; a real date from 2000 to 2100 | Yes |
+| Price for this milestone, in rupees | `amount` | Text box, numeric keypad. Help: "Whole rupees, digits only, up to ₹10,00,00,000." | 9 digits; 1 to 10,00,00,000 | Yes |
 | What the provider told you (optional) | `note` | Text box | 500 characters | No |
 | Your note, against your test (optional) | `note` | Text box | 500 characters | No |
 | Amount you paid, in rupees | `amount` | Text box, numeric keypad, pre-filled with the agreed price | 9 digits; 1 to 10,00,00,000 | Yes |
@@ -1171,37 +1305,41 @@ Buttons and links
 
 | Label | Kind | Shown when | Destination |
 | --- | --- | --- | --- |
-| Add this milestone | Button | Plan not agreed, engagement open, fewer than 12 milestones | Posts to `/api/companies/{id}/engagements/{eid}/milestones` |
-| Agree this plan | Button | Plan not agreed, open, at least one milestone | Posts to `.../engagements/{eid}/events` with `kind` = `plan_agreed` |
+| Add this milestone | Button; the main button while the plan has none | Plan not agreed, engagement open, fewer than 12 milestones | Posts to `/api/companies/{id}/engagements/{eid}/milestones` |
+| Agree this plan | Button, the main button | Plan not agreed, open, at least one milestone | Posts to `.../engagements/{eid}/events` with `kind` = `plan_agreed` |
 | Record that milestone N was delivered | Button | The milestone may be delivered now | `.../events`, `kind` = `delivered` |
 | Accept milestone N; Reject milestone N | Buttons | The milestone is delivered | `.../events`, `kind` = `accepted` or `rejected` |
 | Record a payment for milestone N | Button | The milestone is accepted | `.../events`, `kind` = `payment_recorded` |
 | Close this engagement | Button | Engagement open | `.../events`, `kind` = `closed` |
-| What you need; Home | Links | Always (owner) | `/procure`; `/` |
+| Go to milestone N | Button-shaped link | A delivery waits for the owner's decision | `#ms-<milestone id>` on the same page |
+| What you need; Home | Links, in a group named "More pages" | Always (owner) | `/procure`; `/` |
+
+Within one engagement the page draws one action as the main button and the rest quietly: the owner's decision on a delivery first, then noting a payment, then noting that the provider says a part is done; among milestones the earliest in the plan wins (`primaryAction`).
 
 States
 
 | State | What the person sees |
 | --- | --- |
 | Not signed in, not an owner | The sentences above |
-| Empty | "No engagement yet. ..." |
-| Planning | Add-milestone form, agree-plan form, close form |
+| Empty | "No engagement yet. ..." and the card "About this page" |
+| Planning | The card "Where things stand" with "Your turn" and "Write your plan and agree it. ..."; add-milestone and agree-plan steps; close form |
 | In progress | Milestones with only the forms their state allows, and the close form |
+| A delivery waits | "Your turn", "N milestones are waiting for your decision." and the link to the first one; the decision form on the milestone |
 | Complete or ended early | Milestones with history and no forms |
 | At the delivery cap | The cap notice and no delivery form |
 | Refused or saved | The sentences for `made`, the seven `saved` values and the ten `problem` values |
 
-Gaps. BR-UX-03: "engagement", "milestone" and "plan" are the platform's terms. BR-UX-06: an expired session on a form post shows JSON. BR-DEPL-05, BR-DEPL-06, BR-DEPL-07, BR-DEPL-08: the provider cannot take part, there is no dispute, no change to an agreed plan, and any sentence passes as a test. The "saved" notice does not say which milestone it refers to. A payment is not compared with the price (FR-DEPL-13).
+Gaps. BR-UX-03: "engagement", "milestone" and "plan" are the platform's terms. BR-UX-06: an expired session on a form post shows JSON. BR-DEPL-05, BR-DEPL-06, BR-DEPL-07, BR-DEPL-08: the provider cannot take part, there is no dispute, no change to an agreed plan, and any sentence passes as a test. The "saved" notice does not say which milestone it refers to, though the milestone's own history now shows each record. A payment is not compared with the price (FR-DEPL-13). The SYNTHETIC tag is in the card at the foot, not near the top; the banner above the app bar is the only SYNTHETIC mark a person sees first (FR-UX-01).
 
 ### 5.8 SCR-07 Results
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/run`, `app/run/page.tsx`. Query values: `saved`, `problem` |
+| Address and source | `/run`, `app/run/page.tsx`, `app/run/run.css`; the summary comes from `modules/run/src/view.ts`. Query values: `saved`, `problem` |
 | Purpose | Let the owner record a starting number, record reviews 30, 90 and 180 days after the first acceptance, and see the change and the next idea |
 | Who may open it | An owner of a company |
-| What others see | A visitor: "Sign in to see what your engagements did." with the link. Anyone else: "This page is for the owner of a company. Your account is not linked to one." and "Back" |
-| Sections in order | Title; the SYNTHETIC paragraph; the notices; the list of engagements, each a card with its title, cluster, provider, the expected range, "Before the work", "After the work" with three review slots, the change and the next idea; the links |
+| What others see | A visitor: the title and "Sign in to see what your engagements did." with the link. Anyone else: "This page is for the owner of a company. Your account is not linked to one." and "Back" |
+| Sections in order | For an owner: the strip; the head ("Step 5 of 5 · Measure", the title and a sentence); the notices; the SYNTHETIC line; then either the empty card or the card "Where things stand" and the list of engagements, each a card with its head, three blocks ("What was expected", "Before the work", "After the work") and the next idea; the closed section "About these numbers and dates"; the links; and the card "Your next step" at the foot when the owner's turn is elsewhere |
 | Messages | MSG-135 to MSG-153 |
 
 Wording of the page's own text
@@ -1209,22 +1347,26 @@ Wording of the page's own text
 | Place | Text |
 | --- | --- |
 | Title | Results |
-| Below the title | SYNTHETIC tag, then "What you expected, what you measured before the work, and what you measured after. Every number here is one you type: nothing on this page measures anything, and the provider does not use this service. The expected range comes from the assessment, whose figures are placeholders written to test the service, not findings. You review 30, 90 and 180 days after you first accepted a milestone. Those day counts are assumptions, and dates are shown in UTC (a day can differ from the day on an Indian calendar)." |
+| Below the title | "See what you expected, what you measured before the work, and what you measured after." |
+| SYNTHETIC line | The tag SYNTHETIC, then "Every number here is one you type: nothing on this page measures anything, and the provider does not use this service." The longer caveat is in the closed section at the foot (below). In the earlier version it was one paragraph under the title |
 | Empty | "Nothing to look at yet. Choose a provider for one of your requirements on " the link "What you need", ", agree a plan on " the link "Delivery", ", and come back." |
-| Expected | "What the assessment expected: <measure>, L to H <unit>." and a SYNTHETIC tag; or "The assessment this came from could not be read, so there is no expected range to show." |
-| Before the work | "Starting number: N <unit>, recorded <date>." and the note; or the form with "It is recorded once and cannot be changed. It has to be taken before the first milestone is accepted."; or "No starting number was recorded before the first milestone was accepted, and it cannot be added now. The reviews below are still worth recording; there is just nothing to compare them with." |
-| After the work | "Nothing has been accepted yet. The reviews start counting from the day you accept your first milestone on " the link "Delivery"; or "You first accepted a milestone on <date>." |
-| Reviews | "Review N: D days after"; the record (verdict tag, use tag, "Number: N <unit>, recorded <date>." and the note); or "Starts when you accept your first milestone."; or "Opens on <date>."; or the form with "Each review is recorded once and cannot be changed." |
-| Change | "Change since the starting number: +N, −N or 0 <unit>, on your latest review. Whether that is better or worse depends on what is measured; this page does not say." |
+| Card "Where things stand" | One tag: "Your turn" (marigold) or "Nothing to do now" (green). One sentence: "N reviews are open now." ("1 review is open now."); or "Write down your starting number before the first milestone is accepted."; or "Nothing needs you today. The next review opens on <date>."; or "Every review is recorded."; or "Nothing needs you today. The reviews are counted from the day you accept your first milestone." When it is the owner's turn, a link "Go to review N" or "Go to the starting number" (with " of <title>" when there is more than one engagement) |
+| Engagement head | The requirement's title; "Provider: <name>"; a tag for the cluster; a bar "A of 3 reviews recorded" |
+| What was expected | "What the assessment expected: <measure>, L to H <unit>." and a SYNTHETIC tag; or "The assessment this came from could not be read, so there is no expected range to show." |
+| Before the work | A tag: "Recorded" (green), "Your turn" (marigold) or "Not recorded" (grey). Then "Starting number: N <unit>, recorded <date>." and the note; or the form, with "It is recorded once and cannot be changed. It has to be taken before the first milestone is accepted."; or "No starting number was recorded before the first milestone was accepted, and it cannot be added now. The reviews below are still worth recording; there is just nothing to compare them with." |
+| After the work | "Nothing has been accepted yet. The reviews start counting from the day you accept your first milestone on " the link "Delivery"; or "You first accepted a milestone on <date>."; and "Reviews are 30, 90 and 180 days after that day. Dates are shown in UTC." |
+| The figures | Once a review is recorded: tiles "Starting number" (when there is one), "Latest number" (with the review's number) and "Change since start" (when there is a starting number); and "Change since the starting number: +N, −N or 0 <unit>, on your latest review. Whether that is better or worse depends on what is measured; this page does not say." |
+| Reviews | A numbered step for each: "Review N: D days after" and a tag (Waiting; Not open yet; Open now, in marigold; Recorded, in green). Recorded: a tag for the verdict, a tag for the use, "Number: N <unit>, recorded <date>." and the note. Waiting: "Starts when you accept your first milestone." Not open yet: "Opens on <date>." Open: the form, with "Each review is recorded once and cannot be changed." |
 | Next | "Next in your plan: <title>. " and the link "Make a requirement for it" |
+| About these numbers and dates | A closed section: "The expected range comes from the assessment, whose figures are placeholders written to test the service, not findings. You review 30, 90 and 180 days after you first accepted a milestone. Those day counts are assumptions, and dates are shown in UTC (a day can differ from the day on an Indian calendar)." |
 
 Fields
 
 | Label | Name | Type | Limits | Required |
 | --- | --- | --- | --- | --- |
-| The number today, before the work (unit) | `value` | Text box, numeric keypad | 10 digits; 0 to 1,00,00,00,000 | Yes |
+| The number today, before the work (unit) | `value` | Text box, numeric keypad. Help: "The same thing the assessment measured: <measure>. A whole number, typed by you." | 10 digits; 0 to 1,00,00,00,000 | Yes |
 | How you worked it out (optional) | `note` | Text box | 500 characters | No |
-| The number now (unit) | `value` | Text box, numeric keypad | 10 digits; 0 to 1,00,00,00,000 | Yes |
+| The number now (unit) | `value` | Text box, numeric keypad. Help: "Measure the same thing you measured before the work. A whole number, typed by you." | 10 digits; 0 to 1,00,00,00,000 | Yes |
 | Did it do what the assessment expected? | `verdict` | Drop-down list: "Choose", "Did what the assessment expected" (`met`), "Did part of it" (`partly`), "Did not do what was expected" (`not_met`) | One of three | Yes |
 | Is it still in use? | `in_use` | Drop-down list: "Choose", "Yes, still in use" (`yes`), "No, no longer in use" (`no`) | One of two | Yes |
 | Anything to add (optional) | `note` | Text box | 500 characters | No |
@@ -1234,10 +1376,11 @@ Buttons and links
 
 | Label | Kind | Shown when | Destination |
 | --- | --- | --- | --- |
-| Record the starting number | Button | No baseline and nothing accepted | Posts to `/api/companies/{id}/engagements/{eid}/outcomes` |
-| Record review N | Button | Review N is due and not recorded | The same post with `kind` = `review` |
+| Record the starting number | Button, the main button | No baseline and nothing accepted | Posts to `/api/companies/{id}/engagements/{eid}/outcomes` |
+| Record review N | Button; the main button on the first open review | Review N is due and not recorded | The same post with `kind` = `review` |
+| Go to review N; Go to the starting number | Button-shaped links | It is the owner's turn on this page | `#rv-<engagement id>-<N>`; `#bl-<engagement id>` on the same page |
 | Make a requirement for it | Link | A next idea exists | `/procure` |
-| Delivery, What you need, Home | Links | Always (owner) | `/deliver`; `/procure`; `/` |
+| Delivery, What you need, Home | Links, in a group named "More pages"; "Delivery" is also in the "After the work" block while nothing is accepted | Always (owner) | `/deliver`; `/procure`; `/` |
 
 States
 
@@ -1245,24 +1388,24 @@ States
 | --- | --- |
 | Not signed in, not an owner | The sentences above |
 | Empty | "Nothing to look at yet. ..." |
-| Nothing accepted | The baseline form (or the recorded baseline), "Nothing has been accepted yet. ...", and three reviews that say "Starts when you accept your first milestone." |
-| Accepted, review not yet due | "Opens on <date>." |
-| Review due | The review form |
-| Review recorded | The record |
-| Baseline missed | The "No starting number was recorded ..." sentence |
+| Nothing accepted | The starting-number form (or the recorded number), "Nothing has been accepted yet. ...", and three reviews that say "Waiting" and "Starts when you accept your first milestone." |
+| Accepted, review not yet due | "Not open yet" and "Opens on <date>." |
+| Review due | "Open now" and the review form; "Your turn" in the card at the top |
+| Review recorded | The record, and the tiles |
+| Baseline missed | The "No starting number was recorded ..." notice |
 | Refused or saved | The sentences for the two `saved` values and the seven `problem` values |
 
-Gaps. BR-UX-06: an expired session on a form post shows JSON. BR-RUN-05 to BR-RUN-08: no support route, no person re-checking, no reminder when a review is due (the owner must come back and look, FR-RUN-10), and every number is typed. BR-RUN-09: a wrong number cannot be corrected. A review that opens on a date in the future is shown as a UTC date.
+Gaps. BR-UX-06: an expired session on a form post shows JSON. BR-RUN-05 to BR-RUN-08: no support route, no person re-checking, no reminder when a review is due (the owner must come back and look, FR-RUN-10; once the owner is back, the home page and the foot of each page name an open review as the next step), and every number is typed. BR-RUN-09: a wrong number cannot be corrected. A review that opens on a date in the future is shown as a UTC date.
 
 ### 5.9 SCR-08 Providers and the listing fee
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/operator`, `app/operator/page.tsx`. Query values: `made`, `listed`, `unlisted`, `fee`, `problem` |
+| Address and source | `/operator`, `app/operator/page.tsx`, `app/operator/operator.css`; the summary and the grouping of what a provider serves come from `modules/procure/src/view.ts` (`operatorSummary`, `distinctListedFees`, `serviceGroups`). Query values: `made`, `listed`, `unlisted`, `fee`, `problem` |
 | Purpose | Let the operator set the one listing fee, add providers, list and unlist them, and see the pools that have reached five companies |
 | Who may open it | A person with the role `operator` and no company |
-| What others see | A visitor: "Sign in as a platform operator." with the link. Anyone else: "This page is for a platform operator." and "Back" |
-| Sections in order | Title; the SYNTHETIC line; the notices; the card "The listing fee"; the card "Add a provider"; "Providers"; the card "Pools you can take to providers"; "Home" |
+| What others see | A visitor: the title and "Sign in as a platform operator." with the link. Anyone else: the title, "This page is for a platform operator." and "Back" |
+| Sections in order | The head (the title and a sentence; no step line); the notices; the SYNTHETIC line; the card "At a glance"; the card "Listing terms"; "Providers"; the card "Add a provider"; the card "Pools at the floor"; "Home". There is no strip and no card "Your next step": the operator has no steps |
 | Messages | MSG-154 to MSG-197 |
 
 Wording of the page's own text
@@ -1270,14 +1413,16 @@ Wording of the page's own text
 | Place | Text |
 | --- | --- |
 | Title | Providers and the listing fee |
-| Below the title | SYNTHETIC tag, then "Every provider here is a placeholder. No company is named or shown on this page (the pools below are counts of companies, and only from five), and no money is collected: a listing records the fee that is due and nothing more." |
-| Fee card | "The listing fee"; "One fee at a time, the same for every provider listed under it. It does not depend on what a provider serves, on how many owners ask for it, or on which provider an owner chooses (D-03). A provider keeps the fee it was listed at when the fee changes, so providers listed at different times can pay different fees; this page says so when they do." |
-| Fee in force | "In force: ₹N (version V, set <date>)." or "The fee has not been decided (OQ-11), so no provider can be listed." |
+| Below the title | "Add providers, list them so owners can choose, and set the one listing fee." |
+| SYNTHETIC line | The tag SYNTHETIC, then "Every provider here is a placeholder. No company is named or shown on this page (the pools below are counts of companies, and only from five), and no money is collected: a listing records the fee that is due and nothing more." |
+| At a glance | Three figures, side by side from 40 rem wide. "Listing fee": "₹N" or "Not decided", then "Version V, a SYNTHETIC placeholder." or "No provider can be listed yet." "Providers listed": "K of P" or "None", then "No provider has been added yet.", "Every provider is listed." or "Owners see only the listed ones." "Pools at the floor": a number, then "Pools of five or more companies." |
+| Listing terms | "Listing terms"; a tag "Fee in force" (green) or "Fee not decided" (marigold); "In force: ₹N (version V, set <date>)." or "The fee has not been decided (OQ-11), so no provider can be listed."; "Any fee set here is a SYNTHETIC placeholder, not a proposal: the real fee is an open question (OQ-11)."; "One fee at a time, the same for every provider listed under it. It does not depend on what a provider serves, on how many owners ask for it, or on which provider an owner chooses (D-03). A provider keeps the fee it was listed at when the fee changes, so providers listed at different times can pay different fees; this page says so when they do." |
 | Fee form help | "A new version applies to providers listed from now on. Providers already listed keep the fee they were listed at." |
 | Earlier fees | "Earlier versions: v2 ₹X, v1 ₹Y." (newest first, without the one in force) |
-| Providers | "Providers"; "None yet."; for each: the name, the tags "Listed" or "Not listed" and "Fee ₹N", the summary, "Serves: <idea> (<cluster>); ...." |
+| Providers | "Providers"; "None yet. Add one in the form below, then list it so owners can choose it."; or a table whose columns are "Provider" (the name and its summary), "What it serves" ("Serves: <idea> (<cluster>, <cluster>); <idea> (<cluster>)." with an idea named once and its clusters together, or "Serves nothing yet."), "Status" (the tag "Listed" or "Not listed", and "Fee ₹N" for a listed provider) and an unnamed column with the button. On a phone each provider is a block with those labels |
 | Fee differs | "The providers now listed are paying N different fees, because the fee changed after some of them were listed. Each fee is shown on its provider below." |
-| Pools | "Pools you can take to providers"; "Only pools of at least five companies are shown, and only as a count: no company is named (C-04)."; "No pool has reached five companies."; "<idea>, <cluster>: N companies" |
+| Add a provider | "Add a provider"; "Choose at least one idea and one cluster. The provider is not listed until you list it, in the table above." |
+| Pools | "Pools at the floor"; "These are the pools you can take to providers."; "Only pools of at least five companies are shown, and only as a count: no company is named (C-04)."; "No pool has reached five companies."; "<idea>, <cluster>: N companies" |
 
 Fields
 
@@ -1287,17 +1432,17 @@ Fields
 | Why (optional) | `note` | Text box | 500 characters | No |
 | Name | `name` | Text box | 100 characters | Yes |
 | What it does (optional) | `summary` | Text box | 300 characters | No |
-| Ideas it serves | `opportunity` | 17 check boxes, one for each library idea, labelled with its title | At least one on the server; ideas times clusters at most 20 | No on the page |
+| Ideas it serves | `opportunity` | 17 check boxes, one for each library idea, labelled with its title, in two columns from 40 rem wide | At least one on the server; ideas times clusters at most 20 | No on the page |
 | Clusters it serves | `cluster` | 3 check boxes: "SYNTHETIC cluster 1", "SYNTHETIC cluster 2", "SYNTHETIC cluster 3" | At least one on the server | No on the page |
 
 Buttons and links
 
 | Label | Kind | Destination |
 | --- | --- | --- |
-| Save as a new version | Button | Posts to `/api/operator/listing-terms` |
-| Add provider | Button | Posts to `/api/operator/providers` |
-| List <name> | Button, for a provider not listed | Posts to `/api/operator/providers/{id}/list` |
-| Unlist <name> | Button, for a listed provider | Posts to `/api/operator/providers/{id}/unlist` |
+| Save as a new version | Button, the main button | Posts to `/api/operator/listing-terms` |
+| Add provider | Button, the main button | Posts to `/api/operator/providers` |
+| List | Button, in the table, for a provider not listed. Its accessible name is "List <name>" | Posts to `/api/operator/providers/{id}/list` |
+| Unlist | Button, in the table, for a listed provider. Its accessible name is "Unlist <name>" | Posts to `/api/operator/providers/{id}/unlist` |
 | Home; Sign in; Back | Links | `/`; `/sign-in`; `/` |
 
 States
@@ -1305,28 +1450,28 @@ States
 | State | What the person sees |
 | --- | --- |
 | Not signed in, not the operator | The sentences above |
-| No fee | "The fee has not been decided (OQ-11), so no provider can be listed." and a list button that is refused with the fee message |
-| Fee set | "In force: ..." and, with more than one version, the earlier ones |
-| No providers | "None yet." |
-| Providers | One card each; the fee-differs notice when the listed providers pay more than one fee |
-| No pool at five | "No pool has reached five companies." |
+| No fee | "Not decided" in "At a glance", the tag "Fee not decided", "The fee has not been decided (OQ-11), so no provider can be listed." and a List button that is refused with the fee message |
+| Fee set | The tag "Fee in force", "In force: ..." and, with more than one version, the earlier ones |
+| No providers | "None yet. ..." and "None" in "At a glance" |
+| Providers | One row each; the fee-differs notice when the listed providers pay more than one fee |
+| No pool at five | "No pool has reached five companies." and 0 in "At a glance" |
 | Refused or saved | The sentences for `made`, `listed`, `unlisted`, `fee` and the eight `problem` values |
 
-Gaps. The BR-UX requirements are written for owner pages; BR-UX-08 is met by the SYNTHETIC tag. The heading "Pools you can take to providers" suggests an action the application does not have: a pool is a count and nothing is taken to a provider (BR-PROC-03, FR-PROC-12). The list and unlist buttons have no note field, so the note a program can send cannot be given on the page. A note that is too long on the fee form is reported as a fee problem (section 12).
+Gaps. The BR-UX requirements are written for owner pages; BR-UX-08 is met by the SYNTHETIC tag. The sentence "These are the pools you can take to providers." under the heading "Pools at the floor" still suggests an action the application does not have: a pool is a count and nothing is taken to a provider (BR-PROC-03, FR-PROC-12; section 12, item 18). The list and unlist buttons have no note field, so the note a program can send cannot be given on the page. A note that is too long on the fee form is reported as a fee problem (section 12).
 
 ### 5.10 SCR-09 Demonstration
 
 | Item | Description |
 | --- | --- |
-| Address and source | `/demo`, `app/demo/page.tsx`, `modules/demo/src/script.ts`, `cast.ts` |
+| Address and source | `/demo`, `app/demo/page.tsx`, `app/demo/demo.css`, `modules/demo/src/script.ts`, `cast.ts` |
 | Purpose | Give a presenter the people to sign in as and the eight steps of a walk through the journey that takes about 15 minutes |
 | Who may open it | Anyone, but only when the application was started with `APLYD_DEMO` equal to `true`; otherwise the page does not exist (the framework's not-found page) for every person |
 | What others see | Not applicable. Nothing on the page depends on who is signed in |
-| Sections in order | Title "Demonstration"; the note; "Sign in on the sign-in page, choosing the person each step names. Home has the links."; "The people"; "The walk"; "What this does not show"; "Starting again" |
+| Sections in order | The head (the title "Demonstration" and a sentence; no step line); the note, in a box marked `role="note"`; "Sign in on the sign-in page, choosing the person each step names. Home has the links."; "The people"; "The walk"; "What this does not show"; "Starting again". There is no strip and no card "Your next step" |
 | Fields | None |
 | Messages | MSG-01 to MSG-03 |
 
-Wording of the page's own text. The note reads "Everything in this demonstration is SYNTHETIC: invented companies, people, providers and figures. It is a walk through what the application does today, in about 15 minutes, led by a presenter." (the number of minutes is the sum of the steps). "The people" lists the operator, the company walked live (A), the company with nothing (B) and companies C to G with their stage and story. "What this does not show" lists seven limits, among them real data, real sign-in, the ten-owner test, a result for a real factory, a review, the fee level and the features that are not built. "Starting again" says that everything is rebuilt when the application starts, so a restart returns to the starting point, and that the append-only tables cannot be reset by deleting rows.
+Wording of the page's own text. The sentence under the title is "A script for the person presenting: who to sign in as, where to start, what to do and what to say, one step at a time." The note reads "Everything in this demonstration is SYNTHETIC: invented companies, people, providers and figures. It is a walk through what the application does today, in about 15 minutes, led by a presenter." (the number of minutes is the sum of the steps). "The people" lists, each as a card, the operator (tag "Operator"), the company walked live (A; tag "Walked live"), the company with nothing (B; tag "Has nothing") and companies C to G, each with a tag for its stage ("has asked for ideas", "has chosen a provider", "has an agreed plan" or "is running: a delivery accepted and paid") and its story. Each step of "The walk" is a card with its number and title, a tag with its minutes, "Sign in as", "Open" (the link text on the home page, "from the home page"), "What to do" and "What to say". "What this does not show" lists seven limits, among them real data, real sign-in, the ten-owner test, a result for a real factory, a review, the fee level and the features that are not built. "Starting again" says that everything is rebuilt when the application starts, so a restart returns to the starting point, and that the append-only tables cannot be reset by deleting rows.
 
 The walk
 
@@ -1544,8 +1689,10 @@ stateDiagram-v2
 | Engagement | One row in `engagements`; events in `engagement_events` | Planning, in progress, complete or ended early | `modules/deliver/src/state.ts` (`statusOf`) |
 | Milestone | One row in `milestones` | Planned, delivered, accepted, rejected or paid; what may be recorded next | `modules/deliver/src/state.ts` (`milestoneState`, `nextKinds`) |
 | Outcome review | Events in `outcome_events` of kind baseline or review | Waiting, not due, due or recorded for each of the three slots; whether a baseline can still be recorded; change since the baseline | `modules/run/src/state.ts` (`reviewSlots`), `modules/run/src/api/outcomes.ts` (`presentOutcomes`) |
+| The owner's place in the journey | Nothing | The step that is the owner's turn; whether each of the five stages is done, your turn or not yet; the line under each stage (FR-UX-19 to FR-UX-21) | `modules/journey/src/facts.ts` (`loadFacts`), `modules/journey/src/progress.ts` (`nextStep`, `stageStatuses`, `stageLine`) |
+| What a stage page says about where things stand | Nothing | Counts, sentences and tags such as "3 of 5 ideas decided." and "Your turn" (FR-UX-23) | `modules/factory/src/progress.ts`, `modules/diagnose/src/progress.ts`, `modules/procure/src/view.ts`, `modules/deliver/src/summary.ts`, `modules/run/src/view.ts` |
 
-The only moment-dependent state is the review slot, which depends on the clock. A review whose day has come is "due" as soon as the clock passes it, with no write. The database repeats the comparison when a review is recorded, and compares day numbers with `julianday` where the page compares the exact time, so a review recorded at the exact boundary time could be accepted by one and refused by the other [Likely, not observed].
+The only moment-dependent state is the review slot, which depends on the clock. A review whose day has come is "due" as soon as the clock passes it, with no write. The owner's next step (FR-UX-20) depends on the clock only through this: a review's day passing can change the step. The database repeats the comparison when a review is recorded, and compares day numbers with `julianday` where the page compares the exact time, so a review recorded at the exact boundary time could be accepted by one and refused by the other [Likely, not observed].
 
 ## 8. Message catalogue
 
@@ -1973,16 +2120,16 @@ The "Rules and validation" column holds the BRD's acceptance criterion in short 
 
 | ID | Statement | Traces to (BR IDs) | Rules and validation | Outputs and records | Status |
 | --- | --- | --- | --- | --- | --- |
-| FR-UX-05 | Every page says in one or two plain sentences what it is for and shows one clear next step. Actors: owner | BR-UX-01 | The BRD's acceptance is a session with owners in which 8 of 10 can say what the page is for and what they would do next, unaided; the 8 of 10 is itself a [Guessing] in the BRD | Not applicable | TO BE |
-| FR-UX-06 | The home page shows the five stages, which are done and which is current, and one button for the next step. Actors: owner | BR-UX-02 | An owner can say which stage they are at and press one button to continue | Not applicable | TO BE |
-| FR-UX-07 | The interface avoids the platform's own terms (assessment, requirement, engagement, listing, baseline) or explains each where it first appears. Actors: owner | BR-UX-03 | A [glossary](../GLOSSARY.md) exists and every term on a page is plain or explained there and on the page | Not applicable | TO BE |
+| FR-UX-05 | Every page says in one or two plain sentences what it is for and shows one clear next step. Actors: owner | BR-UX-01 | The BRD's acceptance is a session with owners in which 8 of 10 can say what the page is for and what they would do next, unaided; the 8 of 10 is itself a [Guessing] in the BRD. The built part is FR-UX-16 (a head and a sentence on each page), FR-UX-18 (the card "Your next step") and FR-UX-20 (the step). What stays TO BE is that session with owners, and a next step on the sign-in, operator and demonstration pages | Not applicable | TO BE |
+| FR-UX-06 | The home page shows the five stages, which are done and which is current, and one button for the next step. Actors: owner | BR-UX-02 | An owner can say which stage they are at and press one button to continue. The built part is FR-UX-22 (the home page), FR-UX-17 (the strip), FR-UX-20 and FR-UX-21. What stays TO BE is that test with an owner | Not applicable | TO BE |
+| FR-UX-07 | The interface avoids the platform's own terms (assessment, requirement, engagement, listing, baseline) or explains each where it first appears. Actors: owner | BR-UX-03 | A [glossary](../GLOSSARY.md) exists and every term on a page is plain or explained there and on the page. Part is built: each stage has a one-word name and a plain sentence (FR-UX-17, FR-UX-22). The platform's own terms remain on the pages (section 5.1) and nothing compares them with the glossary | Not applicable | TO BE |
 | FR-UX-08 | Every owner page can be used in a language the owner chooses. Actors: owner | BR-UX-04 | Which languages: OQ-17. Related FR-DESC-11 | The language chosen; not decided | TO BE |
 | FR-UX-09 | A refusal that comes before the person is known, such as an expired session on a form post, shows a message and a way forward and not JSON. Actors: owner, visitor | BR-UX-06 | Every refused form post goes back to its page with a message. Today these refusals are JSON (section 8) | Not applicable | TO BE |
 | FR-UX-10 | Each empty and waiting state says what will appear and what causes it, and is checked in a browser test. Actors: owner | BR-UX-07 | Today the states are written but not all are checked in a browser test | Not applicable | TO BE |
 | FR-UX-11 | An owner prints or exports their plan, with its figures and the SYNTHETIC marks, to show a family member or a bank. Actors: owner | BR-UX-10 | The plan exports to a document. No format is decided | A document; not decided | TO BE |
 | FR-UX-12 | The owner uses the platform by the channel the owner already uses: a phone call, WhatsApp or the web. Actors: owner | BR-UX-11 | The channels are chosen from what owners say. Blocked by OQ-17 | Not decided | TO BE |
-| FR-UX-13 | Each owner page is usable on a phone-sized screen and a slow connection, with no horizontal scrolling and no unreachable control. Actors: owner | BR-UX-05 | Unverified: the layout is one column, but only desktop Chromium has been run | Not applicable | TO BE |
-| FR-UX-14 | The owner pages meet WCAG 2.1 level AA. Actors: owner | BR-UX-09 | Unverified: fields have labels and a visible focus outline, and nothing has been measured. The acceptance is an accessibility audit of each page with no failure at level AA | Not applicable | TO BE |
+| FR-UX-13 | Each owner page is usable on a phone-sized screen and a slow connection, with no horizontal scrolling and no unreachable control. Actors: owner | BR-UX-05 | Unverified. The layout is one column below 40 rem wide and the strip is five columns at every width (FR-UX-15, FR-UX-17), and a capture of each page at 390 px wide was made on 5 October 2026 to describe the screens (section 1.4). No page has been tried on a real phone or a slow connection, and a text search of `modules/*/tests` found no test that sets a phone-sized viewport or measures horizontal scrolling [Likely] | Not applicable | TO BE |
+| FR-UX-14 | The owner pages meet WCAG 2.1 level AA. Actors: owner | BR-UX-09 | Unverified. Built: a label or group legend on each field, a skip link, named landmarks, a role on each notice, a visible focus outline, and a unit test of the colour tokens (FR-UX-15, FR-UX-23; section 5.1). No screen reader has been used on any page and no audit has been run. The acceptance is an accessibility audit of each page with no failure at level AA | Not applicable | TO BE |
 | FR-DATA-03 | An owner can export all of their company's records in a documented form, and the platform can stop serving them. Actors: owner | BR-DATA-03 | The application is separable from the data. No format is decided | An export file; not decided | TO BE |
 | FR-DATA-04 | A provider reads nothing about a company that the owner has not shared with that provider, and each share is recorded. Actors: owner, provider | BR-DATA-06, BR-GOV-05 | True today because providers see nothing. Needs a provider to sign in (OQ-13, OQ-19) | A record of each share | TO BE |
 | FR-NFR-03 | Every response carries a content-security policy that restricts scripts, and the session cookie uses a `__Host-` prefix. Actors: all | BR-NFR-13 | Today only the frame, form, base, referrer and nosniff headers are set (FR-NFR-02). The prefix needs the cookie to have no Domain and the path `/`, which it already has [Likely] | Not applicable | TO BE |
@@ -2099,15 +2246,15 @@ One row for each of the 116 requirements in the [BRD](../brd/BRD.md). The coveri
 | BR-OPS-06 | Partial | FR-OPS-02, FR-OPS-11 (TO BE) | Built part in the first FRs; the remainder is TO BE |
 | BR-OPS-07 | Built | FR-OPS-03, FR-OPS-04 | As built |
 | BR-OPS-08 | Built | FR-OPS-05, FR-OPS-06, FR-OPS-07, FR-OPS-08 | As built |
-| BR-UX-01 | Not built | FR-UX-05 (TO BE) | Only a TO BE function; nothing built meets it |
-| BR-UX-02 | Not built | FR-UX-06 (TO BE) | Only a TO BE function; nothing built meets it |
-| BR-UX-03 | Not built | FR-UX-07 (TO BE) | Only a TO BE function; nothing built meets it |
+| BR-UX-01 | Not built | FR-UX-05 (TO BE), FR-UX-16 (PARTIAL), FR-UX-18 (PARTIAL), FR-UX-20 (PARTIAL), FR-UX-22 (PARTIAL), FR-UX-23, FR-UX-24 | Built in slice 10 and not tried with owners; the BRD's status word was written before it (section 12, item 24). The TO BE function is the owner session the BRD asks for |
+| BR-UX-02 | Not built | FR-UX-06 (TO BE), FR-UX-17 (PARTIAL), FR-UX-18 (PARTIAL), FR-UX-19 (PARTIAL), FR-UX-20 (PARTIAL), FR-UX-21 (PARTIAL), FR-UX-22 (PARTIAL) | Built in slice 10 and not tried with owners; the BRD's status word and its note "The home page is a list of links" were written before it (section 12, item 24) |
+| BR-UX-03 | Not built | FR-UX-07 (TO BE), FR-UX-17 (PARTIAL), FR-UX-22 (PARTIAL) | One plain word and one sentence for each stage exist; the platform's own terms remain on the pages and nothing compares them with the glossary (section 5.1) |
 | BR-UX-04 | Not built | FR-UX-08 (TO BE) | Only a TO BE function; nothing built meets it |
-| BR-UX-05 | Unverified | FR-UX-13 (TO BE) | Only a TO BE function; nothing built meets it |
+| BR-UX-05 | Unverified | FR-UX-13 (TO BE), FR-UX-15 | The frame is built; nothing has been verified on a phone |
 | BR-UX-06 | Partial | FR-UX-02 (PARTIAL), FR-UX-04, FR-UX-09 (TO BE) | Built part in the first FRs; the remainder is TO BE |
-| BR-UX-07 | Partial | FR-UX-03 (PARTIAL), FR-UX-10 (TO BE) | Built part in the first FRs; the remainder is TO BE |
-| BR-UX-08 | Built | FR-UX-01 | As built |
-| BR-UX-09 | Unverified | FR-UX-14 (TO BE) | Only a TO BE function; nothing built meets it |
+| BR-UX-07 | Partial | FR-UX-03 (PARTIAL), FR-UX-10 (TO BE), FR-UX-23 | Built part in the first FRs; the remainder is TO BE |
+| BR-UX-08 | Built | FR-UX-01, FR-UX-15, FR-UX-24 | As built |
+| BR-UX-09 | Unverified | FR-UX-14 (TO BE), FR-UX-15 | The frame is built; nothing has been measured |
 | BR-UX-10 | Not built | FR-UX-11 (TO BE) | Only a TO BE function; nothing built meets it |
 | BR-UX-11 | Open | FR-UX-12 (TO BE) | Only a TO BE function; nothing built meets it |
 | BR-DATA-01 | Built | FR-OPS-05, FR-UX-01, FR-DATA-01 | As built |
@@ -2142,7 +2289,7 @@ Of the 116 requirements, 50 are covered by at least one FR that describes a func
 
 ## 12. Discrepancies and limits found while writing
 
-Where the code, a module's STATUS page and the BRD disagree, the code is taken as the authority and this document describes the code. The table lists each disagreement with the file and line, so that the owner of the other document can correct it. Lines are as read on 5 October 2026.
+Where the code, a module's STATUS page and the BRD disagree, the code is taken as the authority and this document describes the code. The table lists each disagreement with the file and, for a page that was redesigned on 5 October 2026, the function or constant, because line numbers moved with the redesign. Other lines are as read on 5 October 2026.
 
 ### 12.1 Discrepancies
 
@@ -2151,34 +2298,38 @@ Where the code, a module's STATUS page and the BRD disagree, the code is taken a
 | 1 | `modules/diagnose/STATUS.md` line 36 (limit 4) and `modules/diagnose/src/api/diagnose.ts` lines 80 to 87 | The STATUS page says the decision-note handler does not refuse control characters. `readNote` refuses them with "The note has characters that cannot be saved." | The code wins (RULE-12, section 8) |
 | 2 | `modules/hosting/STATUS.md` lines 26 and 58 and `scripts/serve.mjs` lines 95 to 101 | The STATUS page says the demonstration package is not in the slice and describes `seedDemo(baseUrl)`. `modules/demo/src/seed.ts` exists and the launcher calls `seedDemo({ db, baseUrl })` | The code wins (FR-OPS-03, FR-OPS-05) |
 | 3 | `docs/brd/BRD.md` line 267 (BR-OPS-08) | The BRD says the hosted demonstration is "Live on DigitalOcean since 5 October 2026". Nothing in the code can show that | Only the launcher and gateway are specified; liveness is not asserted |
-| 4 | `modules/diagnose/src/api/diagnose.ts` lines 20 to 23; `app/factory/page.tsx` line 96; `app/procure/page.tsx` line 51; `app/deliver/page.tsx` line 59; `app/run/page.tsx` line 52 | A member of a company is told on `/diagnose` that they are a member and only the owner can act. On the other four pages the same member is told "Your account is not linked to one", which is untrue. `docs/brd/BRD.md` line 163 (BR-ID-05) and `modules/run/STATUS.md` line 49 describe the sentence as "This page is for the owner" | Both texts are recorded (section 8); FR-ID-15 is the remedy |
-| 5 | `app/factory/page.tsx` lines 14 and 120 to 122; `app/diagnose/page.tsx` line 103; `app/procure/page.tsx` line 76; `app/deliver/page.tsx` line 78; `app/operator/page.tsx` line 65 | The comment at line 14 says nothing the sender wrote is shown back, but the `saved` value is printed in "Version <value> saved ...". The other four notices show a confirmation for any non-empty `saved` or `made` value. A crafted link can make a page say that something was recorded when it was not. No data changes | Recorded as built; not in the BRD, which is silent (BR-UX-06, BR-UX-07) |
-| 6 | `app/diagnose/page.tsx` lines 88 to 90 | An unknown `?a=` value, or another company's, shows no assessment and no message. Only a value over 64 characters falls back to the newest assessment. The `missing` problem is reachable only from a form post | Recorded (UC-DIAG-05); a gap against BR-UX-06 and BR-UX-07 |
+| 4 | `NotOwner` in `app/_ui/parts.tsx` (used by `app/factory/page.tsx`, `app/procure/page.tsx`, `app/deliver/page.tsx` and `app/run/page.tsx`); `notOwnerMessage` in `modules/diagnose/src/api/diagnose.ts` | A member of a company is told on `/diagnose` that they are a member and only the owner can act. On the other four pages the same member is told "Your account is not linked to one", which is untrue. `docs/brd/BRD.md` line 163 (BR-ID-05) and `modules/run/STATUS.md` line 49 describe the sentence as "This page is for the owner" | Both texts are recorded (section 8); FR-ID-15 is the remedy. The home page says the same untrue thing to a member (item 23) |
+| 5 | `PROBLEMS` and the notice for `q.saved` in `app/factory/page.tsx`; the notice for `q.saved` in `app/diagnose/page.tsx`; the notice for `q.made` in `app/procure/page.tsx`, `app/deliver/page.tsx` and `app/operator/page.tsx` | The comment above `PROBLEMS` in the Describe page says nothing the sender wrote is shown back, but the `saved` value is printed in "Version <value> saved ...". The other four notices show a confirmation for any non-empty `saved` or `made` value. A crafted link can make a page say that something was recorded when it was not. No data changes | Recorded as built; not in the BRD, which is silent (BR-UX-06, BR-UX-07) |
+| 6 | `app/diagnose/page.tsx` (the constant `wanted`, which reads `q.a`, and the call `loadAssessment`) | An unknown `?a=` value, or another company's, shows no assessment and no message. Only a value over 64 characters falls back to the newest assessment. The `missing` problem is reachable only from a form post | Recorded (UC-DIAG-05); a gap against BR-UX-06 and BR-UX-07 |
 | 7 | `modules/platform/src/api/session.ts` lines 22 and 26 | The sign-in and sign-out handler reads the body with `request.text()` and `request.json()` and no application size cap. The 64 K limit applies to `takeBody` and the factory reader only | RULE-07 states it; only the gateway's 256 KB limit applies on the hosted demonstration |
 | 8 | `modules/run/src/db/outcomes.ts` and trigger `outcome_events_review_needs_an_acceptance` | A review can be recorded after the engagement is closed, because only an accepted milestone is required. The BRD and the STATUS pages are silent | RULE-41 states it as built |
 | 9 | `docs/brd/BRD.md`, whole | No requirement names the origin check (`modules/platform/src/identity/cross-site.ts`), the body limits, the content-type rule or the session lifetime | Traced to BR-NFR-01, BR-NFR-12 and BR-ID-01; the rules are RULE-01, RULE-06 and RULE-07 |
 | 10 | `drizzle/0000_init.sql` line 22; `modules/platform/src/db/schema.ts` line 17 | The `role` column is free text with no constraint. The BRD speaks of owners, members and the operator; the code checks only for "owner" and "operator". No member exists in the seed and no function creates one; tests insert a role `viewer` | Section 2; BR-ID-05's interface behaviour is exercised only by tests |
 | 11 | `modules/diagnose/src/engine.ts` lines 8, 9, 146 and 190; `docs/brd/BRD.md` line 198 (BR-DIAG-08) | The BRD says "Readiness feeds the score". The owner's own answer to the readiness question is echoed in `inputs.readiness` and never scored. The scored term is the prerequisite state | RULE-17 and RULE-19 state it as built |
-| 12 | `app/layout.tsx` lines 7 to 13; `docs/brd/BRD.md` lines 275, 282 and 283 (BR-UX-01, BR-UX-08, BR-UX-09) | Every page has the one title "APLYD MSME platform". The SYNTHETIC banner appears only where `APLYD_ENV` is local, synthetic or test, while BR-UX-08 says every synthetic page | Section 5.1 |
-| 13 | `app/operator/page.tsx` line 206 and `modules/procure/STATUS.md` limit 2 | The operator sees the exact count of a pool of five or more; an owner sees a lower bound in steps of five | Disclosed in the STATUS page and consistent with BR-GOV-06 and OQ-14 (RULE-28, RULE-29) |
-| 14 | `modules/procure/src/api/providers.ts` lines 48 to 60 (`readServices`) and `app/operator/page.tsx` line 19 | The sentence "A provider that serves nothing cannot be listed." cannot be reached through the interface, because adding a provider requires at least one service. It guards direct writes (trigger `provider_events_list_needs_a_service`) | Listed in section 8 with that note |
-| 15 | `modules/procure/src/api/providers.ts` lines 141 to 155; `app/operator/page.tsx` lines 175 to 190 | A note that is too long on the fee form is reported as `problem=fee`, with the sentence about the fee. The List and Unlist buttons have no note field although the interface accepts one. The List button is offered when no fee is set | Recorded in SCR-08 |
-| 16 | `app/sign-in/page.tsx` lines 10 to 23 and `modules/platform/src/api/session.ts` lines 62 to 65 | The form is shown when the environment is synthetic and a database is bound, even when the session secret is missing. The post then answers JSON 503 `sign_in_not_available` | Recorded in SCR-02; a gap against BR-UX-06 |
-| 17 | `app/procure/page.tsx` lines 63 to 66 and `modules/procure/src/api/requirements.ts` lines 60 to 97 | The page offers requirements only for the accepted ideas of the newest signed-off assessment. The interface allows a requirement from any signed-off assessment of the company | Recorded in SCR-05 and FR-PROC-02 |
-| 18 | `app/operator/page.tsx` line 198 | The heading "Pools you can take to providers" suggests an action. A pool is only a count (BR-PROC-03, Not built) | Recorded in SCR-08 |
-| 19 | `app/factory/page.tsx` | A radio answer cannot be cleared once chosen, and the five questions needed to confirm are not marked on the form | Recorded in SCR-03 |
+| 12 | `metadata` and the `synthetic` banner in `app/layout.tsx`; `docs/brd/BRD.md` lines 275, 282 and 283 (BR-UX-01, BR-UX-08, BR-UX-09) | Every page has the one title "APLYD MSME platform". The SYNTHETIC banner appears only where `APLYD_ENV` is local, synthetic or test, while BR-UX-08 says every synthetic page | Section 5.1 |
+| 13 | The list of pools at the foot of `app/operator/page.tsx` (it prints `p.companies`) and `modules/procure/STATUS.md` limit 2 | The operator sees the exact count of a pool of five or more; an owner sees a lower bound in steps of five | Disclosed in the STATUS page and consistent with BR-GOV-06 and OQ-14 (RULE-28, RULE-29) |
+| 14 | `modules/procure/src/api/providers.ts` lines 48 to 60 (`readServices`) and the entry `no_service` in `PROBLEMS` in `app/operator/page.tsx` | The sentence "A provider that serves nothing cannot be listed." cannot be reached through the interface, because adding a provider requires at least one service. It guards direct writes (trigger `provider_events_list_needs_a_service`) | Listed in section 8 with that note |
+| 15 | `modules/procure/src/api/providers.ts` lines 141 to 155; the fee form and the List and Unlist forms of `app/operator/page.tsx` | A note that is too long on the fee form is reported as `problem=fee`, with the sentence about the fee. The List and Unlist buttons have no note field although the interface accepts one. The List button is offered when no fee is set | Recorded in SCR-08 |
+| 16 | The test `!isSyntheticEnvironment(e) || !e.DB` in `app/sign-in/page.tsx` and `modules/platform/src/api/session.ts` lines 62 to 65 | The form is shown when the environment is synthetic and a database is bound, even when the session secret is missing. The post then answers JSON 503 `sign_in_not_available` | Recorded in SCR-02; a gap against BR-UX-06 |
+| 17 | `latestSigned` and `accepted` in `app/procure/page.tsx`; `modules/procure/src/api/requirements.ts` lines 60 to 97 | The page offers requirements only for the accepted ideas of the newest signed-off assessment. The interface allows a requirement from any signed-off assessment of the company | Recorded in SCR-05 and FR-PROC-02 |
+| 18 | The heading "Pools at the floor" and the sentence "These are the pools you can take to providers." in `app/operator/page.tsx` | The sentence suggests an action. A pool is only a count (BR-PROC-03, Not built). The earlier heading, "Pools you can take to providers", said the same | Recorded in SCR-08 |
+| 19 | `app/factory/page.tsx` (the `Field` that draws a radio group) | A radio answer cannot be cleared once chosen. The five questions needed to confirm are now marked with the tag "Needed to confirm" (`NEEDED`, from `REQUIRED_TO_CONFIRM`), which the earlier page did not do | Recorded in SCR-03 |
 | 20 | `drizzle/0013_run_guards.sql` (`outcome_events_review_is_due`) and `modules/run/src/state.ts` (`reviewSlots`) | The database compares day numbers with `julianday`; the page compares milliseconds. A review recorded at the exact boundary could be accepted by one and refused by the other [Likely, not observed] | Section 7.8 |
 | 21 | `modules/factory/src/questionnaire.ts` lines 214 to 215 | The comment says control characters other than tab and newline are refused. The character class also allows the carriage return (U+000D) | RULE-12 states the class as coded |
 | 22 | `docs/brd/BRD.md` (traceability) and `scripts/check-traceability.mjs` | The script checks that every requirement mentioned exists and that the BRD's counts are current. It does not check that every requirement is covered by a function, so the coverage in section 11 was checked by a script written for this document, not by the repository | Section 11 |
+| 23 | `app/page.tsx` (the last branch of the hero: the section labelled "Your account") | A signed-in person who has a company and is not its owner (a member) is shown "You are signed in" and "This account is not linked to a company, so there are no steps to work through here." The account is linked to a company. The same branch serves a person with no company who is not the operator | Recorded in SCR-01 and FR-UX-22; FR-ID-15 is the remedy |
+| 24 | `docs/brd/BRD.md` lines 64, 275, 276, 277, 279 and 283 (the summary row of the current position, BR-UX-01, BR-UX-02, BR-UX-03, BR-UX-05, BR-UX-09) | The BRD still says the home page is a list of links, that there is no overall view or next step, that BR-UX-01 to BR-UX-03 are not built, that BR-UX-05 was run only on desktop Chromium and that BR-UX-09 is not measured. The interface was redesigned on 5 October 2026 and has a home page with a next step, five stage cards and a progress strip. No owner has used it, so none of these rows can be called met | The status words in section 11 stay the BRD's, as the checker requires. FR-UX-15 to FR-UX-24 say what is built. The BRD's owner to correct |
+| 25 | `nextStep` (rule `sign_off`) in `modules/journey/src/progress.ts`; `problem=no_items` in `app/diagnose/page.tsx` | An assessment with no ideas has `decided` equal to `items` (both 0), so the rule `decide` does not fire and the rule `sign_off` does: the home page says "You have decided on every idea. Signing off ..." and offers "Sign off". On `/diagnose` the sign-off button is disabled and a sign-off is refused (MSG-59). Read from the code, not run [Likely] | Recorded in FR-UX-20; the owner of `progress.ts` to correct |
+| 26 | `nextStep` (rule `judge_delivery`) in `modules/journey/src/progress.ts`; `deliverySummary` and `firstWaitingDecision` in `modules/deliver/src/summary.ts` | The rule tests for any milestone in the state `delivered` in any engagement, closed or not. The Delivery page counts only open engagements (MSG-114 refuses events on a closed one). If an engagement was closed with a milestone delivered and not decided, the home page says "A delivery is waiting for your decision" and the Delivery page has nothing to decide. Read from the code, not run [Likely] | Recorded in FR-UX-20; the owner of `progress.ts` to correct |
 
 ### 12.2 Limits of this document
 
-- Nothing was run. No browser, server or test suite was started. Every behaviour is read from the source and the migrations, so it is [Certain] as to what the code says and not as to what a person sees in a browser.
+- The author of this document ran no server, browser or test suite for it. Every behaviour is read from the source and the migrations, so it is [Certain] as to what the code says and not as to what a person sees in a browser. The page descriptions in section 5 were also compared with a capture of the redesigned pages made on 5 October 2026 from synthetic demo data, at a phone width of 390 pixels and a desktop width of 1280 pixels. That capture is not in the repository, and no owner of a factory has used these pages.
 - The messages in section 8 were checked against the source by a text search. Eleven of them are built from a constant, a link inside a sentence or a list of names, and were checked by reading them.
 - Amounts on the pages are written with `toLocaleString("en-IN")`, so a figure such as ₹1,00,000 depends on the language data of the runtime that serves the page. It was checked in Node; the Worker's runtime was not run [Likely the same].
 - No person has reviewed any of the code (HANDOVER.md, "Merged without review"). The statuses AS BUILT and PARTIAL mean "the code does this", not "accepted".
 - The ideas, costs, benefits, clusters and providers in the library and the demonstration are SYNTHETIC. No figure in this document is a finding about a real unit.
-- The wireframes in [WIREFRAMES](../design/WIREFRAMES.md) were not available when this document was drafted. The gaps in section 5 point to them by document and not by wireframe number.
+- The wireframes in [WIREFRAMES](../design/WIREFRAMES.md) and in the [wireframes page](../design/wireframes.html) were written after the redesign and use the same screen numbers (SCR-01 to SCR-09). They describe what was observed on 5 October 2026 and are not a design that a person has approved. The gaps in section 5 point to them by document and screen number.
 - Whether the hosted demonstration is live cannot be determined from the code (item 3).
 
 ## Appendix A. The synthetic opportunity library
