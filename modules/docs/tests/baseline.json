@@ -1,0 +1,8 @@
+{
+  "updatedAt": "2026-10-05",
+  "reason": "Documentation set: the BRD reader (unit) and the checks on the real BRD (static)",
+  "suites": {
+    "static/brd": 5,
+    "unit/brd": 7
+  }
+}
