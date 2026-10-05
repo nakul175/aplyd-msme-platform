@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "slice 7 journey",
+  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
   "suites": {
     "browser/journey": 1
   }
