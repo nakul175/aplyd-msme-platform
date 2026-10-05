@@ -1,4 +1,4 @@
-import { ALL_APPEND_ONLY_TRIGGERS } from "../db/guards.ts";
+import { ALL_REQUIRED_TRIGGERS } from "../db/guards.ts";
 import type { AppEnv } from "../env.ts";
 import { json } from "./http.ts";
 
@@ -13,7 +13,7 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
       const { results } = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all<{ name: string }>();
       database = "ok";
       const present = new Set(results.map((r) => r.name));
-      auditGuard = ALL_APPEND_ONLY_TRIGGERS.every((t) => present.has(t)) ? "ok" : "missing";
+      auditGuard = ALL_REQUIRED_TRIGGERS.every((t) => present.has(t)) ? "ok" : "missing";
     }
   } catch {
     database = "unavailable";

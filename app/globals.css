@@ -42,3 +42,11 @@ legend { font-weight: 600; padding: 0 0.4rem; }
 input[type="text"], input[type="number"], textarea { font: inherit; width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; }
 .notice { border-left: 4px solid var(--accent); padding: 0.4rem 0.75rem; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
 .actions button { margin-right: 0.5rem; }
+.items { list-style: none; padding: 0; margin: 0; }
+.item h3 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0.5rem 0; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: 0; }
+details.card summary { cursor: pointer; font-weight: 600; }
+code { font-size: 0.9em; }
+button:disabled { cursor: not-allowed; opacity: 0.6; }
