@@ -88,6 +88,9 @@ Sixteen breaks (m7c): **13 caught on the first run, 3 survived.** One survivor i
 
 Five further breaks, of the registry trigger, were run against an earlier form of the fix and are re-run in the top branch where the trigger now lives.
 
+## After the review-fixes branch
+
+The review's L4 (a service could be added to a listed provider by a direct insert) is fixed on the review-fixes branch (pull request #8, migration 0014): a trigger refuses it, with tests for a listed provider, an unlisted one and one never listed. The same migration holds a fee to a whole number of rupees and a note to 500 characters in the three tables that have one in the buying path; a later review of that branch found that a NUL character hid a long note from `length()`, so each note trigger also bounds the note in bytes, and the test for the three tables pins it. The mutation results for these fixes, and a second agent's review of them, are in [modules/platform/VALIDATION.md](../platform/VALIDATION.md) (section "Review-fixes branch").
 ## What these results do not show
 
 - **Not independent.** The same agent wrote the code, the tests and the mutations. A mutation set is only as good as the breaks its author thought of; it says nothing about the ones that were not thought of.

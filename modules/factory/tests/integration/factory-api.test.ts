@@ -392,6 +392,11 @@ test("the database itself refuses answers that are not a JSON object, and a revi
   for (const bad of ["not json", "", "[]", "7", "null", '"text"', "{broken"]) {
     await assert.rejects(insert(1, bad), /a JSON object/, JSON.stringify(bad));
   }
+  // The bytes of {} bound as a BLOB are valid JSON to json_valid() and were kept as a BLOB, which the page could not read back
+  // (found by the review of the review fixes): the answers must be stored as text.
+  const asBlob = new Uint8Array([0x7b, 0x7d]);
+  await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 1, 'x', 'user-synthetic-owner-b', 0, 1, ?, '')`).bind(asBlob).run(), /a JSON object/, "answers as a BLOB");
+  await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 2, 'x', 'user-synthetic-owner-b', 0, 1, ?, '')`).bind(asBlob).run(), /a JSON object|follows the one before it/, "a blob after a gap is refused whichever rule answers");
   await assert.rejects(insert(50, "{}"), /follows the one before it/, "the case the review found: revision 50 with nothing before it");
   assert.equal(await count(B), 0);
   await insert(1, '{"shifts":"one"}');
@@ -437,10 +442,14 @@ test("a note of a revision is at most 500 characters in the table, as it is in t
   const insert = (no: number, note: string) => db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', ${no}, 'x', 'user-synthetic-owner-b', 0, 1, '{}', ?)`).bind(note).run();
   await assert.rejects(insert(1, "n".repeat(501)), /at most 500 characters/);
   await assert.rejects(insert(1, "é".repeat(501)), /at most 500 characters/, "characters, not bytes");
+  // SQLite's length() stops at a NUL, so 'a', a NUL and 100,000 more characters counted as one; the second bound is on bytes.
+  await assert.rejects(insert(1, `a\u0000${"b".repeat(100_000)}`), /at most 500 characters/, "text after a NUL still counts");
+  await assert.rejects(insert(1, `a\u0000${"b".repeat(2000)}`), /at most 500 characters/, "the byte bound is 2,000");
   assert.equal(await count(B), 0);
   await insert(1, "n".repeat(500));
   await insert(2, "é".repeat(500));
-  assert.equal(await count(B), 2);
+  await insert(3, "a\u0000b"); // a short note with a NUL in it is still stored: the bound is on length, not on content
+  assert.equal(await count(B), 3);
 });
 
 test("the same mistakes always send the form back to the same address: the questions are named in alphabetical order, whatever order they were sent or checked in", async () => {

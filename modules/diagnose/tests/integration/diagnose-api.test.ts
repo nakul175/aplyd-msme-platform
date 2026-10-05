@@ -610,6 +610,7 @@ test("a note of an assessment event is at most 500 characters in the table, as i
     db.prepare("INSERT INTO assessment_events (assessment_id, company_id, at, user_id, kind, opportunity_id, decision, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'decision', ?, 'accept', ?)").bind(id, A, item, note).run();
   await assert.rejects(insert("n".repeat(501)), /at most 500 characters/);
   await assert.rejects(insert("é".repeat(501)), /at most 500 characters/, "characters, not bytes");
+  await assert.rejects(insert(`a\u0000${"b".repeat(5000)}`), /at most 500 characters/, "text after a NUL still counts (SQLite's length() stops at the NUL)");
   assert.equal(await count("assessment_events"), 0);
   await insert("n".repeat(500));
   await insert("é".repeat(500));

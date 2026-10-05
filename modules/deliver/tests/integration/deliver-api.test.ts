@@ -825,6 +825,8 @@ test("a note of an engagement event is at most 500 characters in the table, as i
   const deliver = (note: string) =>
     db.prepare("INSERT INTO engagement_events (engagement_id, company_id, at, user_id, kind, milestone_id, note) VALUES (?, ?, 'x', ?, 'delivered', ?, ?)").bind(p.id, A, OWNER, first, note).run();
   await assert.rejects(deliver(long), /at most 500 characters/);
+  // SQLite's length() stops at a NUL: 'a', a NUL and 5,000 more characters counted as one (found by the review of the review fixes).
+  await assert.rejects(deliver(`a\u0000${"b".repeat(5000)}`), /at most 500 characters/, "text after a NUL still counts");
   assert.equal(await count("engagement_events", "kind = 'delivered'"), 0);
   await deliver(exact);
   assert.equal(await count("engagement_events", "kind = 'delivered'"), 1);

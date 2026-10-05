@@ -116,3 +116,18 @@ test("a sign-in with a content type the interface never sends is refused with 41
 test("the health check reports the audit guard", async () => {
   assert.deepEqual(await (await fetch(`${app.base}/api/health`)).json(), { status: "ok", database: "ok", auditGuard: "ok" });
 });
+
+test("a message key in the address that is the name of something every object has is no message, and the page still renders", async () => {
+  // `PROBLEMS[q.problem]` on a plain object answered Object.prototype for `__proto__`, which React cannot draw: the person's own
+  // page failed with a 500. Found by the independent review of the review-fixes branch.
+  const owner = cookieOf(await signIn(app.base, "owner-a@synthetic.invalid"));
+  const operator = cookieOf(await signIn(app.base, "operator@synthetic.invalid"));
+  for (const [path, cookie] of [["/factory", owner], ["/diagnose", owner], ["/procure", owner], ["/deliver", owner], ["/run", owner], ["/operator", operator]] as const) {
+    for (const query of ["problem=__proto__", "problem=constructor", "problem=toString", "saved=__proto__", "saved=constructor", "problem=__proto__&saved=hasOwnProperty"]) {
+      const res = await fetch(`${app.base}${path}?${query}`, { headers: { cookie } });
+      const html = await res.text();
+      assert.equal(res.status, 200, `${path}?${query}`);
+      assert.ok(!html.includes("[object Object]"), `${path}?${query} drew an object`);
+    }
+  }
+});

@@ -51,6 +51,9 @@ Each row is one deliberate break of the code, run against the named layers; "cau
 
 26 breaks, 2 survivors at first, both closed by a test added in response. These show the tests are sensitive to these breaks. They do not show the code is free of defects the author did not think to break.
 
+## After the review-fixes branch
+
+On the review-fixes branch (pull request #8) the factory module has a bounded body reader, a limit of 500 versions per company, form messages for the new refusals, a history capped at 100 versions with a count, and sorted field keys, and migration 0014 makes the table refuse answers that are not a JSON object, a revision number that skips one, a 501st version and a note over 500 characters. A later review of that branch found two holes in the table's rules, both fixed with a test: SQLite's `length()` stops at a NUL, so the note trigger also bounds the note in bytes; and the bytes of `{}` stored as a BLOB passed `json_valid()`, so the answers rule now requires the stored type to be text. The mutation results for these fixes, and a second agent's review of them, are in [modules/platform/VALIDATION.md](../platform/VALIDATION.md) (section "Review-fixes branch").
 ## What these results do not show
 
 - No independent review has happened. Slice 1's review found a high finding that its author's own mutation table missed; assume the same is possible here, in the append-only triggers and the scope handling in particular.

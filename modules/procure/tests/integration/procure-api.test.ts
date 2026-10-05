@@ -831,6 +831,11 @@ test("a note is at most 500 characters in each table that has one in the buying 
   const long = "n".repeat(501);
   const exact = "n".repeat(500);
   const note = /at most 500 characters/;
+  // SQLite's length() stops at a NUL: 'a', a NUL and 5,000 more characters counted as one (found by the review of the review fixes).
+  const nul = `a\u0000${"b".repeat(5000)}`;
+  await assert.rejects(db.prepare("INSERT INTO listing_terms (at, user_id, fee_inr, note) VALUES ('x', 'user-synthetic-operator', 200, ?)").bind(nul).run(), note, "listing terms, text after a NUL");
+  await assert.rejects(db.prepare("INSERT INTO provider_events (provider_id, at, user_id, kind, terms_version, fee_inr, note) VALUES (?, 'x', 'user-synthetic-operator', 'list', 1, 100, ?)").bind(pid, nul).run(), note, "provider events, text after a NUL");
+  await assert.rejects(db.prepare("INSERT INTO requirement_events (requirement_id, company_id, at, user_id, kind, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'withdraw', ?)").bind(requirementId, A, nul).run(), note, "requirement events, text after a NUL");
   await assert.rejects(db.prepare("INSERT INTO listing_terms (at, user_id, fee_inr, note) VALUES ('x', 'user-synthetic-operator', 200, ?)").bind(long).run(), note, "listing terms");
   await assert.rejects(db.prepare("INSERT INTO provider_events (provider_id, at, user_id, kind, terms_version, fee_inr, note) VALUES (?, 'x', 'user-synthetic-operator', 'list', 1, 100, ?)").bind(pid, long).run(), note, "provider events");
   await assert.rejects(db.prepare("INSERT INTO requirement_events (requirement_id, company_id, at, user_id, kind, note) VALUES (?, ?, 'x', 'user-synthetic-owner-a', 'withdraw', ?)").bind(requirementId, A, long).run(), note, "requirement events");

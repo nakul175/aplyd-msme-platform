@@ -1,12 +1,14 @@
 -- Rules the independent reviews of slices 2 and 4 found were kept by the application but not by the database. Each is a trigger
 -- because a table cannot be given a CHECK after it exists without rebuilding it, and applied migrations are not edited.
--- SQLite does not define the order triggers run in, so the WHEN clauses below are mutually exclusive with each other and with
--- factory_revisions_no_replace: no insert is refused by two triggers, and a test can name the one that refused it.
+-- SQLite does not define the order triggers run in, so the WHEN clauses of the three revision triggers below (answers, no gaps,
+-- limit) are mutually exclusive with each other and with factory_revisions_no_replace: no insert is refused by two of them, and a
+-- test can name the one that refused it. The triggers further down (notes, numbers, dates, text) are not exclusive with the rules
+-- of their own tables: see the comment above them.
 
 -- A revision's answers are a JSON object. A row that could not be read back would make the company's description page fail for good.
 CREATE TRIGGER factory_revisions_answers_are_an_object BEFORE INSERT ON factory_revisions
 WHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))
- AND NOT (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)
+ AND NOT (CASE WHEN typeof(NEW.answers) = 'text' AND json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)
 BEGIN
   SELECT RAISE(ABORT, 'the answers of a revision are a JSON object');
 END;
@@ -14,7 +16,7 @@ END;
 -- Revision numbers have no gaps: a revision is the one after the latest of its company.
 CREATE TRIGGER factory_revisions_no_gaps BEFORE INSERT ON factory_revisions
 WHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))
- AND (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)
+ AND (CASE WHEN typeof(NEW.answers) = 'text' AND json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)
  AND NEW.revision_no <> COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1
 BEGIN
   SELECT RAISE(ABORT, 'a revision number follows the one before it');
@@ -24,7 +26,7 @@ END;
 -- session could grow the table for ever, and the platform would carry the cost.
 CREATE TRIGGER factory_revisions_limit BEFORE INSERT ON factory_revisions
 WHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))
- AND (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)
+ AND (CASE WHEN typeof(NEW.answers) = 'text' AND json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)
  AND NEW.revision_no = COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1
  AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 500
 BEGIN
@@ -57,39 +59,41 @@ BEGIN
 END;
 --> statement-breakpoint
 -- A note is at most 500 characters, as every handler says; the table now says so as well. Without it, a direct write could put any
--- amount of text in a column every read returns.
+-- amount of text in a column every read returns. SQLite's length() of text stops counting at the first NUL character (U+0000), so
+-- a note of 'a', a NUL and a hundred thousand more characters would count as one; the second bound is on bytes (four a character
+-- is the most UTF-8 takes), which counts past a NUL. A note that has a NUL in it but is short is still stored.
 CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions
-WHEN length(NEW.note) > 500
+WHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000
 BEGIN
   SELECT RAISE(ABORT, 'a note is at most 500 characters');
 END;
 --> statement-breakpoint
 CREATE TRIGGER assessment_events_note_is_short BEFORE INSERT ON assessment_events
-WHEN length(NEW.note) > 500
+WHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000
 BEGIN
   SELECT RAISE(ABORT, 'a note is at most 500 characters');
 END;
 --> statement-breakpoint
 CREATE TRIGGER listing_terms_note_is_short BEFORE INSERT ON listing_terms
-WHEN length(NEW.note) > 500
+WHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000
 BEGIN
   SELECT RAISE(ABORT, 'a note is at most 500 characters');
 END;
 --> statement-breakpoint
 CREATE TRIGGER provider_events_note_is_short BEFORE INSERT ON provider_events
-WHEN length(NEW.note) > 500
+WHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000
 BEGIN
   SELECT RAISE(ABORT, 'a note is at most 500 characters');
 END;
 --> statement-breakpoint
 CREATE TRIGGER requirement_events_note_is_short BEFORE INSERT ON requirement_events
-WHEN length(NEW.note) > 500
+WHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000
 BEGIN
   SELECT RAISE(ABORT, 'a note is at most 500 characters');
 END;
 --> statement-breakpoint
 CREATE TRIGGER engagement_events_note_is_short BEFORE INSERT ON engagement_events
-WHEN length(NEW.note) > 500
+WHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000
 BEGIN
   SELECT RAISE(ABORT, 'a note is at most 500 characters');
 END;
