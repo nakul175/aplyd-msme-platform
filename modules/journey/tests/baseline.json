@@ -1,10 +1,12 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "slice 10: next-step rules after the independent reviews (closed work, nothing to ask for, withdrawn requests, no provider listed)",
+  "reason": "journey property tests: next-step rules on generated and exhaustive facts, and on walks that only add progress",
   "suites": {
     "browser/journey": 1,
     "integration/facts": 7,
     "unit/contrast": 8,
-    "unit/progress": 36
+    "unit/progress": 36,
+    "unit/properties-exhaustive": 5,
+    "unit/properties": 26
   }
 }
