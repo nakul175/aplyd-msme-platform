@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-10-04",
-  "reason": "slice 5 review fixes",
+  "updatedAt": "2026-10-05",
+  "reason": "slice 6 run",
   "suites": {
     "integration/platform-api": 26,
     "smoke/built-app": 11,
@@ -17,6 +17,7 @@
     "browser/session-and-scope": 8,
     "unit/guards": 2,
     "unit/body": 3,
-    "integration/append-only-keys": 2
+    "integration/append-only-keys": 2,
+    "static/conflict-markers": 2
   }
 }

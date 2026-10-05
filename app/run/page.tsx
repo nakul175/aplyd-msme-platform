@@ -67,7 +67,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
     <>
       <h1>Results</h1>
       <p className="muted">
-        <span className="tag">SYNTHETIC</span> What you expected, what you measured before the work, and what you measured after. Every number here is one you type: nothing on this page measures anything, and the provider does not use this service. The expected range comes from the assessment, whose figures are placeholders written to test the service, not findings. You review 30, 90 and 180 days after you first accepted a milestone. Those day counts are assumptions.
+        <span className="tag">SYNTHETIC</span> What you expected, what you measured before the work, and what you measured after. Every number here is one you type: nothing on this page measures anything, and the provider does not use this service. The expected range comes from the assessment, whose figures are placeholders written to test the service, not findings. You review 30, 90 and 180 days after you first accepted a milestone. Those day counts are assumptions, and dates are shown in UTC (a day can differ from the day on an Indian calendar).
       </p>
 
       {q.saved && SAVED[q.saved] ? (
@@ -97,7 +97,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                 </p>
                 {o.expected ? (
                   <p data-testid="expected">
-                    <strong>What the assessment expected:</strong> {o.expected.measure}, {num(o.expected.low)} to {num(o.expected.high)} {unit}.
+                    <strong>What the assessment expected:</strong> {o.expected.measure}, {num(o.expected.low)} to {num(o.expected.high)} {unit}. {o.expected.synthetic ? <span className="tag">SYNTHETIC</span> : null}
                   </p>
                 ) : (
                   <p className="muted">The assessment this came from could not be read, so there is no expected range to show.</p>

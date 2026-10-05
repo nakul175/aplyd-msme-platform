@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-10-04",
-  "reason": "slice 5 review fixes",
+  "updatedAt": "2026-10-05",
+  "reason": "slice 6 run",
   "suites": {
     "browser/deliver": 3,
     "integration/deliver-api": 27,

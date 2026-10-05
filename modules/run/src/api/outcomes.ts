@@ -21,7 +21,7 @@ export type PresentedOutcomes = {
   engagementId: string;
   title: string;
   /** What the assessment said this idea would do, in its own measure and unit (a SYNTHETIC assumption), or null if that assessment is not found. */
-  expected: { measure: string; unit: "percent" | "days" | "rupees_per_year"; low: number; high: number } | null;
+  expected: { measure: string; unit: "percent" | "days" | "rupees_per_year"; low: number; high: number; synthetic: true } | null;
   baseline: { value: number; at: string; note: string } | null;
   firstAcceptedAt: string | null;
   /** The baseline can be taken until something is accepted, and only once. */
@@ -58,7 +58,7 @@ export async function presentOutcomes(db: D1Database, companyId: string, e: Enga
   return {
     engagementId: e.id,
     title: e.title,
-    expected: item ? { measure: item.benefit.measure, unit: item.benefit.unit, low: item.benefit.low, high: item.benefit.high } : null,
+    expected: item && view ? { measure: item.benefit.measure, unit: item.benefit.unit, low: item.benefit.low, high: item.benefit.high, synthetic: view.result.synthetic } : null,
     baseline: baselineRow ? { value: baselineRow.value, at: baselineRow.at, note: baselineRow.note } : null,
     firstAcceptedAt,
     canRecordBaseline: baselineRow === null && firstAcceptedAt === null,
