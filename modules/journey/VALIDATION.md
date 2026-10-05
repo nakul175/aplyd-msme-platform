@@ -118,10 +118,10 @@ Status of this section: draft, 6 October 2026. Not reviewed by a person. Written
 | File | What it is | Tests |
 | --- | --- | --- |
 | `tests/support/model.ts` | Not a test. The 19 rules of `nextStep` as data in their documented order (`RULES`), the own test of each stage, three seeded generators of facts, the small world for exhaustive checks, and a model of the platform that can only add progress (`WORLD_EVENTS`) | none |
-| `tests/unit/properties.test.ts` | Properties on generated facts, on walks and on an owner who follows each step | 26 |
+| `tests/unit/properties.test.ts` | Properties on generated facts, on walks and on an owner who follows each step | 27 |
 | `tests/unit/properties-exhaustive.test.ts` | The same checks on every combination of a short list of values for each field | 5 |
 
-The recorded counts are in `tests/baseline.json` (`unit/properties` 26, `unit/properties-exhaustive` 5), set with `node scripts/test.mjs unit --only journey/unit/properties,journey/unit/properties-exhaustive --update-baseline --reason ...`. The 36 tests of `progress.test.ts` and the other three suites are unchanged.
+The recorded counts are in `tests/baseline.json` (`unit/properties` 27, `unit/properties-exhaustive` 5), set with `node scripts/test.mjs unit --only journey/unit/properties,journey/unit/properties-exhaustive --update-baseline --reason ...`. The 36 tests of `progress.test.ts` and the other three suites are unchanged.
 
 How the reference was written: `RULES` and the own tests of the stages are copied from the table in `docs/design/LLD.md` section 4.7, not from `progress.ts`, so that a reordering or a changed condition in the source is a difference between the two. The table was itself written by reading the code (the LLD says so), so a mistake that the code and the table share is not found by these tests. They check the code against the documented rules. They do not check that the documented rules are right for an owner.
 
@@ -136,14 +136,14 @@ How the reference was written: `RULES` and the own tests of the stages are copie
 
 ### The properties
 
-Totality and the documented key set, stage and page; determinism, with the input frozen so a change of it throws; time enters only through reviews, and a review that is open stays open; the rule that fires is the first whose own condition holds (every rule is reached at least 25 times, and every pair of rules that can hold together is reached, except 20 pairs that no facts can make hold together, listed in the test); `isOwnersTurn` is false for exactly three keys; a closed engagement is never offered a delivery, a plan, closing or "work under way"; a provider is offered only when one is listed; the quiet steps and `caught_up` only when nothing above applies; counts and plurals in titles and lines; the date in "work under way" is the earliest review still to come (a day either way is allowed); all five stages in order, at most one current, current only when it is the owner's turn, never a finished stage after one not started, and the statuses equal to the documented own tests; no raw key, stage id, `undefined`, `null` or `NaN` in any words; the stage never goes back except by the steps the test names; every step that asks something asks for what the platform lets the owner do; following the steps always ends, and never goes round in a circle.
+Totality and the documented key set, stage and page; determinism, with the input frozen so a change of it throws; time enters only through reviews, and a review that is open stays open; the rule that fires is the first whose own condition holds (every rule is reached at least 25 times, and every pair of rules that can hold together is reached, except 20 pairs that no facts can make hold together, listed in the test); `isOwnersTurn` is false for exactly three keys; a closed engagement is never offered a delivery, a plan, closing or "work under way"; a provider is offered only when one is listed; the quiet steps and `caught_up` only when nothing above applies; counts and plurals in titles and lines, and the phrase of each line by the documented order of conditions; the date in "work under way" is the earliest review still to come (a day either way is allowed); all five stages in order, at most one current, current only when it is the owner's turn, never a finished stage after one not started, and the statuses equal to the documented own tests; no raw key, stage id, `undefined`, `null` or `NaN` in any words; the stage never goes back except by the steps the test names; every step that asks something asks for what the platform lets the owner do; following the steps always ends, and never goes round in a circle.
 
 ### What was run
 
 | Command | Result |
 | --- | --- |
-| `node scripts/test.mjs unit --only journey/unit/progress,journey/unit/contrast,journey/unit/properties,journey/unit/properties-exhaustive --guard` | 4 of 4 suites passed: 36, 8, 26 and 5 tests. About 3 and 9 seconds for the two new suites on this machine |
-| `TZ=Asia/Kolkata`, `TZ=America/Los_Angeles` and `TZ=Pacific/Kiritimati` with `node --test` on the two new files | 31 passed each |
+| `node scripts/test.mjs unit --only journey/unit/progress,journey/unit/contrast,journey/unit/properties,journey/unit/properties-exhaustive --guard` | 4 of 4 suites passed: 36, 8, 27 and 5 tests. About 4 and 9 seconds for the two new suites on this machine |
+| `TZ=Asia/Kolkata`, `TZ=America/Los_Angeles` and `TZ=Pacific/Kiritimati` with `node --test` on the two new files | 32 passed each |
 | `node scripts/test.mjs static --only <every static suite except static/typecheck and static/migrations>` | 26 of 26 passed |
 | `node scripts/test.mjs static --only static/migrations` | passed |
 | `/home/claude/bin/heavy node node_modules/typescript/bin/tsc --noEmit` | exit 0, no output (a first run found one implicit `any` in `tests/support/model.ts`, fixed) |
@@ -158,10 +158,10 @@ A script kept outside the repository (`mutate.mjs` in the scratch area of the ag
 
 | | Mutants | Killed by the new properties | Killed by the 36 example tests |
 | --- | --- | --- | --- |
-| Real changes of behaviour | 46 | 46 | 32 |
+| Real changes of behaviour | 52 | 52 | 36 |
 | Expected to be equivalent | 3 | 0 (survived, as expected) | 0 |
 
-The 14 real mutants that the 36 example tests let through and the properties caught: swapping rules 9 and 10, 10 and 11, 11 and 12 (as the STATUS file said), 12 and the block of rules 13 and 14; `allAccepted` accepting an engagement with no milestone; the own test of Choose forgetting requests without a provider; the own test of Measure wanting two reviews, or counting a closed engagement as reviewed whatever was accepted; the own test of Deliver satisfied by one closed engagement; the line under Deliver counting only `accepted` and not `paid`; "work under way" judging a first acceptance on the raw time; the clock read from the wall and not from the argument; `judge_delivery` needing every engagement and not some; the own test of Describe asking for a saved version and not a confirmed one.
+The 16 real mutants that the 36 example tests let through and the properties caught: swapping rules 9 and 10, 10 and 11, 11 and 12 (as the STATUS file said), 12 and the block of rules 13 and 14; `allAccepted` accepting an engagement with no milestone; the own test of Choose forgetting requests without a provider; the own test of Measure wanting two reviews, or counting a closed engagement as reviewed whatever was accepted; the own test of Deliver satisfied by one closed engagement; the line under Deliver counting only `accepted` and not `paid`; "work under way" judging a first acceptance on the raw time; the clock read from the wall and not from the argument; `judge_delivery` needing every engagement and not some; the own test of Describe asking for a saved version and not a confirmed one; the line under Measure forgetting that a closed engagement has no number recorded; the line under Deliver saying "closed before a plan" when only one engagement is closed.
 
 The three that survive are equivalent: for an open engagement `statusOf` is `in_progress` exactly when it is not `planning`; a closed engagement is never `in_progress`, so the `!g.closed` filter before it changes nothing; and the list of due reviews is never empty where its length is compared with 1.
 
