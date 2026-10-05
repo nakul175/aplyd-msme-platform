@@ -54,3 +54,17 @@ What this does not show: the changes are the ones the author thought of, and the
 ## Final run
 
 `node scripts/test.mjs pr --update-baseline` on the final code of this branch (which includes slice 8), 5 October 2026, run once: **64 of 64 suites passed, none failed** (524 tests across the 61 suites that report a count; the other three are `tsc`, the documentation check and `drizzle-kit check`). The runner recorded a baseline for the demonstration module (new: 32 tests in 6 suites) and changed the platform module's (`static/source-rules` from 7 to 8); the other modules' baselines were not changed, because their counts did not change. The run took about 11 minutes on two cores.
+
+## Slice 10c: the presenter's page rebuilt on the shared interface (5 October 2026)
+
+`/demo` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). `src/script.ts` and `src/cast.ts` were not touched. The author is an agent; no presenter has used the new page.
+
+| Check | Result (on the branch `slice-10c-deliver-run`, after `pnpm build`) |
+| --- | --- |
+| `npx tsc --noEmit` | clean |
+| `demo/static/script-labels` (every label the script names is in the page sources; the home page offers every link the script opens from) | 3 passed |
+| `demo/unit/cast`, `demo/unit/script`, `demo/unit/seed-checks` | 10, 5 and 2 passed |
+| `demo/smoke/demo` | 10 passed |
+| `demo/browser/walk` (reads each step card and each person's card) | 2 passed (19.6 s) |
+
+No existing test was changed. The page was opened as the operator at 390 and 1280 pixels, in the light and the dark scheme, with no horizontal scroll; it was read by looking only, not rehearsed aloud. It was not timed, and no presenter has said whether the cards are easier to follow than the list they replace.

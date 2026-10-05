@@ -102,3 +102,36 @@ After the review, three tests were added (a withdrawn requirement, the SYNTHETIC
 - The number is the owner's own word and the expected range is invented (STATUS limits 1 and 2): no test here can say anything about whether the review is useful to an owner.
 - The reviewer read one commit; the changes after it (and the tests added for its findings) have had no second reading.
 - The mutation checks are a sample chosen by the agent that wrote the code.
+
+## Slice 10c: the page rebuilt on the shared interface (5 October 2026)
+
+`/run` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner has used the page.
+
+### What was run (real results, on the branch `slice-10c-deliver-run`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | clean |
+| `run/unit/view` (new: the tag of each review state, the latest recorded review, the sentence at the top, the first open review, where the owner's turn is) | 9 passed |
+| `run/unit/state` | 6 passed |
+| `run/static/rules` (no fee, the data layer is the only reader) | 8 passed |
+| `platform/static/page-lookups`, `platform/static/source-rules` | 2 passed, 8 passed |
+| `journey/unit/contrast`, `journey/unit/progress` | 8 passed, 22 passed |
+| `run/browser/run` | 4 passed (38.8 s) |
+| `run/smoke/run` | 7 passed (in each of six runs with the other smoke suites; see `deliver/VALIDATION.md` for the one unexplained failure of a neighbouring suite) |
+| Other suites that walk this page: `demo/browser/walk`, `journey/browser/journey`, `platform/smoke/built-app`, `demo/smoke/demo` | 2, 1, 12 and 10 passed |
+| The whole static layer | 21 of 23 suites passed; the two failures are not from this slice (`docs/static/api-sync` for the home page of the foundation commit, `static/documentation` for links to documents not written yet) |
+| `node scripts/test.mjs --check-catalogue` | clean, 83 suites |
+
+No existing test was changed: every assertion of the four browser tests and seven smoke tests passes as it was written. The integration suite (`run/integration/run-api`, 29 tests) was not run, because nothing it covers was touched.
+
+### What was looked at
+
+The page was opened in Chromium at 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners C (a starting number recorded, three reviews not yet open), E (nothing accepted yet, the starting number to record) and A (no engagement, with `?problem=not_due`), as a visitor and as the operator; and, in a throwaway Worker started by the browser-test harness with an acceptance dated in the past, with the starting-number form, `?problem=invalid`, a review open with its form, a review recorded (the three tiles, the sentence about better or worse), and no starting number with two reviews open and one then recorded. The script that took them reported no horizontal scroll on any page. Things found by looking and fixed: the line down the left of the three parts took width from the forms on a phone (now three blocks, each with a numbered circle); the three reviews as columns left a lone card when one was open (now a column of cards, one tidy row each when waiting); the three tiles left one alone on a phone (the last now spans the row); "Up to date" on the tag at the top when the owner's next step was elsewhere (now "Nothing to do now"); two main buttons when two reviews are open (now the first only); and a recorded date breaking at its hyphen on a phone (now kept together). A date in "You first accepted a milestone on ..." and "Opens on ..." can still break at a hyphen on a narrow screen: wrapping them would break the smoke tests that read that text in the page's HTML.
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk**, **Chromium only**, **not independent**, and **no mutation checks** were run for this slice, as for the Delivery page.
+- **The wording is unproven with owners**, and the sentences added (the tags on the three blocks, "Go to ...", the labels of the tiles, "Nothing needs you today. ...") are not checked by a test of their own, apart from the unit test of `src/view.ts`.
+- **A review that is open was seen only in a database with an acceptance dated in the past**, because the page's clock cannot be moved; the demonstration shows the dates only.
+- **The tiles show numbers and a signed change and nothing else**, on purpose: whether a higher number is better is not known to the page.

@@ -1,0 +1,40 @@
+/*
+ * The presenter's script: a card for each person and for each step. Only what the page needs beyond globals.css. Every class here starts
+ * with dm- so that nothing collides with another page. Colours are tokens, never values.
+ */
+
+.dm-section { display: grid; gap: var(--s-3); }
+.dm-section > * + * { margin-top: 0; }
+
+/* ---------- the people ---------- */
+.dm-people { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+.card.dm-person { margin: 0; display: grid; gap: var(--s-2); align-content: start; padding: var(--s-4); }
+.dm-person + .dm-person { margin-top: 0; }
+.dm-person > * + * { margin-top: 0; }
+.dm-person p { margin: 0; font-size: 0.9375rem; }
+.dm-person .muted { line-height: 1.45; }
+
+/* ---------- the walk: one card per step ---------- */
+.dm-steps { counter-reset: none; padding: 0; }
+.dm-step { display: grid; gap: var(--s-4); }
+.dm-step > * + * { margin-top: 0; }
+.dm-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding-bottom: var(--s-3); border-bottom: 1px solid var(--line); }
+.dm-step-head h3 { flex: 1 1 14rem; font-size: 1.25rem; min-width: 0; }
+.dm-n { color: var(--brand); font-weight: 750; font-variant-numeric: tabular-nums; }
+.dm-where { padding: var(--s-3) var(--s-4); background: var(--surface-2); border-radius: var(--r-sm); }
+.dm-where dd strong { font-weight: 650; }
+.dm-do { display: grid; gap: var(--s-2); }
+.dm-do > * + * { margin-top: 0; }
+.dm-do .label, .dm-say .label { margin: 0; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.dm-do ol { margin: 0; padding-left: 1.5rem; display: grid; gap: var(--s-2); }
+.dm-do li { margin: 0; padding-left: 0.25rem; }
+.dm-do li::marker { color: var(--brand); font-weight: 700; }
+.dm-say { display: grid; gap: var(--s-2); }
+.dm-say > * + * { margin-top: 0; }
+.dm-say blockquote { margin: 0; padding: var(--s-1) 0 var(--s-1) var(--s-4); border-left: 3px solid var(--line-strong); color: var(--muted); font-style: italic; }
+.dm-say blockquote p { max-width: 62ch; }
+
+/* ---------- what this does not show ---------- */
+.card.dm-not { margin: 0; display: grid; gap: var(--s-2); padding-left: calc(var(--s-5) + 1.25rem); }
+.dm-not > li { margin: 0; }
+.dm-not > li + li { margin-top: 0; }

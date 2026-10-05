@@ -1,0 +1,108 @@
+/*
+ * Delivery: one card per engagement, with the plan as a vertical timeline of milestone cards. Only what the page needs beyond globals.css.
+ * Every class here starts with dl- so that nothing collides with another page. Colours are tokens, never values.
+ */
+
+/* ---------- where things stand ---------- */
+.dl-summary { display: grid; gap: var(--s-2); }
+.dl-summary.card > * + * { margin-top: 0; }
+.dl-summary > p { font-weight: 600; }
+.dl-tags { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.dl-tags:empty { display: none; }
+
+/* ---------- one engagement ---------- */
+.dl-eng { display: grid; gap: var(--s-5); }
+.dl-eng.card > * + * { margin-top: 0; }
+.dl-head { display: grid; gap: var(--s-4) var(--s-6); }
+@media (min-width: 40rem) { .dl-head { grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem); align-items: start; } }
+.dl-id { display: grid; gap: var(--s-2); min-width: 0; }
+.dl-id > * + * { margin-top: 0; }
+.dl-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.dl-title h2 { font-size: 1.3125rem; flex: 1 1 100%; overflow-wrap: anywhere; }
+.dl-provider { margin: 0; }
+.dl-progress { display: grid; gap: var(--s-2); padding: var(--s-3) var(--s-4); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.dl-progress > * + * { margin-top: 0; }
+.dl-progress p { font-size: 0.9375rem; }
+.dl-progress .meter-label { font-weight: 650; color: var(--fg); font-size: 0.9375rem; }
+@media (max-width: 30rem) { .dl-eng.card { padding: var(--s-4); } }
+
+/* ---------- the plan: milestone cards down a line ---------- */
+.dl-plan { display: grid; gap: var(--s-3); }
+.dl-plan > * + * { margin-top: 0; }
+.dl-plan > h3 { font-size: 1.1875rem; }
+.dl-locked { display: flex; align-items: center; gap: var(--s-2); margin: 0; color: var(--muted); font-size: 0.9375rem; }
+.dl-locked svg { width: 1.1rem; height: 1.1rem; flex: none; }
+.dl-steps { list-style: none; margin: var(--s-1) 0 0; padding: 0; display: grid; gap: var(--s-5); }
+.dl-ms { scroll-margin-top: var(--s-4); position: relative; margin: 0; padding: var(--s-4); display: grid; gap: var(--s-3); min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); }
+.dl-ms + .dl-ms { margin-top: 0; }
+.dl-ms > * + * { margin-top: 0; }
+/* the line between two cards: a short stroke, in the colour of the card above it once that is accepted */
+.dl-ms + .dl-ms::before { content: ""; position: absolute; left: calc(var(--s-4) + 0.875rem - 1px); top: calc(var(--s-5) * -1 - 1px); height: var(--s-5); width: 2px; background: var(--line-strong); border-radius: 2px; }
+.dl-ms:is([data-state="accepted"], [data-state="paid"]) + .dl-ms::before { background: var(--brand); }
+.dl-ms[data-state="delivered"] { border-color: var(--turn-edge); box-shadow: 0 0 0 3px color-mix(in srgb, var(--turn) 25%, transparent); background: var(--surface); }
+.dl-ms[data-state="rejected"] { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+.dl-ms-head { display: flex; align-items: flex-start; gap: var(--s-3); }
+.dl-ms-id { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); min-width: 0; flex: 1 1 auto; padding-top: 0.15rem; }
+.dl-ms-id h4 { font-size: 1.0625rem; margin: 0; min-width: 0; flex: 1 1 11rem; overflow-wrap: anywhere; }
+.dl-dot { width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--surface); display: grid; place-items: center; flex: none; position: relative; z-index: 1; }
+.dl-dot svg { width: 0.95rem; height: 0.95rem; }
+.dl-ms[data-state="delivered"] .dl-dot { background: var(--turn); border-color: var(--turn-edge); box-shadow: 0 0 0 4px color-mix(in srgb, var(--turn) 28%, transparent); }
+.dl-ms[data-state="accepted"] .dl-dot { background: var(--brand); border-color: var(--brand); color: var(--brand-fg); }
+.dl-ms[data-state="paid"] .dl-dot { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.dl-ms[data-state="rejected"] .dl-dot { border-color: var(--danger); background: var(--danger-tint); }
+.dl-ms[data-state="rejected"] .dl-dot::after { content: "\00d7"; color: var(--danger); font-weight: 700; font-size: 1.1rem; line-height: 1; }
+.dl-meta { display: flex; flex-wrap: wrap; gap: 0 var(--s-5); margin: 0; font-size: 0.9375rem; color: var(--muted); font-weight: 600; }
+.dl-meta .num { color: var(--fg); }
+.dl-check { max-width: 46rem; margin: 0; padding: var(--s-2) var(--s-3); background: var(--surface-2); border-left: 3px solid var(--line-strong); border-radius: 0 var(--r-sm) var(--r-sm) 0; overflow-wrap: anywhere; }
+.dl-ms[data-state="delivered"] .dl-check { background: var(--bg); }
+.dl-paid { display: flex; align-items: flex-start; gap: var(--s-2); margin: 0; color: var(--ok); font-weight: 600; }
+.dl-paid svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: 0.25rem; }
+.dl-history { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-1); font-size: 0.9375rem; color: var(--muted); }
+.dl-history li { margin: 0; overflow-wrap: anywhere; }
+.dl-when { margin-right: 0.5em; font-size: 0.875rem; white-space: nowrap; }
+
+/* what the owner can do with a milestone right now */
+.dl-act { max-width: 46rem; display: grid; gap: var(--s-3); padding: var(--s-4); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r); }
+.dl-act > * + * { margin-top: 0; }
+.dl-act-title { margin: 0; font-weight: 700; }
+.dl-act .help { margin: 0; }
+.dl-act .question + .question { margin-top: 0; }
+.dl-ms[data-state="delivered"] .dl-act { border-color: var(--turn-edge); background: var(--turn-tint); }
+.dl-ms[data-state="delivered"] .dl-act .help { color: var(--turn-text); }
+
+/* the total of the plan, under the last card: two figures in one line of text, so it stays one sentence for a screen reader */
+.dl-total { margin: var(--s-2) 0 0; padding-top: var(--s-3); border-top: 1px solid var(--line); max-width: none; color: var(--fg); font-weight: 650; }
+.dl-total span { display: inline-block; margin-right: var(--s-5); }
+
+/* ---------- writing the plan: two plain steps ---------- */
+.dl-steps-plan { display: grid; gap: var(--s-4); }
+.dl-steps-plan > * + * { margin-top: 0; }
+.dl-step { max-width: 46rem; display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: var(--s-3) var(--s-4); padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }
+.dl-step-n { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--brand); color: var(--brand-fg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dl-step-body { display: grid; gap: var(--s-4); min-width: 0; }
+.dl-step-body > * + * { margin-top: 0; }
+.dl-step-body h3 { font-size: 1.1875rem; margin-top: 0.2rem; }
+.dl-step .help { margin: 0; }
+.dl-step .question + .question { margin-top: 0; }
+.dl-step .field-row .question { align-content: start; }
+@media (max-width: 30rem) { .dl-step { grid-template-columns: 1fr; } .dl-step-n { width: 1.75rem; height: 1.75rem; } }
+
+/* ---------- ending an engagement: a quiet option at the foot ---------- */
+.dl-close { max-width: 46rem; display: grid; gap: var(--s-3); padding-top: var(--s-2); }
+.dl-close > * + * { margin-top: 0; }
+.dl-close h3 { font-size: 1rem; color: var(--muted); }
+.dl-close .help { margin: 0; }
+.dl-close-row { display: grid; gap: var(--s-3); }
+.dl-close-row > * + * { margin-top: 0; }
+@media (min-width: 40rem) { .dl-close-row { grid-template-columns: minmax(0, 1fr) auto; align-items: end; } }
+
+/* ---------- about this page ---------- */
+.dl-about { display: grid; gap: var(--s-2); border: 1px solid var(--line); }
+.dl-about > * + * { margin-top: 0; }
+.dl-about p { font-size: 0.9375rem; color: var(--muted); }
+.dl-about h2 { font-size: 1.0625rem; color: var(--fg); }
+
+/* on a phone the main button of a form is as wide as the form: easy to hit with a thumb */
+@media (max-width: 30rem) {
+  .dl-act .actions > button, .dl-step .actions > button, .dl-close-row > button { flex: 1 1 100%; width: 100%; }
+}

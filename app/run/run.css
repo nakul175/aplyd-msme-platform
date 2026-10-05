@@ -1,0 +1,100 @@
+/*
+ * Results: per engagement, three blocks in order (what was expected, before the work, after the work) with the reviews as three cards
+ * down a line. Only what the page needs beyond globals.css. Every class here starts with ru- so that nothing collides with another
+ * page. Colours are tokens, never values. There is no chart and no good-or-bad colour: the page does not know which way is better.
+ */
+
+.ru-nw { white-space: nowrap; }
+.ru-typed { margin: 0; font-size: 0.9375rem; color: var(--muted); }
+
+/* ---------- where things stand ---------- */
+.ru-summary { display: grid; gap: var(--s-2); }
+.ru-summary.card > * + * { margin-top: 0; }
+.ru-summary > p { font-weight: 600; }
+.ru-tags { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.ru-tags:empty { display: none; }
+
+/* ---------- one engagement ---------- */
+.ru-eng { display: grid; gap: var(--s-5); }
+.ru-eng.card > * + * { margin-top: 0; }
+@media (max-width: 30rem) { .ru-eng.card { padding: var(--s-4); } }
+.ru-head { display: grid; gap: var(--s-3) var(--s-6); }
+@media (min-width: 40rem) { .ru-head { grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem); align-items: start; } }
+.ru-id { display: grid; gap: var(--s-2); min-width: 0; }
+.ru-id > * + * { margin-top: 0; }
+.ru-id h2 { font-size: 1.3125rem; overflow-wrap: anywhere; }
+.ru-provider, .ru-cluster { margin: 0; }
+.ru-head .meter-label { font-weight: 650; color: var(--fg); }
+
+/* ---------- the three blocks ---------- */
+.ru-block { scroll-margin-top: var(--s-4); display: grid; gap: var(--s-3); padding-top: var(--s-5); border-top: 1px solid var(--line); min-width: 0; }
+.ru-block > * + * { margin-top: 0; }
+.ru-block-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.ru-block-head h3 { font-size: 1.1875rem; }
+.ru-block .help { margin: 0; }
+.ru-dot { width: 1.875rem; height: 1.875rem; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--surface); color: var(--muted); display: grid; place-items: center; font-size: 0.8125rem; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+.ru-dot svg { width: 1rem; height: 1rem; }
+.ru-block[data-done="yes"] > .ru-block-head > .ru-dot { background: var(--brand); border-color: var(--brand); color: var(--brand-fg); }
+
+/* what was expected */
+.ru-expected { padding: var(--s-3) var(--s-4); background: var(--brand-tint); border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); border-radius: var(--r); }
+.ru-expected p { font-size: 1.0625rem; margin: 0; max-width: none; }
+
+/* before the work: the recorded number is the figure */
+.ru-baseline { margin: 0; }
+.ru-baseline strong { font-size: 2rem; font-weight: 750; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-inline: 0.1em; }
+
+/* a form to fill in: the starting number, or a review that is open */
+.ru-form { max-width: 46rem; display: grid; gap: var(--s-4); padding: var(--s-4); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); }
+.ru-form > * + * { margin-top: 0; }
+.ru-form .help { margin: 0; }
+.ru-form .question + .question { margin-top: 0; }
+.ru-form .field-row .question { margin: 0; }
+
+/* after the work: the numbers, as tiles, when there are some to show. No chart, and no word for good or bad. */
+.ru-figures { display: grid; gap: var(--s-2); }
+.ru-figures > * + * { margin-top: 0; }
+.ru-stats { margin: 0; display: grid; gap: var(--s-3); grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+.ru-stat { display: grid; align-content: start; gap: 0.2rem; padding: var(--s-3) var(--s-4); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+@media (max-width: 40rem) { .ru-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ru-stat:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+.ru-stat dt { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.ru-stat dd { margin: 0; display: grid; gap: 0.1rem; min-width: 0; }
+.ru-stat b { font-size: 1.875rem; line-height: 1.1; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ru-stat span { font-size: 0.875rem; color: var(--muted); }
+
+/* the three reviews, in order, down a line */
+.ru-reviews { list-style: none; margin: var(--s-1) 0 0; padding: 0; display: grid; gap: var(--s-5); }
+.ru-review { scroll-margin-top: var(--s-4); position: relative; margin: 0; display: grid; gap: var(--s-3); align-content: start; padding: var(--s-4); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.ru-review + .ru-review { margin-top: 0; }
+.ru-review > * + * { margin-top: 0; }
+.ru-review + .ru-review::before { content: ""; position: absolute; left: calc(var(--s-4) + 0.875rem - 1px); top: calc(var(--s-5) * -1 - 1px); height: var(--s-5); width: 2px; background: var(--line-strong); border-radius: 2px; }
+.ru-review[data-state="recorded"] + .ru-review::before { background: var(--brand); }
+.ru-review[data-state="due"] { background: var(--surface); border-color: var(--turn-edge); box-shadow: 0 0 0 3px color-mix(in srgb, var(--turn) 25%, transparent); }
+.ru-review[data-state="recorded"] { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.ru-review[data-state="due"] .ru-form { padding: 0; background: transparent; border: 0; }
+.ru-review-head { display: flex; align-items: flex-start; gap: var(--s-3); }
+.ru-review-head .ru-dot { width: 1.75rem; height: 1.75rem; }
+.ru-review-id { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); min-width: 0; padding-top: 0.15rem; }
+.ru-review-id h4 { font-size: 1rem; margin: 0; }
+.ru-review[data-state="due"] .ru-dot { background: var(--turn); border-color: var(--turn-edge); box-shadow: 0 0 0 4px color-mix(in srgb, var(--turn) 28%, transparent); }
+.ru-review[data-state="recorded"] .ru-dot { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.ru-review > p { margin: 0; max-width: none; }
+.ru-record { display: block; overflow-wrap: anywhere; }
+.ru-record .ru-tags { margin-bottom: var(--s-2); }
+.ru-record strong { font-size: 1.5rem; font-weight: 750; line-height: 1.15; font-variant-numeric: tabular-nums; }
+/* on a wide screen a review that waits is one tidy row: what it is, then what is going to happen to it */
+@media (min-width: 40rem) {
+  .ru-review:is([data-state="waiting"], [data-state="not_due"]) { grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr); align-items: center; gap: var(--s-4); }
+}
+
+/* what comes next in the owner's plan */
+.ru-next { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); background: var(--brand-tint); border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); border-radius: var(--r); }
+.ru-next svg { width: 1.25rem; height: 1.25rem; color: var(--brand); flex: none; }
+.ru-next p { margin: 0; }
+
+.ru-about p { font-size: 0.9375rem; color: var(--muted); }
+
+/* on a phone the main button of a form is as wide as the form: easy to hit with a thumb */
+@media (max-width: 30rem) {
+  .ru-form .actions > button.primary { flex: 1 1 100%; width: 100%; }
+}
