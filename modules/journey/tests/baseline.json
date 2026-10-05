@@ -1,7 +1,10 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
+  "reason": "slice 10: progress logic, its facts reader and the colour contrast check",
   "suites": {
-    "browser/journey": 1
+    "browser/journey": 1,
+    "integration/facts": 3,
+    "unit/contrast": 8,
+    "unit/progress": 22
   }
 }

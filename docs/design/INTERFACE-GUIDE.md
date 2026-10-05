@@ -1,0 +1,88 @@
+# Interface guide
+
+How the pages of the application are built, so that a new page looks and behaves like the rest. It describes what exists in `app/globals.css`, `app/_ui/` and `modules/journey/` on this branch. It is a working guide for people changing pages, not a requirement: the requirements are in [the business requirements](../brd/BRD.md).
+
+Last updated 5 October 2026. Nothing here has been tried by an owner of a factory. The design is a first version made by people who are not the users; the ten-owner test ([docs/ten-owner-test.md](../ten-owner-test.md)) is where it is checked.
+
+## What the pages are for
+
+An owner of a small factory opens the service on a phone, between jobs, and has to know three things at once: where they are, what is their turn, and what happens if they press the button. Every page is built to answer those, in that order, in plain words.
+
+1. **Where am I.** Every owner page opens with the five steps (Describe, Decide, Choose, Deliver, Measure), with the finished ones ticked, the one that is the owner's turn marked in marigold, and the current page underlined.
+2. **What is my turn.** The home page opens with one sentence and one button: the next step. A page whose own step is not the owner's turn ends with that same next step, so no page is a dead end.
+3. **What does this do.** A button says what it does in the owner's words ("Sign off", not "Submit"). A page that records something says, next to the button, that it is recorded and whether it can be changed.
+
+## Rules the pages follow
+
+- **Plain words, short sentences.** One idea per sentence. No jargon: "idea", "provider", "milestone", "starting number". Numbers in Indian grouping (`₹1,25,000`).
+- **One main action per screen.** The main button is `className="primary"`. Everything else is a plain button or a link. Never two primary buttons side by side.
+- **Caveats are kept, but they do not sit in front of the work.** The text that says a figure is a placeholder, that dates are in UTC, that a number is typed by the owner and not measured, stays on the page, in a `<details className="card">` after the main action, or in a short `help` line under the field it is about. It is not deleted: the tests and the honesty of the page depend on it.
+- **A message is a `Notice`.** `role="status"` for something that went well, `role="alert"` for something that needs attention. The wording is the page's own; the colour is the tone.
+- **Everything is reachable by touch and keyboard.** Controls are at least 44px tall, labels are real `<label>`s tied to their control, focus is always visible, and nothing depends on colour alone (a tag says "Done", a tick is not the only sign).
+- **It works at 360px wide with no sideways scroll,** in the light and the dark scheme.
+- **Nothing is loaded from another site.** No web fonts, no CDN, no analytics. The browser tests refuse any request that leaves the application.
+- **Nothing the owner chooses changes what the platform earns, and the listing fee is on no owner page.** This is a rule of the product, tested in every stage's browser test.
+
+## Colour and type
+
+Tokens are in `app/globals.css` (a light set, and a dark set under `prefers-color-scheme` and `data-theme="dark"`). A page uses tokens (`var(--brand)`), never a colour value. `modules/journey/tests/unit/contrast.test.ts` measures every text and ground pair and every control edge in both sets: text at 4.5 to 1, edges at 3 to 1.
+
+| Token | Use |
+| --- | --- |
+| `--bg`, `--surface`, `--surface-2` | page, card, quiet fill |
+| `--fg`, `--muted` | text, secondary text |
+| `--brand`, `--brand-hover`, `--brand-fg`, `--brand-tint` | the service: links, the main button, selected options |
+| `--turn`, `--turn-ink`, `--turn-tint`, `--turn-text`, `--turn-edge` | marigold, only for "your turn" |
+| `--ok`, `--ok-tint` | done, went well |
+| `--danger`, `--danger-tint` | a problem |
+| `--line`, `--line-strong` | quiet divider, the edge of a control |
+
+Type is the device's own (`system-ui`, with Devanagari fallbacks for later). Sizes: page title `clamp(1.75rem, …, 2.5rem)`, section 1.3rem, card title 1.19rem, body 1rem, help 0.94rem. Numbers that line up use `className="num"`.
+
+## Parts
+
+All in `app/_ui/parts.tsx` unless stated.
+
+| Part | What it is | Notes |
+| --- | --- | --- |
+| `Page` | The frame of an owner page: the five steps, the page head, the content, and the next step when it is somewhere else | `stage` is one of `describe`, `diagnose`, `procure`, `deliver`, `run`; pass the `identity` you already read; `title` is the page's existing `h1` text; `lede` is one short sentence |
+| `PageHead` | The page's `h1` with an eyebrow ("Step 2 of 5 · Decide") and a lede | Used inside `Page`; use alone on pages that are not a stage |
+| `SignedOut` | What a visitor sees on a page that needs an account | One link, named "Sign in" |
+| `NotOwner` | What a signed-in person who is not an owner sees | |
+| `Notice` | A message after something happened | `role`, `tone`, and any `data-testid` |
+| `Tag` | A small label | `tone`: `ok`, `turn`, `brand`, `danger` |
+| `Meter` | "3 of 5" as a bar with words | |
+| `Strip` | The five steps | Used by `Page` |
+
+Classes for plain markup, in `app/globals.css`:
+
+| Class | Use |
+| --- | --- |
+| `card` | A surface. `card tint` for a quiet highlight, `card flat` for no shadow. A `<fieldset className="card">` gets its legend as a title |
+| `items` | A list of cards: `<ul className="items"><li className="card item">` |
+| `facts` | A label and value list: `<dl className="facts">` |
+| `question`, `label`, `help` | One question of a form: label, a help line, the control |
+| `options` | A group of radios or checkboxes, each `<label className="option">`; add `cols` for two columns on a wide screen |
+| `field-row two` | Two short fields side by side on a wide screen |
+| `actions` | A row of buttons that wraps |
+| `sticky-actions` | A bar of buttons stuck to the bottom of a long form |
+| `primary`, `turn`, `danger`, `quiet`, `small`, `big` | On a `button` or a `a className="btn …"` |
+| `table-wrap` | Around a `<table>` that may be wider than the screen |
+| `muted`, `num`, `sr` | Secondary text, tabular figures, text only for screen readers |
+
+## What a test finds a page by
+
+The browser tests find things by what a person sees. A page that is redesigned keeps:
+
+- its `h1` text, and exactly one `h1` per page;
+- the headings of items at the level they have (an idea's heading is an `h3` inside an `li`, and the controls for that idea are inside the same `li`);
+- the text of every label, button and link a test names, and the `name` of every field (a form posts what it posted before);
+- every `data-testid`, and the `role` of every notice;
+- the paragraphs a test matches by text (they may move, and be wrapped, but not be reworded);
+- exactly one link named "Sign in" on a visitor's page, and no link whose name contains the name of another page's link ("Delivery", "Results", "What you need", "What to do about it", "Describe your factory").
+
+`modules/journey/tests/unit/progress.test.ts` keeps the step labels and the next step's button words away from the names of the page links.
+
+## Not built yet
+
+Another language than English (OQ-17), voice, photos, a notification when a delivery is waiting, and anything for the provider's side (providers do not sign in). The design leaves room for a language switch in the bar at the top, and for a bottom bar of the five steps on a phone, but neither exists.
