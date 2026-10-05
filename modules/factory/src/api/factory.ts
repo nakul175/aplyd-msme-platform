@@ -3,13 +3,14 @@
 // compared with the signed-in person's company; every query is bound to the person's company.
 import type { AppEnv } from "../../../platform/src/env.ts";
 import { recordAudit } from "../../../platform/src/db/audit.ts";
+import { readTextWithin } from "../../../platform/src/api/body.ts";
 import { drain, json, redirect } from "../../../platform/src/api/http.ts";
 import { isCrossSite } from "../../../platform/src/identity/cross-site.ts";
 import { resolveIdentity } from "../../../platform/src/identity/resolve.ts";
 import { canReadCompany, canWriteOwnCompany } from "../../../platform/src/identity/scope.ts";
 import type { Identity } from "../../../platform/src/identity/scope.ts";
 import { appendRevision, loadHistory, loadLatest } from "../db/revisions.ts";
-import { MAX_NOTE_LENGTH, QUESTIONNAIRE_VERSION, REQUIRED_TO_CONFIRM, answersFromForm, validateAnswers } from "../questionnaire.ts";
+import { MAX_NOTE_LENGTH, QUESTIONNAIRE_VERSION, REQUIRED_TO_CONFIRM, SECTIONS, answersFromForm, hasControlCharacters, validateAnswers } from "../questionnaire.ts";
 import type { Answers } from "../questionnaire.ts";
 
 const refuse = (db: D1Database, event: string, identity: Identity, requested: string) =>
@@ -26,7 +27,8 @@ export async function handleFactoryRead(request: Request, env: AppEnv, requested
   }
   const companyId = identity.companyId!;
   const [latest, latestConfirmed, history] = await Promise.all([loadLatest(env.DB, companyId), loadLatest(env.DB, companyId, "confirmed"), loadHistory(env.DB, companyId)]);
-  return json(200, { questionnaireVersion: QUESTIONNAIRE_VERSION, latest, latestConfirmed, history });
+  // The history lists the newest HISTORY_LIMIT revisions; `revisionsSaved` says how many there are in all (the latest number, as there are no gaps).
+  return json(200, { questionnaireVersion: QUESTIONNAIRE_VERSION, latest, latestConfirmed, history, revisionsSaved: latest?.revision ?? 0 });
 }
 
 type Submission = { answers: unknown; note: string; confirm: boolean; basedOn: unknown; form: boolean };
@@ -38,7 +40,9 @@ async function readSubmission(request: Request): Promise<Submission | "unsupport
   const type = (request.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
   try {
     if (type !== "application/x-www-form-urlencoded" && type !== "application/json") return "unsupported";
-    const text = await request.text();
+    const read = await readTextWithin(request, MAX_BODY_CHARACTERS);
+    if (!read.ok) return read.problem === "too_large" ? "too_large" : null;
+    const text = read.text;
     if (text.length > MAX_BODY_CHARACTERS) return "too_large";
     if (type === "application/x-www-form-urlencoded") {
       const form = new URLSearchParams(text);
@@ -59,6 +63,7 @@ async function readSubmission(request: Request): Promise<Submission | "unsupport
   return "unsupported";
 }
 
+const LABEL_KEYS = new Set(SECTIONS.flatMap((x) => x.fields).map((f) => f.key));
 const missingRequired = (answers: Answers) => REQUIRED_TO_CONFIRM.filter((k) => !(k in answers));
 
 /**
@@ -100,11 +105,17 @@ export async function handleRevisionCreate(request: Request, env: AppEnv, reques
   if (submission === null) return json(400, { error: "bad_request" });
   const back = (query: string) => redirect(`/factory?${query}`);
 
-  if (!Number.isInteger(submission.basedOn) || (submission.basedOn as number) < 0) return json(400, { error: "invalid", fields: { basedOn: "Say which revision this starts from (0 for the first)." } });
-  if (submission.note.length > MAX_NOTE_LENGTH) return json(400, { error: "invalid", fields: { note: `Keep the note under ${MAX_NOTE_LENGTH} characters.` } });
+  // A person at a form is sent back to the page with what went wrong, never to a page of JSON; a program gets the JSON.
+  const refuseInput = (fields: Record<string, string>, problem: string) => (submission.form ? back(`problem=${problem}`) : json(400, { error: "invalid", fields }));
+  if (!Number.isInteger(submission.basedOn) || (submission.basedOn as number) < 0) return refuseInput({ basedOn: "Say which revision this starts from (0 for the first)." }, "request");
+  if (submission.note.length > MAX_NOTE_LENGTH || hasControlCharacters(submission.note)) return refuseInput({ note: `Keep the note under ${MAX_NOTE_LENGTH} characters, as plain text.` }, "note");
 
   const valid = validateAnswers(submission.answers, { confirm: false });
-  if (!valid.ok) return json(400, { error: "invalid", fields: valid.errors });
+  if (!valid.ok) {
+    // The page names the questions by their keys, which are checked against the questionnaire: nothing the sender wrote is echoed back, and the keys are sorted so the same mistakes always give the same address.
+    const keys = Object.keys(valid.errors).filter((k) => LABEL_KEYS.has(k)).sort();
+    return submission.form ? back(`problem=invalid${keys.length ? `&fields=${keys.join(",")}` : ""}`) : json(400, { error: "invalid", fields: valid.errors });
+  }
 
   const missing = submission.confirm ? missingRequired(valid.answers) : [];
   if (missing.length && !submission.form) {
@@ -114,6 +125,7 @@ export async function handleRevisionCreate(request: Request, env: AppEnv, reques
 
   const companyId = identity.companyId!;
   const result = await appendRevision(env.DB, { companyId, userId: identity.userId, basedOn: submission.basedOn as number, answers: valid.answers, note: submission.note, confirmed, questionnaireVersion: QUESTIONNAIRE_VERSION });
+  if (!result.ok && result.reason === "too_many") return submission.form ? back("problem=too_many") : json(409, { error: "too_many_revisions" });
   if (!result.ok) return submission.form ? back("stale=1") : json(409, { error: "stale", latest: result.latest });
 
   if (submission.form) return back(`saved=${result.revision}${confirmed ? "&confirmed=1" : ""}${missing.length ? `&missing=${missing.join(",")}` : ""}`);

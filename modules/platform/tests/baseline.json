@@ -1,9 +1,9 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "slice 6 run",
+  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
   "suites": {
     "integration/platform-api": 26,
-    "smoke/built-app": 11,
+    "smoke/built-app": 12,
     "static/source-rules": 6,
     "unit/cross-site": 8,
     "unit/scope": 7,
@@ -15,9 +15,10 @@
     "browser/harness": 8,
     "browser/pages": 3,
     "browser/session-and-scope": 8,
-    "unit/guards": 2,
-    "unit/body": 3,
+    "unit/guards": 3,
+    "unit/body": 7,
     "integration/append-only-keys": 2,
-    "static/conflict-markers": 2
+    "static/conflict-markers": 2,
+    "static/page-lookups": 2
   }
 }

@@ -70,12 +70,12 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
         <span className="tag">SYNTHETIC</span> What you expected, what you measured before the work, and what you measured after. Every number here is one you type: nothing on this page measures anything, and the provider does not use this service. The expected range comes from the assessment, whose figures are placeholders written to test the service, not findings. You review 30, 90 and 180 days after you first accepted a milestone. Those day counts are assumptions, and dates are shown in UTC (a day can differ from the day on an Indian calendar).
       </p>
 
-      {q.saved && SAVED[q.saved] ? (
+      {q.saved && Object.hasOwn(SAVED, q.saved) ? (
         <p role="status" className="notice" data-testid="saved">
           {SAVED[q.saved]}
         </p>
       ) : null}
-      {q.problem && PROBLEMS[q.problem] ? (
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
         <p role="alert" className="notice" data-testid="problem">
           {PROBLEMS[q.problem]}
         </p>

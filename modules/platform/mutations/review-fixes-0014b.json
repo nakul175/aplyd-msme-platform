@@ -1,0 +1,110 @@
+[
+ {
+  "name": "0014 NUL: the byte bound removed from factory_revisions_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000\n",
+  "new": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 500\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 NUL: the byte bound removed from assessment_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER assessment_events_note_is_short BEFORE INSERT ON assessment_events\nWHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000\n",
+  "new": "CREATE TRIGGER assessment_events_note_is_short BEFORE INSERT ON assessment_events\nWHEN length(NEW.note) > 500\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "diagnose/integration/diagnose-api"
+  ]
+ },
+ {
+  "name": "0014 NUL: the byte bound removed from listing_terms_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER listing_terms_note_is_short BEFORE INSERT ON listing_terms\nWHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000\n",
+  "new": "CREATE TRIGGER listing_terms_note_is_short BEFORE INSERT ON listing_terms\nWHEN length(NEW.note) > 500\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 NUL: the byte bound removed from provider_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER provider_events_note_is_short BEFORE INSERT ON provider_events\nWHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000\n",
+  "new": "CREATE TRIGGER provider_events_note_is_short BEFORE INSERT ON provider_events\nWHEN length(NEW.note) > 500\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 NUL: the byte bound removed from requirement_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER requirement_events_note_is_short BEFORE INSERT ON requirement_events\nWHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000\n",
+  "new": "CREATE TRIGGER requirement_events_note_is_short BEFORE INSERT ON requirement_events\nWHEN length(NEW.note) > 500\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 NUL: the byte bound removed from engagement_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER engagement_events_note_is_short BEFORE INSERT ON engagement_events\nWHEN length(NEW.note) > 500 OR length(CAST(NEW.note AS BLOB)) > 2000\n",
+  "new": "CREATE TRIGGER engagement_events_note_is_short BEFORE INSERT ON engagement_events\nWHEN length(NEW.note) > 500\n",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 BLOB: the answers rule does not look at the type",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND NOT (CASE WHEN typeof(NEW.answers) = 'text' AND json_valid(NEW.answers) THEN",
+  "new": "AND NOT (CASE WHEN json_valid(NEW.answers) THEN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "pages: an unguarded lookup on the run page",
+  "path": "app/run/page.tsx",
+  "old": "q.problem && Object.hasOwn(PROBLEMS, q.problem) ?",
+  "new": "q.problem && PROBLEMS[q.problem] ?",
+  "layers": [
+   "static"
+  ],
+  "only": [
+   "platform/static/page-lookups"
+  ]
+ },
+ {
+  "name": "pages: an unguarded lookup of a saved message on the deliver page",
+  "path": "app/deliver/page.tsx",
+  "old": "q.saved && Object.hasOwn(SAVED, q.saved) ?",
+  "new": "q.saved && SAVED[q.saved] ?",
+  "layers": [
+   "static"
+  ],
+  "only": [
+   "platform/static/page-lookups"
+  ]
+ }
+]

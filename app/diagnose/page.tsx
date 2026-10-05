@@ -110,7 +110,7 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
           Signed off. This assessment is now fixed and cannot be changed.
         </p>
       ) : null}
-      {q.problem && PROBLEMS[q.problem] ? (
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
         <p role="alert" className="notice" data-testid="problem">
           {PROBLEMS[q.problem]}
         </p>

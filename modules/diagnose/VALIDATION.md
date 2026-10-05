@@ -89,6 +89,9 @@ The equivalent break: counting the sign-off row in a cap that only applies to de
 
 37 breaks of the application code were caught on the first run, plus 4 of the access check again after it moved to the platform, plus 3 of the body reader (one of them survived at first and was closed by a test). Of 6 page breaks, 4 were caught at once, one was closed by a test added in response, and one survives and is recorded here. These show the tests are sensitive to these breaks. They do not show the code is free of defects the author did not think to break.
 
+## After the review-fixes branch
+
+A decision with no decision in it (a NULL passed the table's shape check) and a note over 500 characters are refused by the database as well as by the handler on the review-fixes branch (pull request #8, migration 0014), with a test for each. A later review of that branch found that a NUL character hid a long note from `length()`; the note trigger also bounds the note in bytes, and the test pins it. That review also noted that this module's handler counts characters only and, unlike the factory module's, does not refuse control characters; STATUS limit 4 says so, and it is not changed. The mutation results for these fixes, and a second agent's review of them, are in [modules/platform/VALIDATION.md](../platform/VALIDATION.md) (section "Review-fixes branch").
 ## What these results do not show
 
 - One agent reviewed the first version and found a high finding that this slice's own mutation table (37 breaks) had missed, as slice 1's review did. Assume a second reviewer could find more, in the triggers and the scope handling in particular. The fixes themselves were not reviewed by anyone but their author and the mutation checks above.

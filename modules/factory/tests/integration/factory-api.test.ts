@@ -222,15 +222,17 @@ test("a complete form confirms; a stale form is sent back with a notice and writ
   assert.equal(new URL(stale.headers.get("location")!, ORIGIN).searchParams.get("stale"), "1");
   assert.equal(await count(B), 1);
   const bad = await formPost(B, cookie, [["based_on", "1"], ["intent", "save"], ["a.year_started", "abc"]]);
-  assert.equal(bad.status, 400);
+  assert.equal(bad.status, 303, "a form that cannot be saved goes back to the page, not to a page of JSON");
+  assert.equal(bad.headers.get("location"), "/factory?problem=invalid&fields=year_started");
   assert.equal(await count(B), 1);
 });
 
-test("a form with an unreadable based_on is refused", async () => {
+test("a form with an unreadable based_on is refused, with a message on the page", async () => {
   const cookie = await ownerB();
   for (const basedOn of ["", "-1", "1.5", "abc", "99999999999"]) {
     const res = await formPost(B, cookie, [["based_on", basedOn], ["intent", "save"], ["a.sector", "pharma"]]);
-    assert.equal(res.status, 400, JSON.stringify(basedOn));
+    assert.equal(res.status, 303, JSON.stringify(basedOn));
+    assert.equal(res.headers.get("location"), "/factory?problem=request", JSON.stringify(basedOn));
   }
   assert.equal(await count(B), 0);
 });
@@ -278,7 +280,7 @@ test("the table's own constraints hold: a company and user that exist, a confirm
   await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('no-such-company', 1, 'x', 'user-synthetic-owner-a', 0, 1, '{}', '')`).run(), /FOREIGN KEY/);
   await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 1, 'x', 'no-such-user', 0, 1, '{}', '')`).run(), /FOREIGN KEY/);
   await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 1, 'x', 'user-synthetic-owner-b', 2, 1, '{}', '')`).run(), /CHECK/);
-  await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 0, 'x', 'user-synthetic-owner-b', 0, 1, '{}', '')`).run(), /CHECK/);
+  await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 0, 'x', 'user-synthetic-owner-b', 0, 1, '{}', '')`).run(), /CHECK|follows the one before it/, "revision 0 is refused by the rule or by the CHECK");
 });
 
 test("health fails when a factory trigger is missing", async () => {
@@ -302,4 +304,159 @@ test("the seed can be applied twice without error and without a second copy", as
   for (const sql of seedStatements()) await db.prepare(sql).run();
   assert.equal(await count(A), 1);
   assert.equal(typeof applyMigrations, "function");
+});
+
+// ------------------------------------------------------------------------------------ the independent review's findings (slice 2)
+
+test("a form that cannot be saved goes back to the page with a message and names the questions, never a page of JSON; a refused form saves nothing, and a field the questionnaire does not have is ignored, never echoed", async () => {
+  const cookie = await ownerB();
+  const go = async (fields: [string, string][]) => {
+    const res = await formPost(B, cookie, fields);
+    assert.equal(res.status, 303, JSON.stringify(fields));
+    return res.headers.get("location");
+  };
+  // four of "biggest problems" when at most three may be chosen (the case the review found)
+  assert.equal(await go([["based_on", "0"], ["intent", "save"], ["a.problems", "rejects_rework"], ["a.problems", "late_delivery"], ["a.problems", "machine_breakdowns"], ["a.problems", "cash_flow"]]), "/factory?problem=invalid&fields=problems");
+  // an out-of-range number, two questions at once
+  assert.equal(await go([["based_on", "0"], ["intent", "save"], ["a.year_started", "abc"], ["a.employees", "no_such_option"]]), "/factory?problem=invalid&fields=employees,year_started");
+  // nothing to save at all: the message has no question to name
+  assert.equal(await go([["based_on", "0"], ["intent", "save"]]), "/factory?problem=invalid");
+  // a note that is too long, and a note with a control character
+  assert.equal(await go([["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"], ["note", "x".repeat(501)]]), "/factory?problem=note");
+  assert.equal(await go([["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"], ["note", "a\u0000b"]]), "/factory?problem=note");
+  assert.equal(await count(B), 0);
+  assert.equal((await audits("factory.revision.created")).filter((a) => a.company_id === B).length, 0);
+  // A form field the questionnaire does not have is not read at all (only the questionnaire's own names are looked for), so it can
+  // neither fail the save nor be named back; the rest is saved as sent.
+  const unknown = await go([["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"], ["a.<script>alert(1)</script>", "x"]]);
+  assert.equal(unknown, "/factory?saved=1");
+  assert.equal(await count(B), 1);
+  assert.ok(!/script|alert/i.test((await db.prepare("SELECT answers FROM factory_revisions WHERE company_id = ?").bind(B).first<{ answers: string }>())!.answers), "the unknown field was not stored");
+});
+
+test("the same refusals reach a program as JSON, as before", async () => {
+  const cookie = await ownerB();
+  const res = await save(B, cookie, { basedOn: 0, answers: { problems: ["rejects_rework", "late_delivery", "machine_breakdowns", "cash_flow"] } });
+  assert.equal(res.status, 400);
+  const body = (await res.json()) as { error: string; fields: Record<string, string> };
+  assert.equal(body.error, "invalid");
+  assert.ok(body.fields.problems);
+});
+
+test("a note gets the checks the answers get: control characters and text-direction overrides are refused, in JSON and in a form, and nothing is saved", async () => {
+  const cookie = await ownerB();
+  for (const note of ["a\u0000b", "ab\u202ecd", "ab\u2066cd", "a\u200bb", "a\u001bb"]) {
+    const res = await save(B, cookie, { basedOn: 0, answers: { sector: "pharma" }, note });
+    assert.equal(res.status, 400, JSON.stringify(note));
+    assert.ok(((await res.json()) as { fields: Record<string, string> }).fields.note, JSON.stringify(note));
+  }
+  assert.equal(await count(B), 0);
+  assert.equal((await save(B, cookie, { basedOn: 0, answers: { sector: "pharma" }, note: "क्\u200dष and a plain note" })).status, 201, "Indian scripts still go through");
+});
+
+test("a company may save at most 500 versions: the 501st is refused with 409 and a message, by the application and by the database, and nothing is added", async () => {
+  const cookie = await ownerB();
+  await db.prepare("INSERT INTO factory_revisions (company_id, revision_no, created_at, created_by, confirmed, questionnaire_version, answers, note) WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 499) SELECT 'company-synthetic-b', i, 'x', 'user-synthetic-owner-b', 0, 1, '{}', '' FROM n").run();
+  assert.equal(await count(B), 499);
+  assert.equal((await save(B, cookie, { basedOn: 499, answers: { sector: "pharma" } })).status, 201, "the 500th is saved");
+  const res = await save(B, cookie, { basedOn: 500, answers: { sector: "pharma" } });
+  assert.equal(res.status, 409);
+  assert.deepEqual(await res.json(), { error: "too_many_revisions" });
+  const form = await formPost(B, cookie, [["based_on", "500"], ["intent", "save"], ["a.sector", "pharma"]]);
+  assert.equal(form.headers.get("location"), "/factory?problem=too_many");
+  assert.equal(await count(B), 500);
+  await assert.rejects(
+    db.prepare("INSERT INTO factory_revisions (company_id, revision_no, created_at, created_by, confirmed, questionnaire_version, answers, note) VALUES ('company-synthetic-b', 501, 'x', 'user-synthetic-owner-b', 0, 1, '{}', '')").run(),
+    /the most revisions it may have/,
+  );
+  assert.equal((await audits("factory.revision.created")).filter((a) => a.company_id === B).length, 1, "only the 500th was audited");
+  // another company is not affected by this one's total
+  assert.equal((await save(A, await ownerA(), { basedOn: 1, answers: { shifts: "two" } })).status, 201);
+});
+
+test("the history lists the newest 100 versions and says how many there are; older ones are kept and still open by number", async () => {
+  const cookie = await ownerB();
+  await db.prepare("INSERT INTO factory_revisions (company_id, revision_no, created_at, created_by, confirmed, questionnaire_version, answers, note) WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 130) SELECT 'company-synthetic-b', i, 'x', 'user-synthetic-owner-b', 0, 1, '{}', '' FROM n").run();
+  const body = (await (await read(B, cookie)).json()) as { history: { revision: number }[]; revisionsSaved: number; latest: { revision: number } };
+  assert.equal(body.history.length, 100);
+  assert.deepEqual([body.history[0].revision, body.history[99].revision], [130, 31]);
+  assert.equal(body.revisionsSaved, 130);
+  assert.equal(body.latest.revision, 130);
+  const { loadRevision } = await import("../../src/db/revisions.ts");
+  assert.equal((await loadRevision(db, B, 5))?.revision, 5, "an old one is still there");
+});
+
+test("the database itself refuses answers that are not a JSON object, and a revision number that skips one", async () => {
+  const row = "(company_id, revision_no, created_at, created_by, confirmed, questionnaire_version, answers, note)";
+  const insert = (no: number, answers: string) => db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', ${no}, 'x', 'user-synthetic-owner-b', 0, 1, ?, '')`).bind(answers).run();
+  for (const bad of ["not json", "", "[]", "7", "null", '"text"', "{broken"]) {
+    await assert.rejects(insert(1, bad), /a JSON object/, JSON.stringify(bad));
+  }
+  // The bytes of {} bound as a BLOB are valid JSON to json_valid() and were kept as a BLOB, which the page could not read back
+  // (found by the review of the review fixes): the answers must be stored as text.
+  const asBlob = new Uint8Array([0x7b, 0x7d]);
+  await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 1, 'x', 'user-synthetic-owner-b', 0, 1, ?, '')`).bind(asBlob).run(), /a JSON object/, "answers as a BLOB");
+  await assert.rejects(db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', 2, 'x', 'user-synthetic-owner-b', 0, 1, ?, '')`).bind(asBlob).run(), /a JSON object|follows the one before it/, "a blob after a gap is refused whichever rule answers");
+  await assert.rejects(insert(50, "{}"), /follows the one before it/, "the case the review found: revision 50 with nothing before it");
+  assert.equal(await count(B), 0);
+  await insert(1, '{"shifts":"one"}');
+  await assert.rejects(insert(3, "{}"), /follows the one before it/);
+  await insert(2, "{}");
+  assert.equal(await count(B), 2);
+  // another company's numbers are its own
+  await db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-a', 2, 'x', 'user-synthetic-owner-a', 0, 1, '{}', '')`).run();
+});
+
+test("only a save that lost a race for the same revision is called stale; any other failure of the write is raised, not blamed on someone else's save", async () => {
+  const { appendRevision } = await import("../../src/db/revisions.ts");
+  const fake = (error: Error): D1Database => {
+    const statement = { bind: () => statement, first: async () => ({ n: 7 }) } as unknown as D1PreparedStatement;
+    return { prepare: () => statement, batch: async () => { throw error; } } as unknown as D1Database;
+  };
+  const input = { companyId: B, userId: "user-synthetic-owner-b", basedOn: 0, answers: {}, note: "", confirmed: false, questionnaireVersion: 1 };
+  await assert.rejects(appendRevision(fake(new Error("D1_ERROR: disk image is malformed")), input), /malformed/);
+  await assert.rejects(appendRevision(fake(new Error("D1_ERROR: a revision number follows the one before it")), input), /follows the one before it/);
+  await assert.rejects(appendRevision(fake(new Error("D1_ERROR: UNIQUE constraint failed: assessments.id")), input), /assessments/);
+  assert.deepEqual(await appendRevision(fake(new Error("D1_ERROR: UNIQUE constraint failed: factory_revisions.company_id, factory_revisions.revision_no")), input), { ok: false, reason: "stale", latest: 7 }, "the lost race is stale");
+  assert.deepEqual(await appendRevision(fake(new Error("D1_ERROR: factory_revisions is append-only")), input), { ok: false, reason: "stale", latest: 7 });
+});
+
+test("health notices a trigger of the right name on the wrong table, as well as a missing one", async () => {
+  assert.equal((await handleHealth(get("/api/health"), env)).status, 200);
+  await db.prepare("DROP TRIGGER factory_revisions_no_gaps").run();
+  await db.prepare("CREATE TRIGGER factory_revisions_no_gaps BEFORE INSERT ON companies WHEN 0 BEGIN SELECT 1; END").run();
+  const res = await handleHealth(get("/api/health"), env);
+  assert.equal(res.status, 503);
+  assert.equal(((await res.json()) as { auditGuard: string }).auditGuard, "missing");
+});
+
+test("the limit written into migration 0014 is the one the application states", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { MAX_REVISIONS_PER_COMPANY } = await import("../../src/db/revisions.ts");
+  const sql = readFileSync(new URL("../../../../drizzle/0014_review_fixes.sql", import.meta.url), "utf8");
+  assert.match(sql, new RegExp(`>= ${MAX_REVISIONS_PER_COMPANY}\\b`));
+});
+
+test("a note of a revision is at most 500 characters in the table, as it is in the handler, and counted in characters", async () => {
+  const row = "(company_id, revision_no, created_at, created_by, confirmed, questionnaire_version, answers, note)";
+  const insert = (no: number, note: string) => db.prepare(`INSERT INTO factory_revisions ${row} VALUES ('company-synthetic-b', ${no}, 'x', 'user-synthetic-owner-b', 0, 1, '{}', ?)`).bind(note).run();
+  await assert.rejects(insert(1, "n".repeat(501)), /at most 500 characters/);
+  await assert.rejects(insert(1, "é".repeat(501)), /at most 500 characters/, "characters, not bytes");
+  // SQLite's length() stops at a NUL, so 'a', a NUL and 100,000 more characters counted as one; the second bound is on bytes.
+  await assert.rejects(insert(1, `a\u0000${"b".repeat(100_000)}`), /at most 500 characters/, "text after a NUL still counts");
+  await assert.rejects(insert(1, `a\u0000${"b".repeat(2000)}`), /at most 500 characters/, "the byte bound is 2,000");
+  assert.equal(await count(B), 0);
+  await insert(1, "n".repeat(500));
+  await insert(2, "é".repeat(500));
+  await insert(3, "a\u0000b"); // a short note with a NUL in it is still stored: the bound is on length, not on content
+  assert.equal(await count(B), 3);
+});
+
+test("the same mistakes always send the form back to the same address: the questions are named in alphabetical order, whatever order they were sent or checked in", async () => {
+  const cookie = await ownerB();
+  const go = async (fields: [string, string][]) => (await formPost(B, cookie, fields)).headers.get("location");
+  const one = await go([["based_on", "0"], ["intent", "save"], ["a.year_started", "abc"], ["a.employees", "no_such_option"], ["a.shifts", "no_such_option"]]);
+  const two = await go([["based_on", "0"], ["intent", "save"], ["a.shifts", "no_such_option"], ["a.employees", "no_such_option"], ["a.year_started", "abc"]]);
+  assert.equal(one, "/factory?problem=invalid&fields=employees,shifts,year_started");
+  assert.equal(two, one);
 });

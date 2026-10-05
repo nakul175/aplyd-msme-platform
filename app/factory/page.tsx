@@ -8,9 +8,16 @@ import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/iden
 
 export const dynamic = "force-dynamic";
 
-type Search = { saved?: string; confirmed?: string; missing?: string; stale?: string; rev?: string };
+type Search = { saved?: string; confirmed?: string; missing?: string; stale?: string; rev?: string; problem?: string; fields?: string };
 
 const LABELS = new Map(SECTIONS.flatMap((s) => s.fields).map((f) => [f.key, f.label]));
+// Nothing of what was sent is shown back: a message from this list, and question names taken from the questionnaire.
+const PROBLEMS: Record<string, string> = {
+  invalid: "Nothing was saved, because some answers could not be accepted. Please check them and save again.",
+  note: "Nothing was saved. Keep the note to plain text of 500 characters or fewer.",
+  request: "Nothing was saved, because the request was not complete. Please reload the page and try again.",
+  too_many: "Nothing was saved. A company can keep at most 500 saved versions, and this one has reached it.",
+};
 
 function Input({ field, value, readOnly }: { field: Field; value: unknown; readOnly: boolean }) {
   const name = `a.${field.key}`;
@@ -101,6 +108,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
   const shown = viewing ?? latest;
   const readOnly = viewing !== null && viewing.revision !== latest?.revision;
   const missing = (q.missing ?? "").split(",").filter((k) => (REQUIRED_TO_CONFIRM as readonly string[]).includes(k));
+  const problemFields = (q.fields ?? "").split(",").filter((k) => LABELS.has(k));
 
   return (
     <>
@@ -117,6 +125,12 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
       {missing.length ? (
         <p role="alert" className="notice" data-testid="missing">
           It was saved as a draft, not confirmed. To confirm, please answer: {missing.map((k) => LABELS.get(k) ?? k).join("; ")}.
+        </p>
+      ) : null}
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
+        <p role="alert" className="notice" data-testid="problem">
+          {PROBLEMS[q.problem]}
+          {q.problem === "invalid" && problemFields.length ? ` Check: ${problemFields.map((k) => LABELS.get(k)).join("; ")}.` : ""}
         </p>
       ) : null}
       {q.stale === "1" ? (
@@ -167,6 +181,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
       </form>
 
       <h2>Earlier versions</h2>
+      {latest && latest.revision > history.length ? <p className="muted">The newest {history.length} of {latest.revision} versions are listed. Older ones are kept.</p> : null}
       {history.length ? (
         <ul data-testid="history">
           {history.map((h) => (

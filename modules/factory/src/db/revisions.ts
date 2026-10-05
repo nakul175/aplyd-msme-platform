@@ -39,10 +39,15 @@ export async function loadRevision(db: D1Database, companyId: string, revisionNo
   return row ? toRevision(row) : null;
 }
 
-export async function loadHistory(db: D1Database, companyId: string): Promise<HistoryEntry[]> {
+/** The most revisions a company may save. The same number is in migration 0014 (a test checks they agree). An assumption, not a measured figure. */
+export const MAX_REVISIONS_PER_COMPANY = 500;
+/** How many of the newest revisions the history lists. Older ones are still stored and still opened by number. */
+export const HISTORY_LIMIT = 100;
+
+export async function loadHistory(db: D1Database, companyId: string, limit: number = HISTORY_LIMIT): Promise<HistoryEntry[]> {
   const { results } = await db
-    .prepare("SELECT revision_no, created_at, created_by, confirmed, questionnaire_version, note FROM factory_revisions WHERE company_id = ? ORDER BY revision_no DESC")
-    .bind(companyId)
+    .prepare("SELECT revision_no, created_at, created_by, confirmed, questionnaire_version, note FROM factory_revisions WHERE company_id = ? ORDER BY revision_no DESC LIMIT ?")
+    .bind(companyId, limit)
     .all<Omit<Row, "answers">>();
   return results.map((r) => ({ revision: r.revision_no, createdAt: r.created_at, createdBy: r.created_by, confirmed: r.confirmed === 1, questionnaireVersion: r.questionnaire_version, note: r.note }));
 }
@@ -52,7 +57,7 @@ export async function latestRevisionNo(db: D1Database, companyId: string): Promi
   return row?.n ?? 0;
 }
 
-export type AppendResult = { ok: true; revision: number } | { ok: false; reason: "stale"; latest: number };
+export type AppendResult = { ok: true; revision: number } | { ok: false; reason: "stale"; latest: number } | { ok: false; reason: "too_many" };
 
 /**
  * Appends revision basedOn + 1, only if basedOn is still the latest revision number for the company. The check and the
@@ -76,8 +81,11 @@ export async function appendRevision(
     const [inserted] = await db.batch([insert, audit]);
     if (inserted.meta.changes === 1) return { ok: true, revision: basedOn + 1 };
   } catch (error) {
-    // A second save that raced this one and lost on the unique (company, revision) key is the same stale case.
-    if (!/UNIQUE|append-only/.test(String(error))) throw error;
+    const text = String(error);
+    if (/the most revisions it may have/.test(text)) return { ok: false, reason: "too_many" };
+    // Only a second save that raced this one and lost on the (company, revision) key is the stale case. Any other refusal is a fault and is not
+    // reported to the owner as "someone saved a newer version".
+    if (!/UNIQUE constraint failed: factory_revisions\.company_id, factory_revisions\.revision_no|factory_revisions is append-only/.test(text)) throw error;
   }
   return { ok: false, reason: "stale", latest: await latestRevisionNo(db, companyId) };
 }

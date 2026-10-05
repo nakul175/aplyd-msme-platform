@@ -6,7 +6,8 @@
 // string built at run time; that limit is stated in modules/platform/STATUS.md.
 import ts from "typescript";
 
-export const ALLOWED_HEADERS = new Set(["cookie", "origin", "sec-fetch-site", "content-type"]);
+// content-length is read only to refuse an oversized body without reading it (modules/platform/src/api/body.ts); a length is not an identity.
+export const ALLOWED_HEADERS = new Set(["cookie", "origin", "sec-fetch-site", "content-type", "content-length"]);
 
 const WRAPPERS = (n: ts.Node) =>
   ts.isParenthesizedExpression(n) || ts.isAwaitExpression(n) || ts.isNonNullExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression(n) || ts.isTypeAssertionExpression(n);

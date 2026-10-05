@@ -25,6 +25,7 @@ test("the header rule accepts plain allowed reads and writes", () => {
   const ok = [
     `const c = request.headers.get("cookie");`,
     `const c = request.headers.get('Origin');`,
+    `const n = request.headers.get("Content-Length");`,
     `const c = (await headers()).get("cookie");`,
     `import { headers } from "next/headers"; const c = (await headers()).get("cookie");`,
     `const h = new Headers(); h.set("x", "y"); response.headers.set("a", "b"); response.headers.append("a", "b");`,

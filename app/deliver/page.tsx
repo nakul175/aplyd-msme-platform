@@ -80,12 +80,12 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
           You chose a provider. Write the plan below.
         </p>
       ) : null}
-      {q.saved && SAVED[q.saved] ? (
+      {q.saved && Object.hasOwn(SAVED, q.saved) ? (
         <p role="status" className="notice" data-testid="saved">
           {SAVED[q.saved]}
         </p>
       ) : null}
-      {q.problem && PROBLEMS[q.problem] ? (
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
         <p role="alert" className="notice" data-testid="problem">
           {PROBLEMS[q.problem]}
         </p>
