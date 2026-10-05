@@ -9,11 +9,12 @@ import { headerReadProblems } from "../support/header-rule.ts";
 const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const git = (...a: string[]) => execFileSync("git", a, { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
 
-// The two files of the host launcher (modules/hosting). They run in a Node process in front of the Worker, not in it: they hand a request's
+// Files that run in a Node process beside the Worker, not in it: the host launcher's gate and gateway (modules/hosting), which hand a request's
 // headers on and read one header, Authorization, as the hosting gate's own password (never an application identity; the gate removes it before
-// the Worker sees the request). The rule below is about code that decides who a person is, which runs in the Worker. The exemption is exactly these
-// two files, and the test after the first one fails if anything the Worker runs imports either of them.
-export const HOST_PROCESS_FILES = ["modules/hosting/src/gate.ts", "modules/hosting/src/gateway.ts"];
+// the Worker sees the request), and the demonstration's HTTP client (modules/demo), which reads the one response header that sets its session.
+// The rule below is about code that decides who a person is, which runs in the Worker. The exemption is exactly these files, and the test after
+// the first one fails if anything the Worker runs can reach one of them through imports.
+export const HOST_PROCESS_FILES = ["modules/hosting/src/gate.ts", "modules/hosting/src/gateway.ts", "modules/demo/src/client.ts"];
 
 test("request code reads only the headers on the allow-list, so identity cannot come from a header", () => {
   // Every source file of the application, found by listing directories (a pathspec with ** skipped top-level files such as app/page.tsx).
@@ -27,16 +28,44 @@ test("request code reads only the headers on the allow-list, so identity cannot 
   assert.deepEqual(problems, []);
 });
 
-test("the host launcher's files are exempt from the header rule only because nothing the Worker runs imports them", () => {
-  const all = git("ls-files", "--cached", "--others", "--exclude-standard", "--", "app", "worker", "modules");
-  for (const f of HOST_PROCESS_FILES) assert.ok(all.includes(f), `${f} is listed as exempt but does not exist`);
-  const workerSide = all.filter((f) => (/^(app|worker)\/.*\.tsx?$/.test(f) || /^modules\/[^/]+\/src\/.*\.tsx?$/.test(f)) && !f.startsWith("modules/hosting/"));
-  const importers = workerSide.filter((f) => /modules\/hosting|\/hosting\/src|gateway\.ts|\bgate\.ts/.test(readFileSync(`${ROOT}${f}`, "utf8")));
-  assert.deepEqual(importers, [], "a file the Worker runs refers to the host launcher");
-  // The exemption covers only these two files: any other file under modules/hosting/src is scanned like the rest.
-  const otherHostFiles = all.filter((f) => /^modules\/hosting\/src\/.*\.tsx?$/.test(f) && !HOST_PROCESS_FILES.includes(f));
-  const problems = otherHostFiles.flatMap((f) => headerReadProblems(f, readFileSync(`${ROOT}${f}`, "utf8")));
-  assert.deepEqual(problems, []);
+/** The files a relative import in `text` names, as repository paths (the extension is added when the specifier has none). */
+function importsOf(file: string, text: string, known: Set<string>): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/(?:from\s+|import\s*\(\s*|import\s+)["']([^"']+)["']/g)) {
+    const spec = m[1];
+    if (!spec.startsWith(".")) continue;
+    const parts = `${file.split("/").slice(0, -1).join("/")}/${spec}`.split("/");
+    const stack: string[] = [];
+    for (const part of parts) (part === ".." ? stack.pop() : part !== "." && part !== "" ? stack.push(part) : undefined);
+    const base = stack.join("/");
+    for (const candidate of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`]) if (known.has(candidate)) out.push(candidate);
+  }
+  return out;
+}
+
+test("the files exempt from the header rule are exempt only because nothing the Worker runs can reach them", () => {
+  const all = git("ls-files", "--cached", "--others", "--exclude-standard", "--", "app", "worker", "modules").filter((f) => /\.tsx?$/.test(f));
+  const known = new Set(all);
+  for (const f of HOST_PROCESS_FILES) assert.ok(known.has(f), `${f} is listed as exempt but does not exist`);
+  // Everything reachable from the Worker's entry and the pages, through relative imports.
+  const roots = all.filter((f) => /^(app|worker)\//.test(f));
+  const seen = new Set<string>(roots);
+  const queue = [...roots];
+  while (queue.length) {
+    const file = queue.pop()!;
+    for (const next of importsOf(file, readFileSync(`${ROOT}${file}`, "utf8"), known)) if (!seen.has(next)) (seen.add(next), queue.push(next));
+  }
+  assert.ok(seen.has("modules/platform/src/env.ts"), "the walk reaches the platform's code, so it is following imports");
+  assert.deepEqual(HOST_PROCESS_FILES.filter((f) => seen.has(f)), [], "a file the Worker runs can reach a host-process file");
+  // The exemption covers only these files: every other source file of those modules is scanned like the rest.
+  const others = all.filter((f) => /^modules\/(hosting|demo)\/src\//.test(f) && !HOST_PROCESS_FILES.includes(f));
+  assert.deepEqual(others.flatMap((f) => headerReadProblems(f, readFileSync(`${ROOT}${f}`, "utf8"))), []);
+});
+
+test("the import walk finds what it should: a relative import with and without an extension, up a directory, and a dynamic one", () => {
+  const known = new Set(["a/b/c.ts", "a/d.ts", "a/b/e/index.ts", "a/f.tsx"]);
+  assert.deepEqual(importsOf("a/b/x.ts", `import { y } from "./c.ts"; import "../d"; const z = await import("./e"); import q from "../f";`, known).sort(), ["a/b/c.ts", "a/b/e/index.ts", "a/d.ts", "a/f.tsx"]);
+  assert.deepEqual(importsOf("a/b/x.ts", `import fs from "node:fs"; import z from "zod"; import m from "./missing.ts";`, known), []);
 });
 
 test("the header rule accepts plain allowed reads and writes", () => {
