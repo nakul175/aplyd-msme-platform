@@ -1,0 +1,47 @@
+{
+  "name": "aplyd-msme-platform",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "vinext dev --port 5173",
+    "build": "vinext build",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
+    "test": "node scripts/test.mjs pr --guard",
+    "test:static": "node scripts/test.mjs static",
+    "test:unit": "node scripts/test.mjs unit",
+    "test:integration": "node scripts/test.mjs integration",
+    "test:smoke": "node scripts/test.mjs smoke",
+    "test:catalogue": "node scripts/test.mjs --check-catalogue",
+    "docs:check": "node scripts/check-documentation.mjs",
+    "db:local": "node scripts/local-db.mjs"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.2",
+    "next": "16.3.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.37.1",
+    "@cloudflare/workers-types": "4.20260515.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "drizzle-kit": "0.31.10",
+    "miniflare": "4.20260515.0",
+    "react-server-dom-webpack": "19.2.6",
+    "typescript": "5.9.3",
+    "vinext": "1.0.0-beta.5",
+    "vite": "8.0.13",
+    "wrangler": "4.92.0"
+  }
+}

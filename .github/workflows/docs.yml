@@ -1,0 +1,21 @@
+# Runs on every pull request, including documentation-only ones. It needs no install and no secrets.
+name: documentation-checks
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: documentation-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Links, identifiers and source checksums
+        run: node scripts/check-documentation.mjs

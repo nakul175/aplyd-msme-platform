@@ -1,0 +1,34 @@
+:root {
+  --bg: #fbfaf7;
+  --fg: #1d2330;
+  --muted: #5b6475;
+  --line: #d9d6cc;
+  --accent: #1f4e79;
+  --banner-bg: #fff3cd;
+  --banner-fg: #5c4400;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181f;
+    --fg: #e8eaee;
+    --muted: #a0a8b8;
+    --line: #2d3442;
+    --accent: #7fb2e5;
+    --banner-bg: #3a2f08;
+    --banner-fg: #f2d98a;
+    color-scheme: dark;
+  }
+}
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+.banner { background: var(--banner-bg); color: var(--banner-fg); padding: 0.5rem 1rem; font-size: 0.9rem; }
+main { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1rem; }
+h1 { font-size: 1.5rem; margin: 0 0 1rem; }
+a { color: var(--accent); }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+.muted { color: var(--muted); }
+.tag { border: 1px solid var(--line); border-radius: 3px; padding: 0 0.35rem; font-size: 0.8rem; color: var(--muted); }
+label, select, button { font: inherit; }
+select, button { padding: 0.4rem 0.6rem; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

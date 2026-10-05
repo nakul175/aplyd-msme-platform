@@ -1,0 +1,15 @@
+{
+  "updatedAt": "2026-10-04",
+  "reason": "Slice 1 review fixes: tests for review findings H1, M1 to M7, L1 to L4, L7, L9",
+  "suites": {
+    "integration/platform-api": 26,
+    "smoke/built-app": 11,
+    "static/source-rules": 6,
+    "unit/cross-site": 8,
+    "unit/scope": 7,
+    "unit/session": 10,
+    "unit/migrations": 2,
+    "unit/secret": 4,
+    "unit/security-headers": 2
+  }
+}

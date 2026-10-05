@@ -1,6 +1,6 @@
 # APLYD MSME platform
 
-Status: documentation base. There is no application code yet, and nothing here is accepted for use with real factory data.
+Status: documentation base plus a walking skeleton (sign-in, one company record, the scope rule, tests and CI), on a draft pull request. Nothing here is accepted for use with real factory data.
 
 ## What this is
 
@@ -16,6 +16,7 @@ The thesis draws on the IndiaAI Mission MSME study (see [docs/sources.md](docs/s
 | Deciding what to build | [docs/thesis.md](docs/thesis.md), then [docs/decisions.md](docs/decisions.md) |
 | Checking where a number or claim comes from | [docs/sources.md](docs/sources.md) |
 | Planning the build on the Saha pattern | [docs/saha-lessons.md](docs/saha-lessons.md) |
+| Running or testing the code | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), then [modules/platform/STATUS.md](modules/platform/STATUS.md) |
 
 ## Ownership
 
