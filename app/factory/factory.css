@@ -15,6 +15,7 @@
 .fc-sections > fieldset.card > legend::before {
   counter-increment: fcs;
   content: counter(fcs);
+  content: counter(fcs) / "";
   display: inline-grid;
   place-items: center;
   flex: none;
