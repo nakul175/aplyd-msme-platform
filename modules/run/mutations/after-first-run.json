@@ -1,0 +1,328 @@
+[
+ {
+  "name": "trigger: one baseline per company, not per engagement",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'baseline')",
+  "new": "NEW.kind = 'baseline' AND EXISTS (SELECT 1 FROM outcome_events WHERE company_id = NEW.company_id AND kind = 'baseline')",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: one review per number across engagements",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)",
+  "new": "NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE kind = 'review' AND review_no = NEW.review_no)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: review needs an acceptance anywhere in the company",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a review needs",
+  "new": "AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE company_id = NEW.company_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a review needs",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: value upper bound removed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "BETWEEN 0 AND 1000000000",
+  "new": "BETWEEN 0 AND 9000000000",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: negative value allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "BETWEEN 0 AND 1000000000",
+  "new": "BETWEEN -5 AND 1000000000",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: note length unbounded",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "length(\"outcome_events\".\"note\") <= 500",
+  "new": "length(\"outcome_events\".\"note\") <= 5000",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: a review without a verdict allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\"outcome_events\".\"verdict\" IN ('met', 'partly', 'not_met')",
+  "new": "(\"outcome_events\".\"verdict\" IS NULL OR \"outcome_events\".\"verdict\" IN ('met', 'partly', 'not_met'))",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: review number 4 allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "BETWEEN 1 AND 3",
+  "new": "BETWEEN 1 AND 4",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "table: a baseline carrying a verdict allowed",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\"outcome_events\".\"kind\" = 'baseline' AND \"outcome_events\".\"review_no\" IS NULL AND \"outcome_events\".\"verdict\" IS NULL AND",
+  "new": "\"outcome_events\".\"kind\" = 'baseline' AND \"outcome_events\".\"review_no\" IS NULL AND",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "value: decimals read as whole numbers",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "/^\\d{1,10}$/.test(raw.trim())",
+  "new": "/^[\\d.]{1,10}$/.test(raw.trim())",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: next counts requirements of every assessment",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "r.assessmentId === requirement.assessmentId",
+  "new": "true",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: expected range taken from the first idea",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "view?.result.items.find((i) => i.opportunityId === e.opportunityId) ?? null",
+  "new": "view?.result.items[0] ?? null",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "list not bound to the engagement",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "WHERE company_id = ? AND engagement_id = ?",
+  "new": "WHERE company_id = ? AND ? IS NOT NULL",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: the review number left out of the audit",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "review: shape.reviewNo ?? 0",
+  "new": "review: 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "clock: the real time stamped, not the injected one",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "at: now() }",
+  "new": "at: new Date() }",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "list not bound to the company",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "WHERE company_id = ? AND engagement_id = ?",
+  "new": "WHERE ? IS NOT NULL AND engagement_id = ?",
+  "layers": [
+   "static",
+   "integration"
+  ],
+  "only": [
+   "run/static/rules",
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "present: next offers an idea that was not accepted",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "s.decision === \"accept\")",
+  "new": "true)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "whole-number trigger neutered",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN typeof(NEW.value) <> 'integer' OR typeof(COALESCE(NEW.review_no, 0)) <> 'integer'\nBEGIN",
+  "new": "WHEN 0\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "whole-number trigger ignores a fractional review number",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN typeof(NEW.value) <> 'integer' OR typeof(COALESCE(NEW.review_no, 0)) <> 'integer'",
+  "new": "WHEN typeof(NEW.value) <> 'integer'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "whole-number trigger ignores a fractional figure",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN typeof(NEW.value) <> 'integer' OR typeof(COALESCE(NEW.review_no, 0)) <> 'integer'",
+  "new": "WHEN typeof(COALESCE(NEW.review_no, 0)) <> 'integer'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "once-each rule not left to the whole-number rule",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "WHEN typeof(NEW.value) = 'integer' AND typeof(COALESCE(NEW.review_no, 0)) = 'integer' AND NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)",
+  "new": "WHEN NEW.kind = 'review' AND EXISTS (SELECT 1 FROM outcome_events WHERE engagement_id = NEW.engagement_id AND kind = 'review' AND review_no = NEW.review_no)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "shape: a review need not have a number",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\"outcome_events\".\"review_no\" IS NOT NULL AND \"outcome_events\".\"review_no\" BETWEEN 1 AND 3",
+  "new": "\"outcome_events\".\"review_no\" BETWEEN 1 AND 3",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "shape: a review need not have a verdict",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\"outcome_events\".\"verdict\" IS NOT NULL AND ",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "shape: a review need not say whether it is in use",
+  "path": "drizzle/0012_run_tables.sql",
+  "old": "\"outcome_events\".\"in_use\" IS NOT NULL AND ",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: a baseline is late if anything is accepted anywhere in the company",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a baseline is recorded before",
+  "new": "AND EXISTS (SELECT 1 FROM engagement_events WHERE company_id = NEW.company_id AND kind = 'accepted')\nBEGIN\n  SELECT RAISE(ABORT, 'a baseline is recorded before",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "trigger: first acceptance taken from the company, not the engagement",
+  "path": "drizzle/0013_run_guards.sql",
+  "old": "SELECT at FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'accepted' ORDER BY id LIMIT 1",
+  "new": "SELECT at FROM engagement_events WHERE company_id = NEW.company_id AND kind = 'accepted' ORDER BY id LIMIT 1",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ },
+ {
+  "name": "append: inserted counts as ok whatever happened",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "inserted.meta.changes === 1 ? { ok: true } : { ok: false, reason: \"not_found\" }",
+  "new": "{ ok: true }",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "run/integration/run-api"
+  ]
+ }
+]

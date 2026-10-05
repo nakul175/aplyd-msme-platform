@@ -78,7 +78,11 @@ test("before the work: the page shows what the assessment expected, offers the s
   const html = await page(a, "/run");
   assert.match(html, /Keep every job on a simple shared log/);
   assert.match(html, /What the assessment expected:<\/strong> [^<]+, \d[\d,]* to \d[\d,]* (percent|days|rupees a year)\./);
-  const { expected } = (await getJson(a, `/api/companies/${A}/engagements/${engagementId}/outcomes`)) as { expected: { measure: string; unit: string; low: number; high: number } };
+  const { expected } = (await getJson(a, `/api/companies/${A}/engagements/${engagementId}/outcomes`)) as { expected: { measure: string; unit: string; low: number; high: number; synthetic: boolean } };
+  assert.equal(expected.synthetic, true, "the data says the range is synthetic");
+  const expectedLine = /<p data-testid="expected">([\s\S]*?)<\/p>/.exec(html.replace(/<script[\s\S]*?<\/script>/g, ""))?.[1] ?? "";
+  assert.match(expectedLine, /SYNTHETIC/, "and so does the line that shows it");
+  assert.match(html, /dates are shown in UTC/, "dates are said to be UTC");
   const unit = { percent: "percent", days: "days", rupees_per_year: "rupees a year" }[expected.unit];
   assert.ok(html.includes(`What the assessment expected:</strong> ${expected.measure}, ${expected.low.toLocaleString("en-IN")} to ${expected.high.toLocaleString("en-IN")} ${unit}.`), "the page shows the assessment's own measure and range, low first");
   assert.match(html, /Provider: <strong>Alpha Works<\/strong>/);

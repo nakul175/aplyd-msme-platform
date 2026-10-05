@@ -50,11 +50,22 @@ test("every INSERT into an engagement table binds the company and checks the par
   }
 });
 
-test("the engagement tables are touched only by the deliver data layer: no page, route or other module queries them", () => {
+// The run module records measurements against an engagement. Its one statement that names an engagement table is the INSERT that
+// checks, in the same statement, that the engagement is the company's: the same check this module's own inserts make. It may do that
+// and nothing else with them.
+const RUN_FILE = "modules/run/src/db/outcomes.ts";
+const isRunInsert = (f: string, sql: string) =>
+  f === RUN_FILE && /^INSERT INTO outcome_events\b/.test(sql.trim()) && /WHERE EXISTS \(SELECT 1 FROM engagements WHERE id = \? AND company_id = \?\)$/.test(sql.replace(/\s+/g, " ").trim());
+
+test("the engagement tables are touched only by the deliver data layer: no page, route or other module queries them, apart from the run module's insert that checks the engagement is the company's", () => {
   for (const f of applicationFiles()) {
     if (f === DATA_LAYER) continue;
-    for (const table of DELIVER_TABLES) assert.deepEqual(queries(f, table), [], `${f} ${table}`);
+    for (const table of DELIVER_TABLES) assert.deepEqual(queries(f, table).filter((m) => !isRunInsert(f, m.sql)), [], `${f} ${table}`);
   }
+  const exception = queries(RUN_FILE, "engagements");
+  assert.equal(exception.length, 1, "the run module names an engagement table once");
+  assert.ok(isRunInsert(RUN_FILE, exception[0].sql), "and in that one shape");
+  for (const table of ["milestones", "engagement_events"]) assert.deepEqual(queries(RUN_FILE, table), [], `the run module does not query ${table}`);
 });
 
 // ---- D-03: nothing recorded here can change what APLYD earns, and no revenue line depends on the provider chosen

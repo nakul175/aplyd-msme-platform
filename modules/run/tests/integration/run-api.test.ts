@@ -10,11 +10,11 @@ import { ORIGIN, cookieFrom, createTestEnvironment, get, post } from "../../../p
 import { handleAssessmentCreate, handleAssessmentRead, handleDecisionCreate, handleSignOff } from "../../../diagnose/src/api/diagnose.ts";
 import type { Result } from "../../../diagnose/src/engine.ts";
 import { handleProviderCreate, handleProviderList, handleTermsSet } from "../../../procure/src/api/providers.ts";
-import { handleRequirementCreate } from "../../../procure/src/api/requirements.ts";
+import { handleRequirementCreate, handleRequirementWithdraw } from "../../../procure/src/api/requirements.ts";
 import { handleEngagementCreate, handleEngagementEvent, handleMilestoneAdd } from "../../../deliver/src/api/engagements.ts";
 import { handleOutcomeRead, handleOutcomeRecord } from "../../src/api/outcomes.ts";
 import type { PresentedOutcomes } from "../../src/api/outcomes.ts";
-import { recordBaseline, recordReview } from "../../src/db/outcomes.ts";
+import { listOutcomes, recordBaseline, recordReview } from "../../src/db/outcomes.ts";
 import { MAX_NOTE_LENGTH, MAX_VALUE, REVIEW_DAYS } from "../../src/state.ts";
 
 let env: AppEnv;
@@ -147,7 +147,7 @@ test("what the assessment expected is the figure for this engagement's own idea,
     const e = await engageFor(s, n);
     const expected = (await view(e.id, s.a)).expected;
     const b = items[n].benefit;
-    assert.deepEqual(expected, { measure: b.measure, unit: b.unit, low: b.low, high: b.high }, `idea ${n}: ${items[n].opportunityId}`);
+    assert.deepEqual(expected, { measure: b.measure, unit: b.unit, low: b.low, high: b.high, synthetic: true }, `idea ${n}: ${items[n].opportunityId}`);
     shown.push(JSON.stringify(expected));
   }
   assert.ok(new Set(shown).size >= 2, "the ideas do not all share one figure, so the test can tell one from another");
@@ -361,6 +361,13 @@ test("the data layer on its own refuses another company's engagement, and the da
   assert.equal((await audits("outcome.baseline")).length, 0, "nothing was added, so nothing is audited");
   // Straight at the table, round the application: another company's id with this company's engagement is refused by the key.
   await assert.rejects(db.prepare("INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, value, note) VALUES (?, ?, ?, 'user-synthetic-owner-b', 'baseline', 1, '')").bind(p.id, B, new Date().toISOString()).run(), /FOREIGN KEY/);
+
+  // The list is bound to the company in its own statement, not only by the handler's check of the engagement before it (the review
+  // found this clause had no behavioural test: only a regular expression over the source saw it go).
+  assert.deepEqual(await recordBaseline(db, { ...common, userId: "user-synthetic-owner-a", companyId: A }), { ok: true });
+  assert.equal((await listOutcomes(db, A, p.id)).length, 1, "the owner's own list holds the baseline");
+  assert.deepEqual(await listOutcomes(db, B, p.id), [], "another company's id lists nothing of this engagement");
+  assert.deepEqual(await listOutcomes(db, A, "no-such-engagement"), [], "and the engagement is bound too");
 });
 
 test("the table is append-only whichever way it is written to: no update, no delete, no replace on the id or on either unique key", async () => {
@@ -411,6 +418,12 @@ test("the database itself refuses a review that is early, a baseline that is lat
   await assert.rejects(insertReview(2, after(first, 90, -1).toISOString()), /not due yet/);
   await assert.rejects(insertReview(3, after(first, 180, -1).toISOString()), /not due yet/);
   await insertReview(3, after(first, 180).toISOString());
+  // A fraction on a second review of the same number is refused for being a fraction and for nothing else: the once-only rule leaves
+  // a row that is not whole to the whole-number rule, so one message answers.
+  await assert.rejects(
+    db.prepare(`INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, review_no, value, verdict, in_use, note) VALUES (?, ?, ?, 'user-synthetic-owner-a', 'review', 3, 1.5, 'met', 'yes', '')`).bind(p.id, A, after(first, 181).toISOString()).run(),
+    (error: unknown) => /whole number/.test(String(error)) && !/recorded once/.test(String(error)),
+  );
   for (const unreadable of ["x", "", "not a time", "2026-13-45T00:00:00.000Z"]) await assert.rejects(insertReview(2, unreadable), /not due yet/, `a stamp that is not a time (${JSON.stringify(unreadable)}) is refused, not let through`);
   await assert.rejects(insertReview(3, after(first, 181).toISOString()), /recorded once/);
   assert.equal(await count("outcome_events"), 1);
@@ -517,6 +530,11 @@ test("the once-only and the clock rules hold for each engagement on its own: a s
   await assert.rejects(insertBaseline(e2.id, now), /before anything is accepted/, "engagement 2 has an acceptance, so its baseline is too late");
   await insertBaseline(e1.id, now);
   await assert.rejects(insertBaseline(e1.id, now), /a baseline is recorded once/);
+  await assert.rejects(
+    db.prepare("INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, value, note) VALUES (?, ?, ?, 'user-synthetic-owner-a', 'baseline', 1.5, '')").bind(e1.id, A, now).run(),
+    (error: unknown) => /whole number/.test(String(error)) && !/recorded once/.test(String(error)),
+    "a second baseline that is also a fraction is refused as a fraction only",
+  );
   assert.equal(await count("outcome_events", "kind = 'baseline'"), 1);
 
   // a review needs an acceptance in its own engagement
@@ -658,4 +676,43 @@ test("nothing here carries a fee or a share, and what the owner records changes 
   for (const key of shown) assert.doesNotMatch(key, /fee|commission|share|price|rupee|inr|amount|money|pay/i, `a field called ${key} is in what the owner is shown`);
   const columns = (await db.prepare("SELECT name FROM pragma_table_info('outcome_events')").all<{ name: string }>()).results.map((c) => c.name);
   assert.deepEqual(columns, ["id", "engagement_id", "company_id", "at", "user_id", "kind", "review_no", "value", "verdict", "in_use", "note"]);
+});
+
+test("an idea whose requirement was withdrawn is not offered as next: a withdrawn requirement cannot be made again, so the link would lead to a refusal", async () => {
+  const s = await base();
+  const items = s.detail.result.items.map((i) => i.opportunityId);
+  const e0 = await engageFor(s, 0);
+  assert.equal((await view(e0.id, s.a)).next?.opportunityId, items[1]);
+  // a requirement for the second idea is made and withdrawn (it has no engagement, so it can be)
+  const made = await handleRequirementCreate(req(`/api/companies/${A}/requirements`, s.a, { assessmentId: s.detail.id, opportunityId: items[1], cluster: CLUSTER }), env, A);
+  assert.equal(made.status, 201);
+  const { id } = (await made.json()) as { id: string };
+  assert.equal((await handleRequirementWithdraw(req(`/api/companies/${A}/requirements/${id}/withdraw`, s.a, {}), env, A, id)).status, 201);
+  assert.equal((await view(e0.id, s.a)).next?.opportunityId, items[2], "the withdrawn one is passed over");
+  const again = await handleRequirementCreate(req(`/api/companies/${A}/requirements`, s.a, { assessmentId: s.detail.id, opportunityId: items[1], cluster: CLUSTER }), env, A);
+  assert.equal(again.status, 409, "which is what the owner would meet if it were offered");
+});
+
+test("the expected range says it is SYNTHETIC in the data as well as on the page", async () => {
+  const p = await planned();
+  const shown = await view(p.id, p.a);
+  assert.equal(shown.expected?.synthetic, true);
+});
+
+test("a form post refused before the person is known is answered as the platform answers every module: with JSON, and the page's own form never reaches it for another company", async () => {
+  const p = await planned();
+  const formTo = (path: string, cookie: string | undefined, headers: Record<string, string> = {}, body = "kind=baseline&value=5") =>
+    new Request(`${ORIGIN}${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, ...(cookie ? { cookie } : {}), ...headers }, body });
+  const own = `/api/companies/${A}/engagements/${p.id}/outcomes`;
+  const answer = async (res: Response) => ({ status: res.status, json: res.headers.get("content-type")?.startsWith("application/json") ?? false, location: res.headers.get("location") });
+  assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, undefined), env, A, p.id)), { status: 401, json: true, location: null }, "no session");
+  const b = await ownerB();
+  assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, b), env, A, p.id)), { status: 404, json: true, location: null }, "another company's owner, naming this company");
+  assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, await operator()), env, A, p.id)), { status: 404, json: true, location: null }, "the operator");
+  assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, p.a, { origin: "https://evil.example" }), env, A, p.id)), { status: 403, json: true, location: null }, "another website");
+  assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, p.a, {}, `kind=baseline&value=5&note=${"x".repeat(70_000)}`), env, A, p.id)), { status: 413, json: true, location: null }, "a body over the limit");
+  assert.equal(await count("outcome_events"), 0, "nothing was written by any of them");
+  // after the person is known, every refusal goes back to the page
+  const refused = await answer(await handleOutcomeRecord(formTo(own, p.a, {}, "kind=baseline&value=abc"), env, A, p.id));
+  assert.deepEqual(refused, { status: 303, json: false, location: "/run?problem=invalid" });
 });

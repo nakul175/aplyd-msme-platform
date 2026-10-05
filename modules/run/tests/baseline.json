@@ -1,0 +1,11 @@
+{
+  "updatedAt": "2026-10-05",
+  "reason": "slice 6 run",
+  "suites": {
+    "browser/run": 4,
+    "integration/run-api": 29,
+    "smoke/run": 7,
+    "static/rules": 8,
+    "unit/state": 6
+  }
+}
