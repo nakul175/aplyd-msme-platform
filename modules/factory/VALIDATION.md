@@ -94,3 +94,22 @@ The page was opened in Chromium at 360, 390 and 1280 pixels wide, in the light a
 - **Not independent**, and **no mutation checks** were run for this slice. The count is pinned by its unit test; the wording is pinned only where an existing test names it.
 - **The count is a choice.** It leaves out the two follow-up questions until the answer that asks for them is given. Nothing in the questionnaire says to; a different reader could count all 25.
 - **Sentences were added**: "A draft can be saved after answering just one question." (from the status above: a draft needs one answer), the line about the questions needed to confirm, "in the newest saved version", and the tag "Shown above". The ten-owner test is where the wording is checked, and it has not been run.
+
+## Slice 11d: polish (6 October 2026, branch `slice-11d-polish`)
+
+The author is an agent; no person has read this. Real results, after `pnpm build` of the tree that commit cbfd34f holds.
+
+| Check | Result |
+| --- | --- |
+| `factory/unit/progress`, `factory/unit/questionnaire` | 7 and 12 passed |
+| `factory/static/scope-rules` | 3 passed |
+| `factory/integration/factory-api` | 35 passed (one new: a form post with no cookie, an empty cookie, an altered cookie or a multipart form goes to `/sign-in?expired=1` with nothing saved; a program call still gets 401 JSON; a valid session still saves) |
+| `factory/smoke/describe` | 11 passed, unchanged |
+| `factory/browser/describe` | 9 passed, unchanged (the saved-date line is now the written date; no assertion named the ISO text) |
+| `demo/smoke/interface` (owner B, nothing saved) | the empty Describe page says "Nothing saved yet.", "A draft can be saved after answering just one question." and "No earlier versions yet. Your first save will be version 1." |
+| `platform/browser/session-expired` | 3 passed: the Describe form is filled in, the session ends, Save is pressed, the person lands on the sign-in page with the message, and the description is still version 1 |
+| `demo/browser/phone` | 2 passed: `/factory` at 390 px does not scroll sideways for any person of the cast or a visitor |
+
+No existing assertion was changed or removed. **What was looked at:** the page's text for owner B (nothing saved) and the demonstration owners; the numbers on the sections were not heard in a screen reader.
+
+**What this does not show.** Chromium only, one width for the phone test, a local Worker. The date is the UTC date, not the Indian date (see STATUS). Nothing here is a mutation check of the factory page itself; the integration test was shown to fail when the no-session answer was made JSON again (see the platform VALIDATION).

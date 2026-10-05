@@ -134,3 +134,24 @@ Both pages were opened in Chromium at 390 and 1280 pixels wide, in the light and
 - **Not independent**, and **no mutation checks** were run for this slice: the pages' wording is pinned by the existing tests and by the unit test of `src/view.ts`, which is a small set.
 - **The wording is unproven with owners.** The sentences were written for a person who has never seen the service, but nobody who owns a factory has read them (the ten-owner test is where that is checked).
 - **Two sentences were added** next to buttons (the provider cannot be changed afterwards; the cluster cannot be changed after a requirement is made). Each restates a limit already in this module's and the deliver module's status pages; neither is checked by a test of its own.
+
+## Slice 11d: polish (6 October 2026, branch `slice-11d-polish`)
+
+The author is an agent; no person has read this. Real results, after `pnpm build` of the tree that commit cbfd34f holds.
+
+| Check | Result |
+| --- | --- |
+| `procure/unit/view` | 17 passed (2 more than the baseline of 15: the counts and words with a withdrawn requirement, and the sentence when nothing is left to ask for; the older tests were given the new field `withdrawnAsked` and are otherwise as they were) |
+| `procure/unit/clusters`, `procure/unit/pool` | 2 and 5 passed |
+| `procure/static/rules`, `procure/static/problems` | 10 and 2 passed |
+| `procure/integration/procure-api` | 34 passed, unchanged |
+| `procure/smoke/procure` | 6 passed (one assertion changed, see below) |
+| `procure/browser/procure` | 3 passed (the test that withdraws a requirement now also checks that the bar reads "0 of N accepted ideas asked for. 1 withdrawn, which is not made again.", that the withdrawn idea is listed as withdrawn, and that there is no "Already asked for" list when nothing is open) |
+| `demo/smoke/interface` | 5 passed: the operator with no fee, no provider and no pool reads "... Set it below, and listing opens.", "None yet. Add one in the form below, then list it so owners can choose it." and "No pool has reached five companies yet. A pool shows here once five or more companies ask for the same idea in the same cluster."; owner B's Choose page says why it is empty and where to go; a visitor is given a "Sign in" link |
+| `demo/browser/phone` | 2 passed: `/procure` and `/operator` at 390 px do not scroll sideways for any person of the cast or a visitor; the providers table keeps `table`, `table-header-group`, `table-row` and `table-cell` display, is wider than the box, and scrolling the box does not move the page |
+
+**One existing assertion was changed, and why.** `procure/smoke/procure` matched the assessment date as ISO text; the page now writes "4 October 2026" and the assertion matches that. Nothing was weakened: it still names the same date.
+
+**Mutation checks (the unit tests only).** `asked` counting a withdrawn requirement, `ready` counting it as ready, and the label never saying "withdrawn" each made `procure/unit/view` fail; restored afterwards. The browser and smoke tests were not mutated. A measurement script, not a test, found the 109 px page overflow of the first version of the table box (see STATUS): the page was 499 px wide on a 390 px screen. The phone test measures the page width and should catch it, but it was written after the fix and was not run against the broken build.
+
+**What this does not show.** Chromium only; 390 px only; no real phone, no screen reader, no keyboard walk of the table box. The owner's wording ("1 withdrawn, which is not made again") has not been read by an owner. The date is the UTC date.
