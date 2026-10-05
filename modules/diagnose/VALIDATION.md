@@ -135,3 +135,42 @@ The page was opened in Chromium at 360, 390 and 1280 pixels wide, in the light a
 - **Not independent**, and **no mutation checks** were run for this slice. The sign-off state, the pointer to the next step and the score line are pinned by their unit test; the wording is pinned only where an existing test names it.
 - **The pointer after a sign-off repeats the next step**: the page's frame already ends with the same card when the owner's turn is on another page, so an owner who has signed off sees the same step twice, once under the sign-off and once at the foot of the page. A shared option to leave the foot out would remove it.
 - **Sentences were added**: "Next:" with the step and its button, "What signing off means" (the old explanation, kept in full, behind a tap until every idea is decided), the heading "The ideas, ranked", the line "How it scored" (the engine's own points for the idea, which the page did not show before; they add up to the score, and a test checks it), "Answers:", "Shown above", "Older version". The ten-owner test is where the wording is checked, and it has not been run.
+
+## Slice 11a: where the factory stands, and what changed since the earlier assessment (6 October 2026)
+
+`/diagnose` gained a gap view (BR-DIAG-08), a comparison with the earlier assessment (BR-DIAG-11) and a plain statement on each idea of where its figures come from (BR-DIAG-02); see [the status page](STATUS.md). The author is an agent; no person has read it and no owner has used it. Branch `slice-11a-diagnose-gap`, started from b741f59. Same environment as above (Node v22.22.0, pnpm 11.25.0, Chromium 141.0.7390.37 through `playwright-core` 1.56.1), run on 6 October 2026 (Asia/Kolkata; the container's own clock was still 5 October in UTC, which is the date the runner wrote into the baseline file).
+
+### What was run (real results, after `pnpm build`, on the final code of the branch unless a note says otherwise)
+
+| Check | Result |
+| --- | --- |
+| `node scripts/test.mjs unit --only diagnose/unit/gaps,diagnose/unit/compare` (new) | gaps 15 passed, compare 11 passed |
+| `node scripts/test.mjs unit --only diagnose/unit/engine,diagnose/unit/digest,diagnose/unit/pins,diagnose/unit/not-owner,diagnose/unit/progress` | 20, 3, 3, 1 and 7 passed |
+| `node scripts/test.mjs unit --only journey/unit/contrast,journey/unit/progress` (the contrast guard; the new styles use only existing tokens, no colour was added and `app/globals.css` is untouched) | 8 passed, 36 passed |
+| `node scripts/test.mjs browser --only diagnose/browser/gaps,diagnose/browser/diagnose` (new: four walks in Chromium; the eight existing ones unchanged) | gaps 4 passed, diagnose 8 passed |
+| `node scripts/test.mjs smoke --only diagnose/smoke/diagnose` | 8 passed |
+| `node scripts/test.mjs browser --only journey/browser/journey,demo/browser/walk` and `smoke --only platform/smoke/built-app,demo/smoke/demo` (suites that walk the Decide page from elsewhere) | 1, 2, 12 and 10 passed |
+| `node scripts/test.mjs static` | 28 of 28 passed (includes typecheck, documentation, traceability, test-docs, migrations, `docs/static/lld-sync`, `diagnose/static/scope-rules` and `diagnose/static/problems`) |
+| `node scripts/test.mjs --check-catalogue` | clean, 98 suites in 5 layers |
+| `node scripts/test.mjs unit browser --only diagnose/unit/gaps,diagnose/unit/compare,diagnose/browser/gaps --update-baseline --reason "..."` | the three new suites recorded in `modules/diagnose/tests/baseline.json` through the runner (15, 11, 4); no other count changed |
+
+The four browser walks are: before any assessment, with a description confirmed (owner A) and without (owner B); one assessment at 390 pixels (the five parts in plain words without the ideas, the ideas' source and "first" lines, the folds, the empty comparison, no sideways scroll, every link, fold and button at least 44 pixels tall, no console errors or failed requests); a second assessment made by changing an answer on Describe and confirming it again (what moved and the answers that caused it, the first assessment still there, the way back to the newest, another company's owner shown none of it); and every idea left out. No existing assertion was changed or weakened. The browser test of the second assessment was extended after the first run with a check of every link, fold and button in the page body, which passes now. The same measure, taken by script before the fix, found three links 20 pixels tall (the new jump link and the two "From version" links in the list of assessments); they were fixed, and the test was not run against the unfixed page.
+
+### Mutation checks
+
+Twenty-five one-line changes were made by hand to `src/gaps.ts` and `src/compare.ts` (a guard removed, a comparison inverted, an order swapped, a case dropped) and the two new unit files were run against each. Three changes survived the first run: the lines in a part sorted by kind before the idea's place, the "ideas held up" count counting lines instead of ideas, and "nothing moved" ignoring ideas that came in or dropped out. A new test and two assertions were added; after that, none of the twenty-five survived, and the files were restored. The script is not in the repository, so the checks are not reproducible by someone else without writing their own; the repository's own tool in `scripts/mutation` was not used. The page file was not mutated: its markup is held only by the browser tests.
+
+### What was looked at
+
+The page was opened in Chromium for owner A with two assessments (the second after changing "How do you keep track of what is being made?" to "In software" and adding quality records) at 390 and 1280 pixels, in the light and the dark scheme: no sideways scroll at either width, nothing under 44 pixels, the text readable in both schemes, no part cut off. A keyboard walk by script (Tab through the page, Enter and Space on a fold) found a visible focus ring on every stop and the folds opening and closing; the headings run h1, then h2 for the assessment, the comparison, the ideas, where the factory stands and the list of assessments, with h3 below them (the sign-off, the groups of changes, each idea, each part). Also seen earlier in the session at 390 pixels: the page was too long with the answers open, so they were folded, the part view was moved below the ideas, and the comparison was put above them.
+
+### What this does not show
+
+- **No owner has read or used it.** Whether "Where your factory stands" and "What changed since the earlier assessment" are understood, and whether an owner can read the parts without the ideas (the acceptance wording of BR-DIAG-08), has not been tested. Passing unit and browser tests are not an accepted case: all 176 acceptance cases remain pending, and BR-DIAG-02, -08 and -11 stay Partial.
+- **The parts are a presentation choice** over a thin SYNTHETIC library, not a measure of any factory. People rests on one question.
+- **No independent review.** The code, the tests and the mutation checks are the author's.
+- **No screen reader, no real phone, Chromium only**, a local Worker over plain HTTP. The keyboard walk was a script, not a person.
+- **Left not run**: `diagnose/integration/diagnose-api` (34; nothing in the API, data layer or migrations changed), `platform/browser/pages` and every suite of other modules apart from those named above, `node scripts/test.mjs pr --guard` and the whole suite (not allowed in this push).
+- **The engine's own sentences contain the word "gap"** (the reason for a left-out idea). They are shown as written, in the comparison and in the existing list of left-out ideas. Changing them needs a new engine version and new pins.
+- **The page is long on a phone** (about 11,000 pixels at 390 pixels wide, two assessments, folds closed).
+- **Sources**: the statement of where figures come from is true because the library cites none. It was checked against the library in the test, not against `docs/sources.md`.
