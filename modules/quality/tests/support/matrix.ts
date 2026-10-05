@@ -53,7 +53,7 @@ export async function startQuality(): Promise<Quality> {
   };
 }
 
-export type PhoneOptions = { viewport?: { width: number; height: number }; mobile?: boolean };
+export type PhoneOptions = { viewport?: { width: number; height: number }; mobile?: boolean; /** false turns the browser's scripts off (the context is then the page before the framework arrives, or without it). The probe does not run. */ javaScript?: boolean };
 
 /** A fresh context shaped like a phone: 390 by 844, touch, a mobile layout viewport, and the person's wish for no motion (so a focus ring is read at rest, not mid-transition). Only the application's own address is reachable. */
 export async function newPhoneContext(q: Quality, options: PhoneOptions = {}): Promise<BrowserContext> {
@@ -64,6 +64,7 @@ export async function newPhoneContext(q: Quality, options: PhoneOptions = {}): P
     hasTouch: true,
     deviceScaleFactor: 2,
     reducedMotion: "reduce",
+    javaScriptEnabled: options.javaScript ?? true,
   });
   q.contexts.add(context);
   context.setDefaultTimeout(20_000);

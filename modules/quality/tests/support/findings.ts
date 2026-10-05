@@ -124,6 +124,34 @@ export function axFindings(w: Where, unnamed: { role: string; key: string }[]): 
   return unnamed.map((u) => make(w, "ax-name-empty", u.key, `the browser's accessibility tree gives this ${u.role} an empty name`));
 }
 
+export const NO_SCRIPT_CHECKS = ["no-script-page", "no-script-form"] as const;
+export type NoScriptMeasure = { h1s: number; mains: number; textLength: number; forms: { action: string | null; method: string; hasSubmit: boolean }[] };
+/** Runs inside a page that has scripts off, so it must not use anything outside itself (the probe does not run there). */
+export function measureWithoutScripts(): NoScriptMeasure {
+  const main = document.querySelector("main");
+  return {
+    h1s: [...document.querySelectorAll("h1")].filter((h) => (h.textContent ?? "").trim() !== "").length,
+    mains: document.querySelectorAll("main").length,
+    textLength: ((main as HTMLElement | null)?.innerText ?? "").trim().length,
+    forms: [...document.forms].map((f) => ({ action: f.getAttribute("action"), method: f.method, hasSubmit: f.querySelector("button:not([type=button]):not([type=reset]), input[type=submit]") !== null })),
+  };
+}
+
+/** What the page must be with scripts off: one h1 and one main with words in it, and every form a real form (a post to the server's own address, with a button that submits it). */
+export function noScriptFindings(w: Where, m: NoScriptMeasure): Finding[] {
+  const out: Finding[] = [];
+  if (m.mains !== 1) out.push(make(w, "no-script-page", `${m.mains} main elements`, `with scripts off the page has ${m.mains} main elements; one is expected`));
+  if (m.h1s !== 1) out.push(make(w, "no-script-page", `${m.h1s} h1 elements`, `with scripts off the page has ${m.h1s} h1 elements; one is expected`));
+  if (m.textLength < 40) out.push(make(w, "no-script-page", "main has almost no text", `with scripts off the text of main is ${m.textLength} characters long`));
+  for (const f of m.forms) {
+    const where = `form ${f.action ?? "(no action)"}`.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g, "*");
+    if (!f.action || !f.action.startsWith("/")) out.push(make(w, "no-script-form", where, `the form's action is ${f.action === null ? "missing" : `"${f.action}"`}, so it does nothing without a script`));
+    if (f.method !== "post") out.push(make(w, "no-script-form", `${where} (${f.method})`, `the form's method is ${f.method}, not post`));
+    if (!f.hasSubmit) out.push(make(w, "no-script-form", `${where} (no submit button)`, "the form has no button that submits it"));
+  }
+  return out;
+}
+
 /** Where the numbers of a run go for the integrator: the repository's reports/ folder, which is not tracked. */
 export function writeReport(name: string, data: unknown): string {
   const dir = join(import.meta.dirname, "..", "..", "..", "..", "reports");

@@ -6,7 +6,7 @@ import { after, before, test } from "node:test";
 import type { BrowserContext, Page } from "playwright-core";
 import { SETUP_TIMEOUT_MS, TEST_TIMEOUT_MS, chooseBrowser, launchBrowser } from "../../../platform/tests/support/browser.ts";
 import type { Browser } from "playwright-core";
-import { keyboardFindings, phoneFindings, pressTab, structureFindings, unnamedInteractive } from "../support/findings.ts";
+import { keyboardFindings, measureWithoutScripts, noScriptFindings, phoneFindings, pressTab, structureFindings, unnamedInteractive } from "../support/findings.ts";
 import { MIN_TARGET_PX, OFFSCREEN_BY_DESIGN, TOLERANCE_PX, VIEWPORT, installProbe } from "../support/matrix.ts";
 
 let browser: Browser;
@@ -123,6 +123,23 @@ test("a page with the structure faults is found fault by fault, and a clean page
       <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt=""> <img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt="A dot"> <svg aria-hidden="true" width="5" height="5"></svg></main>`),
   );
   assert.deepEqual(structureFindings(WHO, await clean.evaluate(() => window.__quality.structure())), []);
+});
+
+test("scripts-off faults are found: no h1, a main with no text, a form with no action, a form that gets, a form with nothing to press; a plain post form is not a fault", { timeout: TEST_TIMEOUT_MS }, async () => {
+  const bad = await open(
+    doc(`<main><form><input name="a" aria-label="a"></form><form action="javascript:void(0)" method="get"><input name="b" aria-label="b"><button type="button">Not a submit</button></form></main>`),
+  );
+  const found = noScriptFindings(WHO, await bad.evaluate(measureWithoutScripts));
+  assert.deepEqual(
+    keys(found).sort(),
+    ["0 h1 elements", "form (no action) (get)", "form (no action) (no submit button)", "form (no action)", "form javascript:void(0) (get)", "form javascript:void(0) (no submit button)", "form javascript:void(0)", "main has almost no text"].sort(),
+  );
+  assert.deepEqual(checks(found), ["no-script-form", "no-script-page"]);
+
+  const good = await open(doc(`<main><h1>A page</h1><p>Words enough to be a page that a person can read without any script at all, as a plain form should be.</p><form action="/api/things/0f8fad5b-d9cb-469f-a165-70867728950e/save" method="post"><label>Name <input name="n"></label><button>Save</button></form></main>`));
+  const clean = await good.evaluate(measureWithoutScripts);
+  assert.deepEqual(noScriptFindings(WHO, clean), []);
+  assert.equal(clean.forms.length, 1);
 });
 
 test("a link or a button with no name is found by the browser's accessibility tree, with the element located", { timeout: TEST_TIMEOUT_MS }, async () => {
