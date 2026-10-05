@@ -18,7 +18,7 @@ const tracked = (): string[] => execFileSync("git", ["ls-files", "--cached", "--
 test("the glossary says what it is: a title, the version, date and status line, and how it relates to the other documents", () => {
   const lines = text.split("\n");
   assert.equal(lines[0], "# Glossary: APLYD MSME platform");
-  assert.ok(lines.includes("Version 0.1. Date: 5 October 2026. Status: draft, not reviewed by a person."));
+  assert.ok(lines.includes("Version 0.2. Date: 5 October 2026. Status: draft, not reviewed by a person."));
   assert.ok(lines.some((l) => l.startsWith("How this relates to the other documents:")));
 });
 

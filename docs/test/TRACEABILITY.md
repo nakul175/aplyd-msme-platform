@@ -55,6 +55,8 @@ Must requirements that the BRD calls Built or Partial: 43. With at least one aut
 
 One row per requirement, in the order of the BRD. Case IDs in a run of three or more in one area are written as a range. The count of automated cases includes cases marked Partly:.
 
+The column BRD status is copied from the BRD as it was written. For BR-UX-01 and BR-UX-02 it says Not built, which is older than the interface built in slice 10: the pages now have a sentence under the title, a next step and a view of the five steps, and no owner has tried them (functional specification, section 12, item 24). The verdict people-only is therefore about the missing owner sessions, not about missing pages.
+
 <!-- MATRIX-START -->
 | Requirement | Title | Priority | BRD status | Cases | Automated cases | Verdict | Functional requirements |
 | --- | --- | --- | --- | --- | ---: | --- | --- |

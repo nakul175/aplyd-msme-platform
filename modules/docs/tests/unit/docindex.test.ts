@@ -1,8 +1,8 @@
 // The documentation-index reader: the table of documents, coverage, status claims, reading paths, the table of checks and code spans, each with a seeded fault.
+// Every document is a link: there is no label for a document whose file may not be there.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  ADDED,
   checkChecks,
   checkCodeSpans,
   checkReadingPaths,
@@ -34,19 +34,21 @@ const problemsOf = (text: string): string => {
   return "";
 };
 
-test("rows are read: a link resolved from the index, the readers (all is the four), and a document marked as added with this set", () => {
+test("rows are read: a link resolved from the index (a page of HTML too), and the readers (all is the four)", () => {
   const d = parseDocuments(
     index(
       drow("[README.md](../README.md)", { readers: "all" }),
       drow("[docs/thesis.md](thesis.md)", { readers: "sponsor, developer" }),
-      drow("`docs/design/LLD.md`", { status: ADDED }),
+      drow("[docs/design/LLD.md](design/LLD.md)"),
+      drow("[docs/design/wireframes.html](design/wireframes.html)"),
     ),
     INDEX,
   );
-  assert.deepEqual(d.map((x) => [x.path, x.linked, x.added, x.readers]), [
-    ["README.md", true, false, ["sponsor", "developer", "tester", "operator"]],
-    ["docs/thesis.md", true, false, ["sponsor", "developer"]],
-    ["docs/design/LLD.md", false, true, ["developer"]],
+  assert.deepEqual(d.map((x) => [x.path, x.readers]), [
+    ["README.md", ["sponsor", "developer", "tester", "operator"]],
+    ["docs/thesis.md", ["sponsor", "developer"]],
+    ["docs/design/LLD.md", ["developer"]],
+    ["docs/design/wireframes.html", ["developer"]],
   ]);
 });
 
@@ -55,9 +57,10 @@ test("rows outside section 3 are not documents, and the header row is not one", 
   assert.deepEqual(parseDocuments(text, INDEX).map((d) => d.path), ["docs/A.md"]);
 });
 
-test("a row with the wrong number of cells, a first cell that is neither a link nor a path in code, and a link with an anchor are named", () => {
+test("a row with the wrong number of cells, a first cell that is not a link, and a link with an anchor are named", () => {
   assert.match(problemsOf(index("| [A.md](A.md) | purpose | developer | truth |")), /\[A\.md\]\(A\.md\): 4 cells, expected 5/);
-  assert.match(problemsOf(index(drow("A.md"))), /A\.md: the first cell is a link, or a path in code/);
+  assert.match(problemsOf(index(drow("A.md"))), /A\.md: the first cell is a link to the document/);
+  assert.match(problemsOf(index(drow("`docs/design/LLD.md`"))), /the first cell is a link to the document/, "a path in code is not a link: the file must be there to be listed");
   assert.match(problemsOf(index(drow("[A](A.md#top)"))), /the link A\.md#top must lead to a file, without an anchor/);
   assert.match(problemsOf(index(drow("[A](../../../A.md)"))), /must lead to a file/);
 });
@@ -75,17 +78,11 @@ test("readers that are not the four, all with another reader, and a reader named
   assert.match(problemsOf(index(drow("[A.md](A.md)", { readers: "tester, tester" }))), /a reader is named twice/);
 });
 
-test("a status that says nothing is named: being written, TBD, to come, in progress", () => {
-  for (const status of ["Being written", "TBD", "Draft, to come", "Work in progress", "Coming soon", "Under construction"]) {
-    assert.match(problemsOf(index(drow("[A.md](A.md)", { status }))), /says nothing; give what the document is/, status);
+test("a status that says nothing is named: being written, TBD, to come, in progress, and the old label Added with this set", () => {
+  for (const status of ["Being written", "TBD", "Draft, to come", "Work in progress", "Coming soon", "Under construction", "Added with this set", "Added with this set, in part"]) {
+    assert.match(problemsOf(index(drow("[A.md](A.md)", { status }))), /says nothing; give what the document is, its date and whether a person has reviewed it/, status);
   }
   assert.equal(problemsOf(index(drow("[A.md](A.md)", { status: "Last updated 4 October 2026" }))), "");
-});
-
-test("a document added with this set has exactly that status, and only such a document is not a link", () => {
-  assert.match(problemsOf(index(drow("`x/LLD.md`", { status: "Added with this set, in part" }))), /the status of a document added with this set is exactly "Added with this set"/);
-  assert.match(problemsOf(index(drow("`x/LLD.md`"))), /a row that is not a link is for a document with the status "Added with this set"/);
-  assert.equal(problemsOf(index(drow("`x/LLD.md`", { status: ADDED }))), "");
 });
 
 test("a document listed twice is named", () => {
@@ -104,17 +101,17 @@ test("the files the index must list are every Markdown file and every HTML page 
 });
 
 test("a document of the repository that the index does not list is named", () => {
-  const d = docs(drow("[A.md](A.md)"), drow("`docs/design/wireframes.html`", { status: ADDED }));
+  const d = docs(drow("[A.md](A.md)"), drow("[w](design/wireframes.html)"));
   assert.deepEqual(missingFromIndex(d, ["docs/A.md", "docs/B.md", "docs/design/wireframes.html", "modules/x/STATUS.md", "src/a.ts"]), [
     "docs/B.md is a document of the repository and the index does not list it",
     "modules/x/STATUS.md is a document of the repository and the index does not list it",
   ]);
 });
 
-test("a listed document that is not there is named, unless its row says it is added with this set; a link to a missing file is always named", () => {
-  const d = docs(drow("[A.md](A.md)"), drow("`docs/design/LLD.md`", { status: ADDED }), drow("`docs/gone.md`", { status: ADDED }));
-  assert.deepEqual(missingListed(d, (p) => p === "docs/design/LLD.md"), ["docs/A.md: the link leads to a file that is not there"]);
-  assert.deepEqual(missingListed(d, (p) => p === "docs/A.md"), []);
+test("a listed document that is not there is named, whichever document it is: nothing is excused from existing", () => {
+  const d = docs(drow("[A.md](A.md)"), drow("[LLD](design/LLD.md)"), drow("[gone](gone.md)"));
+  assert.deepEqual(missingListed(d, (p) => p === "docs/design/LLD.md"), ["docs/A.md: the link leads to a file that is not there", "docs/gone.md: the link leads to a file that is not there"]);
+  assert.deepEqual(missingListed(d, () => true), []);
 });
 
 const CLAIM_DOC = "# Title\n\nVersion 0.1. Date: 5 October 2026. Status: draft, not reviewed by a person.\n";
@@ -123,7 +120,7 @@ test("a status is checked against the document: a date, a commit, the version, a
   const read = (p: string) => (p === "docs/A.md" ? CLAIM_DOC : "# B\n\nFrom commit abc1234.\n");
   assert.deepEqual(checkStatusClaims(d, read), [
     "docs/A.md: the status gives 6 October 2026 and the document does not",
-    "docs/A.md: the status gives Version 0.2 and the document does not",
+    "docs/A.md: the status gives Version 0.2 and the opening lines of the document say Version 0.1",
     "docs/B.md: the status gives 4 October 2026 and the document does not",
     "docs/B.md: the status gives the commit 2adfbde and the document does not",
   ]);
@@ -132,9 +129,27 @@ test("a status is checked against the document: a date, a commit, the version, a
   assert.deepEqual(checkStatusClaims(unreviewed, () => CLAIM_DOC), []);
 });
 
-test("a row marked as added, and a file that is not there, are not checked against a document", () => {
-  const d = docs(drow("`docs/design/LLD.md`", { status: ADDED }), drow("[A.md](A.md)", { status: "Last updated 4 October 2026" }));
+test("a file that is not there is not checked against a document (missingListed names it)", () => {
+  const d = docs(drow("[LLD](design/LLD.md)", { status: "5 October 2026. Draft, not reviewed by a person" }), drow("[A.md](A.md)", { status: "Last updated 4 October 2026" }));
   assert.deepEqual(checkStatusClaims(d, () => null), []);
+});
+
+test("the version in a status is the version the document states in its opening lines: a document that quotes an older version further down does not pass for it", () => {
+  const d = docs(drow("[A.md](A.md)", { status: "Version 0.1, 5 October 2026. Draft, not reviewed by a person" }));
+  const now = "# A\n\nVersion 0.2. Date: 5 October 2026. Status: draft, not reviewed by a person.\n";
+  const quoting = `${now}${"line\n".repeat(30)}Version 0.1 said otherwise.\n`;
+  assert.deepEqual(checkStatusClaims(d, () => quoting), ["docs/A.md: the status gives Version 0.1 and the opening lines of the document say Version 0.2"]);
+  const current = docs(drow("[A.md](A.md)", { status: "Version 0.2, 5 October 2026. Draft, not reviewed by a person" }));
+  assert.deepEqual(checkStatusClaims(current, () => quoting), []);
+  const lateOnly = "# A\n\n5 October 2026. Not reviewed by a person.\n" + "line\n".repeat(30) + "Version 0.1.\n";
+  assert.deepEqual(checkStatusClaims(d, () => lateOnly), [], "a document that gives no version in its opening lines is checked on the whole text");
+});
+
+test("a page of HTML is checked as a document: its version, its date and its review status are read from the page", () => {
+  const d = docs(drow("[w](design/wireframes.html)", { status: "Version 0.2, 5 October 2026. Draft, not reviewed by a person" }));
+  const page = '<!doctype html>\n<title>W</title>\n<p class="status">Version 0.2 &middot; 5 October 2026 &middot; Draft, not reviewed by a person</p>\n';
+  assert.deepEqual(checkStatusClaims(d, () => page), []);
+  assert.deepEqual(checkStatusClaims(d, () => page.replace("0.2", "0.1")), ["docs/design/wireframes.html: the status gives Version 0.2 and the opening lines of the document say Version 0.1"]);
 });
 
 test("a row that says no date is stated is named when the document gives a date or a version of itself, and not for the date of something else", () => {
@@ -170,12 +185,14 @@ test("a missing path, a path out of order, a short path and a mis-numbered item 
   assert.ok(checkReadingPaths(parseReadingPaths(numbered, INDEX), LISTED()).includes("Sponsor: item 2 is numbered 5"));
 });
 
-test("an item that links to a document the index does not list, and an item with no link, are named; an item that says it is added with this set, or points at a module directory, is not", () => {
+test("an item that links to a document the index does not list, and an item with no link, are named; an item that points at the module pages is not, and \"(added with this set)\" excuses nothing", () => {
   const fault = FOUR.replace("[C](C.md): c.", "[X](X.md): x.").replace("2. [B](B.md): b.", "2. Nothing to link to.");
   const p = checkReadingPaths(parseReadingPaths(fault, INDEX), LISTED());
   assert.ok(p.includes("Sponsor, item 3: docs/X.md is not a document the index lists"));
-  assert.ok(p.includes('Sponsor, item 2: no link to a listed document, and it does not say "(added with this set)"'));
-  const ok = FOUR.replace("2. [B](B.md): b.", "2. The low-level design (added with this set): how.").replace("3. [C](C.md): c.", "3. The pages under `modules/<name>/`.");
+  assert.ok(p.includes("Sponsor, item 2: no link to a listed document, and it does not point at the pages under modules/<name>/"));
+  const old = FOUR.replace("2. [B](B.md): b.", "2. The low-level design (added with this set): how.");
+  assert.ok(checkReadingPaths(parseReadingPaths(old, INDEX), LISTED()).some((x) => x.startsWith("Sponsor, item 2: no link to a listed document")));
+  const ok = FOUR.replace("3. [C](C.md): c.", "3. The pages under `modules/<name>/`.");
   assert.deepEqual(checkReadingPaths(parseReadingPaths(ok, INDEX), LISTED()), []);
 });
 
@@ -219,11 +236,12 @@ test("a unit test of a module runs as the unit layer", () => {
   assert.deepEqual(checkChecks(c, [], () => true, IDS), []);
 });
 
-test("every suite in code is one the runner lists, and every path in code exists, unless the document is added with this set; fences are not read", () => {
+test("every suite in code is one the runner lists, and every path in code exists, without exception; fences are not read", () => {
   const md = "Run `docs/static/brd` and `docs/static/gone`, see `modules/docs/src/brd.ts`, `modules/docs/src/gone.ts`, `docs/design/LLD.md`, `modules/<name>/STATUS.md`, `node scripts/test.mjs pr` and `baseline.json`.\n\n```\n`fenced/path.ts`\n```";
-  assert.deepEqual(checkCodeSpans(md, (p) => p === "modules/docs/src/brd.ts", IDS, new Set(["docs/design/LLD.md"])), [
+  assert.deepEqual(checkCodeSpans(md, (p) => p === "modules/docs/src/brd.ts", IDS), [
     "docs/static/gone: the runner lists no such suite",
     "modules/docs/src/gone.ts: the path does not exist",
+    "docs/design/LLD.md: the path does not exist",
     "baseline.json: the path does not exist",
   ]);
 });

@@ -99,9 +99,9 @@ The rows below are [Likely] sound and are not enforced. When in doubt, run RP-01
 | --- | --- |
 | `modules/platform/src/identity`, session, secret, cross-site, body, headers | `platform/unit/*`, `platform/integration/platform-api`, `platform/smoke/built-app`, `platform/browser/session-and-scope`, `platform/browser/cross-origin`, then RP-01 |
 | `modules/platform/src/db` (companies, audit, guards, migrate), `drizzle/` | RP-07, `platform/integration/append-only-keys`, `platform/unit/guards`, `platform/unit/migrations`, every module's integration suite, then RP-01 |
-| `modules/factory` | the `factory/*` suites, `journey/browser/journey` |
-| `modules/diagnose` (engine, library, digest) | the `diagnose/*` suites, `demo/unit/cast` (it pins the ranking the demonstration relies on), `journey/browser/journey` |
-| `modules/procure` (pool, providers, fee, clusters) | the `procure/*` suites, `deliver/integration/deliver-api`, `demo/smoke/demo`, RP-02 |
+| `modules/factory` | the `factory/*` suites, `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey` |
+| `modules/diagnose` (engine, library, digest) | the `diagnose/*` suites, `demo/unit/cast` (it pins the ranking the demonstration relies on), `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey` |
+| `modules/procure` (pool, providers, fee, clusters) | the `procure/*` suites, `deliver/integration/deliver-api`, `journey/unit/progress`, `journey/integration/facts`, `demo/smoke/demo`, RP-02 |
 | `modules/deliver` | the `deliver/*` suites, `run/integration/run-api`, `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey`, RP-02 |
 | `modules/run` | the `run/*` suites, `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey` |
 | `modules/journey` (which step is the owner's turn) | `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey` |

@@ -14,6 +14,7 @@ import {
   headingAnchors,
   parseFindings,
   resolveLink,
+  scriptAnchors,
   statusKindOf,
   type Finding,
 } from "../../src/findings.ts";
@@ -112,9 +113,31 @@ test("a link is resolved from the file that holds it, and one that leaves the re
   assert.equal(resolveLink("docs/FINDINGS.md", "../../outside.md"), null);
 });
 
-test("anchors are made as the document checker makes them: code removed, punctuation dropped, repeats numbered", () => {
-  const md = ["# Title", "## 5.2 The `x` thing (AS BUILT)", "## Known limits", "## Known limits", "```", "## not a heading", "```", "### Ünïcode, and: more"].join("\n");
-  assert.deepEqual([...headingAnchors(md)], ["title", "52-the--thing-as-built", "known-limits", "known-limits-1", "ünïcode-and-more"]);
+test("anchors are made as GitHub makes them: code text kept, punctuation dropped, underscores kept, repeats numbered, fenced blocks ignored", () => {
+  const md = ["# Title", "## 5.2 The `x` thing (AS BUILT)", "## Known limits", "## Known limits", "```", "## not a heading", "```", "### Ünïcode, and: more", "## The `next_step` rule"].join("\n");
+  assert.deepEqual([...headingAnchors(md)], ["title", "52-the-x-thing-as-built", "known-limits", "known-limits-1", "ünïcode-and-more", "the-next_step-rule"]);
+});
+
+test("the anchors of the document checker drop inline code and underscores, so the two rules can differ", () => {
+  const md = ["## 5.2 The `x` thing", "## The `next_step` rule", "## Plain heading"].join("\n");
+  assert.deepEqual([...scriptAnchors(md)], ["52-the--thing", "the--rule", "plain-heading"]);
+  assert.ok(headingAnchors(md).has("52-the-x-thing") && !scriptAnchors(md).has("52-the-x-thing"));
+});
+
+test("a link that resolves on GitHub but not for the document checker is reported, and the reverse is a missing heading", () => {
+  const md = "## 5.2 The `x` thing\n## Plain heading\n";
+  const resolver = { exists: () => true, anchors: () => headingAnchors(md), scriptAnchors: () => scriptAnchors(md) };
+  const f = parseFindings(
+    register(
+      row(1, { source: "[a](../modules/a/STATUS.md#52-the-x-thing)" }),
+      row(2, { source: "[a](../modules/a/STATUS.md#plain-heading)" }),
+      row(3, { source: "[a](../modules/a/STATUS.md#52-the--thing)" }),
+    ),
+  );
+  const msg = checkSourceLinks(f, "docs/FINDINGS.md", resolver).join("\n");
+  assert.match(msg, /FND-001: .*matches a heading on GitHub but not for scripts\/check-documentation\.mjs/);
+  assert.match(msg, /FND-003: .*has no matching heading/);
+  assert.ok(!msg.includes("FND-002"), msg);
 });
 
 test("every source link must lead to a file and to a heading that is there", () => {

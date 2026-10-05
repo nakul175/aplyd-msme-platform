@@ -2,7 +2,7 @@
 
 Version 0.2. Date: 5 October 2026. Status: draft, not reviewed by a person.
 
-This document shows the screens of the APLYD MSME platform, page by page, as drawings with numbered notes. Version 0.1, written earlier on 5 October 2026, showed the interface as it then was, with screenshots, and proposed a redesign. It answered the sponsor's reaction on 5 October 2026 on opening the running application: "i dont under stand the ui ux at all. what does this app dp". The interface was then redesigned and built (slice 10). Version 0.2 draws the screens as built (section 2), keeps the earlier interface with its screenshots (section 3) and the earlier proposal (sections 4 to 6) as earlier versions, and says what the built interface took from the proposal and what it did not (section 7). Every company, person, provider and figure on every screen is SYNTHETIC. No owner of a factory has used the redesigned screens, and no person has reviewed this document.
+This document shows the screens of the APLYD MSME platform, page by page, as drawings with numbered notes. Version 0.1, written earlier on 5 October 2026, showed the interface as it then was, with screenshots, and proposed a redesign. It answered the sponsor's reaction on 5 October 2026 on opening the running application: "i dont under stand the ui ux at all. what does this app dp". The interface was then redesigned and built (slice 10). Version 0.2 draws the screens as built (section 2), keeps the earlier interface with its screenshots (section 3) and the earlier proposal (sections 4 to 6) as earlier versions, and says what the built interface took from the proposal and what it did not (section 7). Every company, person, provider and figure on every screen is SYNTHETIC. No owner of a factory has used the redesigned screens, and no person has reviewed this document. Later on 5 October 2026 the document was corrected after reviews run by agents, not by a person: the next-step rules and some texts had changed in the code (commit `f35b835`), and the drawings and notes follow that code.
 
 How this relates to the other documents: the requirements it serves are BR-UX-01 to BR-UX-11 in the [business requirements](../brd/BRD.md); the screens are SCR-01 to SCR-09 in the [functional specification](../fsd/FSD.md), whose section 5 gives every field, button, message and state of each screen (this document shows where they sit) and whose rows FR-UX-15 to FR-UX-24 describe the parts every page shares; the same drawings, as boxes that follow the light or dark setting of the browser, are in the [wireframes page](wireframes.html); how a page is built is in the [interface guide](INTERFACE-GUIDE.md); the user and the five stages come from sections 1 and 3 of the [thesis](../thesis.md); the architecture is in the [high-level design](HLD.md); the words are to be fixed in the [glossary](../GLOSSARY.md); the sessions that would test the screens are in the [UAT plan](../test/UAT-PLAN.md) and the [ten-owner test](../ten-owner-test.md).
 
@@ -54,7 +54,7 @@ Sample figures (names, rupee amounts, dates) come from the synthetic demonstrati
 
 ## 2. The screens as built
 
-Drawn on 5 October 2026 from a capture of the pages as the application sent them, running on synthetic demo data, for six synthetic people (a visitor, four owners and the operator), and read against the source. The capture was made before this document was written, by someone other than its author, in a Chromium window 1,000 pixels wide, and is not kept in the repository. The author looked at no page on a screen, at a phone width or any other: the drawings show what each page says and in what order, not how it looks. What is said about layout at a narrow width comes from reading the style sheets. No owner of a factory has used these screens.
+Drawn on 5 October 2026 from a capture of the pages as the application sent them, running on synthetic demo data, for six synthetic people (a visitor, four owners and the operator), and read against the source. The capture was made before this document was written, by someone other than its author, in a Chromium window 1,000 pixels wide, and is not kept in the repository. The author looked at no page on a screen, at a phone width or any other: the drawings show what each page says and in what order, not how it looks. What is said about layout at a narrow width comes from reading the style sheets. No owner of a factory has used these screens. The next-step rules and some texts were changed after the capture, in commit `f35b835` on the same day; every drawing was then read against the source as it stands after that commit, and where the capture and the source differ the drawing follows the source. Those drawings were not seen on a screen.
 
 The drawings are made from the structure of the pages in that capture (the owner of a company with only a confirmed description, one with nothing, one with a delivery waiting, one with an agreed plan and no starting number, a visitor and the operator). Where a state was not in the capture, the drawing says it was read from the source. No screenshot is reproduced: the capture is not kept in the repository.
 
@@ -112,8 +112,8 @@ Drawn from: Observed in the capture (a visitor); read in app/page.tsx.
 ...... Frame: banner and app bar .......
 +======================================+ (1)
 | APLYD MSME platform                  |
-| # Find the technology that fits your |
-|   factory, and get it working.       |
+| # See which technology is worth      |
+|   trying in your factory.            |
 | ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
 | ~~~~~~~~~~~~~~~~~~~~~                |
 | [> Sign in <]   You are not signed   |
@@ -148,12 +148,12 @@ Drawn from: Observed in the capture (a visitor); read in app/page.tsx.
 | --- | --- | --- |
 | 1 | **Opening block.** The service in one line, a short paragraph, and the one button "Sign in" (to the sign-in page), with "You are not signed in." beside it. It is the only "Sign in" link on the page. The top heading is the name of the service. | FR-UX-22, FR-ID-12 |
 | 2 | **How it works.** Five steps in plain words, one line each: the one-word name of the step in bold and what the step is. From 52 rem wide the five sit in a row. | FR-UX-22 |
-| 3 | **What you can rely on.** Four lines, each a bold sentence and one more: nothing is overwritten (every save is kept as a version); other companies cannot see yours (the rule is kept on the server); you decide (ideas are ranked by fixed rules and nothing goes on without your yes); no money moves here. | FR-UX-22 |
+| 3 | **What you can rely on.** Four lines, each a bold sentence and one more: nothing is overwritten (the description keeps every saved version, and decisions and events are added to the record, never erased); other companies cannot see yours (the rule is kept on the server); you decide (ideas are ranked by fixed rules and nothing goes on without your yes); no money moves here. | FR-UX-22 |
 | 4 | **About this version.** Says it is an early version, in English only, for one factory at a time, with no photos or voice yet, and that nothing is a finding about a real factory. | FR-UX-22 |
 
 #### An owner whose plan is agreed and who has no starting number
 
-Drawn from: Observed in the capture (owner D, the company with an agreed plan); read in app/page.tsx and modules/journey/src/progress.ts.
+Drawn from: Read in app/page.tsx and modules/journey/src/progress.ts, for the facts of owner D in the capture (a plan agreed, no starting number, two requirements, one with a provider chosen). The capture was made before the next-step rules changed (commit f35b835), so this is what the source now draws for those facts, not what was seen on a screen.
 
 ```text
 ...... Frame: banner and app bar .......
@@ -172,17 +172,15 @@ Signed in as SYNTHETIC Owner D (2)
 
 +--------------------------------------+ (4)
 | (v) {Describe your factory} <Done>   |
-| ~~~~~~~~~~~~~~~~~~~~~                |
 | Confirmed. Newest version is 1.      |
 +--------------------------------------+
 +--------------------------------------+
 | (v) {What to do about it} <Done>     |
-| ~~~~~~~~~~~~~~~~~~~~~                |
 | Signed off. You decided on 5 of 5    |
 | ideas.                               |
 +--------------------------------------+
 +--------------------------------------+
-| (v) {What you need} <Done>           |
+| (3) {What you need} <Not yet>        |
 | ~~~~~~~~~~~~~~~~~~~~~                |
 | 2 requirements, 1 provider chosen.   |
 +--------------------------------------+
@@ -217,20 +215,77 @@ Signed in as SYNTHETIC Owner D (2)
 
 | No. | What it is | Built from |
 | --- | --- | --- |
-| 1 | **The next step.** The line "Your next step", the title as the top heading, one sentence and one button. All four come from the one rule of `nextStep` that fires: thirteen rules tried in order, the first that fits wins (FSD, the table under FR-UX-20). Here it is the rule `record_baseline`. The button goes to the step's page (here Results), not to the control that does the step. | FR-UX-20, FR-UX-22 |
+| 1 | **The next step.** The line "Your next step", the title as the top heading, one sentence and one button. All four come from the one rule of `nextStep` that fires: nineteen rules (eighteen keys) tried in order, the first that fits wins (FSD, the table under FR-UX-20). Here it is the rule `record_baseline`: a plan is agreed, nothing is accepted and no starting number is written down. The button goes to the step's page (here Results), not to the control that does the step. | FR-UX-20, FR-UX-22 |
 | 2 | **Signed in as.** The display name and the role, as a tag. | FR-UX-22 |
 | 3 | **Your five steps.** The heading of the list below. | FR-UX-22 |
-| 4 | **Five stage cards.** Each has a dot (the step's number, or a tick when done), a link named for the page (Describe your factory, What to do about it, What you need, Delivery, Results), a tag (Done, Your turn or Not yet), the stage's sentence (drawn as a grey bar here) and a line saying where it stands. The card of the step in note 1 is "Your turn". Here Delivery is "Not yet" although a plan is agreed, because a stage is Done only when an engagement is complete (FR-UX-21). | FR-UX-21 |
+| 4 | **Five stage cards.** Each has a dot (the step's number, or a tick when done), a link named for the page (Describe your factory, What to do about it, What you need, Delivery, Results), a tag (Done, Your turn or Not yet), the stage's sentence and a line saying where it stands. The sentence is not shown on a card marked Done (the style sheet hides it); it is drawn here as a grey bar on the other cards. The card of the step in note 1 is "Your turn". A stage is Done only when its own condition holds and every stage before it is Done. Here Choose is "Not yet" because one requirement has no provider chosen, and Delivery is "Not yet" because the engagement is not closed (FR-UX-21). | FR-UX-21 |
 | 5 | **Company record.** The company name as a heading, the tag SYNTHETIC for a synthetic company, and the date the record was created. | FR-UX-22, FR-ID-12 |
 | 6 | **What you can rely on.** The same four lines as for a visitor. | FR-UX-22 |
 
 Other states of this view:
 
 - An owner who has done nothing: the step is "Start by describing your factory", the first card is "Your turn" and the others "Not yet" with lines such as "Waits for a confirmed description".
-- An owner who is up to date: "You are up to date" with the button "Look back at the numbers"; no card is marked "Your turn".
-- The thirteen rules and their words are in the FSD under FR-UX-20.
+- An owner who is up to date: "You are up to date" with the button "Look back at the numbers"; no card is marked "Your turn". The same holds for "Work is under way" (the next drawing) and "Waiting for a provider to be listed".
+- The nineteen rules and their words are in the FSD under FR-UX-20.
 
 Wide screens: From 52 rem wide the five cards are on the left and the two cards on the right, as drawn in the wide view. Below that they are one column, in the order of the text drawing.
+
+#### An owner whose work is under way
+
+Drawn from: Read in app/page.tsx and modules/journey/src/progress.ts, for a company whose plan is agreed, whose starting number is recorded and whose first milestone is accepted while the others are not. It was not in the capture and was not seen on a screen.
+
+```text
+...... Frame: banner and app bar .......
++======================================+ (1)
+| Your next step                       |
+| # Work is under way                  |
+| Nothing needs you today. The next    |
+|     review opens on (date).          |
+| [> Check on the work <]              |
++======================================+
+
+Signed in as (name) <owner>
+
+## Your five steps
+
++--------------------------------------+ (2)
+| (v) {Describe your factory} <Done>   |
+| Confirmed. Newest version is 1.      |
++--------------------------------------+
++--------------------------------------+
+| (v) {What to do about it} <Done>     |
+| Signed off. You decided on 5 of 5    |
+| ideas.                               |
++--------------------------------------+
++--------------------------------------+
+| (v) {What you need} <Done>           |
+| 1 requirement, 1 provider chosen.    |
++--------------------------------------+
++--------------------------------------+
+| (4) {Delivery} <Not yet>             |
+| ~~~~~~~~~~~~~~~~~~~~~                |
+| 1 of 3 milestones accepted.          |
++--------------------------------------+
++--------------------------------------+
+| (5) {Results} <Not yet>              |
+| ~~~~~~~~~~~~~~~~~~~~~                |
+| Starting number recorded. 0 reviews  |
+| recorded.                            |
++--------------------------------------+
+
+............ Frame: footer .............
+```
+
+| No. | What it is | Built from |
+| --- | --- | --- |
+| 1 | **The next step.** The rule `keep_going` fires when work is in progress under an agreed plan and no earlier rule fits: no delivery waits for a decision, no review is open, no starting number or plan is waiting, no provider can be chosen and no engagement has every milestone accepted. The sentence is "Nothing needs you today." and one more: the date of the next review to open, or "Every review you can record so far is recorded.", or, before the first milestone is accepted, "Accept each milestone as it is delivered; the review dates start from the first one you accept." The button goes to Delivery. | FR-UX-20, FR-UX-22 |
+| 2 | **No card is marked "Your turn".** Because the step says that nothing is needed from the owner, no stage is the owner's turn, on the home page or in the strip of a stage page. Delivery and Results are "Not yet" because the work is not finished. The first block is still drawn. | FR-UX-21 |
+
+Other states of this view:
+
+- "Waiting for a provider to be listed" (a requirement has no provider listed for it, and no work is under way): "You have said what you need. No provider is listed for it yet, so there is nothing for you to do. When one is listed you can choose it." with the button "See your requests". No card is marked "Your turn".
+- "One more idea is ready to ask for" (or "N more ideas are ready to ask for"), with the button "Make a request": this is optional but it is something the owner can do, so Choose is marked "Your turn".
+- The date in "The next review opens on ..." is the UTC date of the day the review opens. A review opens at the time of day of the first acceptance, so for a reader in India it can fall a day later (FSD section 12, item 32).
 
 #### The operator
 
@@ -267,7 +322,7 @@ Signed in as SYNTHETIC Operator (2)
 
 Other states of this view:
 
-- A signed-in person who is neither an owner nor the operator sees the heading "You are signed in" and the sentence "This account is not linked to a company, so there are no steps to work through here." For a member of a company that sentence is untrue (FSD section 12, item 23).
+- A signed-in person who is neither an owner nor the operator sees the heading "You are signed in". A member of a company (an account with a company that is not its owner) reads "Only the owner of your company can work through the steps. You can see your company's record below." and sees the company card. An account with no company reads "This account is not linked to a company, so there are no steps to work through here." (FSD section 12, item 23, corrected on 5 October 2026).
 
 ### 2.3 SCR-02 Sign-in
 
@@ -307,7 +362,7 @@ Drawn from: Observed in the capture (a visitor); read in app/sign-in/page.tsx.
 | 2 | **Refusal.** Drawn only after a refused sign-in (the address ends with refused=1): "That user was not found." It is announced as an alert. | FR-ID-02, MSG-05 |
 | 3 | **The one field.** A drop-down list of the synthetic users, one for each, shown as "display name (role)" and ordered by name; the value sent is the email address. It is required. The capture lists eight: the operator and owners A to G. | FR-ID-01 |
 | 4 | **The button.** Posts to /api/session. Success goes to the home page; a refusal comes back to this page. If the session secret is missing the form is still shown and the post answers a line of JSON instead of a page (FSD section 12, item 16). | FR-ID-02 |
-| 5 | **Who is who.** Two entries. Owner: describes a factory and works through the five steps, and sees that company and no other. Operator: keeps the list of providers and the listing fee, and never sees a company's record. | FR-ID-01 |
+| 5 | **Who is who.** Two entries. Owner: describes a factory and works through the five steps, and sees that company and no other. Operator: keeps the list of providers, and never sees a company's record. The sign-in page does not mention the fee. | FR-ID-01 |
 
 Other states of this view:
 
@@ -333,7 +388,7 @@ Step 1 of 5 · Describe (2)
 ~~~~~~~~~~~~~~~~~~~~~
 
 +======================================+ (3)
-| <Confirmed> <SYNTHETIC>              |
+| <✓ Confirmed> <SYNTHETIC>            |
 | Newest version: 1, confirmed as      |
 |     accurate, saved 2026-10-04.      |
 | [##########] 23 of 23 questions      |
@@ -396,7 +451,7 @@ Step 1 of 5 · Describe (2)
 | 6 | **The note.** "What changed since last time? (optional)", up to 500 characters, and a sentence saying what confirming means. | FR-DESC-03 |
 | 7 | **Two buttons.** "Save as draft" and "Confirm this is accurate" (the main button), in a bar that stays at the bottom of the screen while the owner scrolls (not on a screen lower than 34 rem); on a phone they share one row. Both post a new version. Confirming works only when the five questions are answered. A post made from a version that is no longer the newest is refused. | FR-DESC-03, FR-DESC-04, FR-DESC-05 |
 | 8 | **Earlier versions.** Closed when the page loads; open while an older version is read. Each version is a link, and an older version cannot be changed. | FR-DESC-06 |
-| 9 | **Your next step.** Drawn because the owner's turn is on another stage. One title, one sentence (not drawn here) and one button to that stage. It is left out when the turn is on this page. | FR-UX-18, FR-UX-20 |
+| 9 | **Your next step.** Drawn because the owner's turn is on another stage. One title, one sentence (not drawn here) and one button to that stage. It is left out when the turn is on this page, and when the step says that nothing is needed from the owner (work under way, waiting for a provider to be listed, up to date). | FR-UX-18, FR-UX-20 |
 
 Other states of this view:
 
@@ -404,7 +459,7 @@ Other states of this view:
 - A draft: the tag "Draft" and the count of the five questions needed to confirm.
 - An older version is being read: a notice "You are looking at version N ... It cannot be changed." and the form is read-only.
 - Refused or saved: notices for the codes saved, confirmed, missing, problem and stale (MSG-19 to MSG-46).
-- A visitor, or a person who is not an owner: the title and one card with a sentence; no strip.
+- A visitor: the title and a card with the link "Sign in" and a short sentence; no strip. A person who is not an owner: the title and a card with one sentence and the link "Back"; a member of a company reads "This page is for the owner of your company. You can see your company's record on the home page." (MSG-198), an account with no company reads "This page is for the owner of a company. Your account is not linked to one." (MSG-10); no strip.
 
 ### 2.5 SCR-04 What to do about it
 
@@ -437,6 +492,8 @@ Step 2 of 5 · Decide
 |     <]                               |
 | Making it again from the same        |
 | version gives the same assessment.   |
+| Confirm a newer version of your      |
+| description to get a new one.        |
 +======================================+
 
 +--------------------------------------+ (2)
@@ -474,8 +531,9 @@ Step 2 of 5 · Decide (2)
 Drafted by a set of rules, not by an
 AI model.
 ~~~~~~~~~~~~~~~~~~~~~
+Problems you named: ...
 
-+======================================+ (5)
++--------------------------------------+ (5)
 | ### Sign off                         |
 | [####------] 2 of 5 ideas decided.   |
 | Decide on 3 more ideas to be able to |
@@ -485,29 +543,32 @@ AI model.
 | sign off.                            |
 | [- Sign off this assessment -]       |
 | > What signing off means             |
-+======================================+
++--------------------------------------+
 
 ## The ideas, ranked (6)
 
 +--------------------------------------+ (7)
 | ### 1. Keep every job on a simple    |
 |     shared log                       |
-| <Your decision: Accept> <No AI       |
+| <✓ Your decision: Accept> <No AI     |
 |     needed>                          |
 | <Ready to start> <Low risk>          |
 | ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
 | ~~~~~~~~~~~~~~~~~~~~~                |
+| Answers: (the problems it addresses) |
 | What it could do ~~~~~~~~~~~~~~~~~~~ |
 | One-time cost ~~~~~~~~~~~~~~~~~~~~~~ |
 | Every year after ~~~~~~~~~~~~~~~~~~~ |
 | First year in all ~~~~~~~~~~~~~~~~~~ |
 | > Source and score                   |
+| Your decision on this idea           |
 | (o) Accept: I want to do this        |
 | ( ) Later: not now                   |
 | ( ) No: not for me                   |
 | A note for yourself (optional)       |
 | [__________________________________] |
-| [ Save decision on this idea ]       |
+| [ Save decision on Keep every job on |
+|     a simple shared log ]            |
 +--------------------------------------+
 
 +--------------------------------------+ (8)
@@ -518,11 +579,14 @@ AI model.
 |     risk>                            |
 | ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
 | ~~~~~~~~~~~~~~~~~~~~~                |
+| Your decision on this idea           |
 | ( ) Accept: I want to do this        |
 | ( ) Later: not now                   |
 | ( ) No: not for me                   |
+| A note for yourself (optional)       |
 | [__________________________________] |
-| [> Save decision on this idea <]     |
+| [> Save decision on Let software     |
+|     propose the order of jobs <]     |
 +--------------------------------------+
 
 Ideas 2, 4 and 5 are drawn in the
@@ -535,10 +599,16 @@ same way.
 
 +--------------------------------------+ (10)
 | ## Your assessments                  |
-| {From version 1 · 2026-10-05 · 2 of  |
-|     5 decided} <Shown above>         |
+| {From version 1} · 2026-10-05 · 2 of |
+|     5 decided <Shown above>          |
+| Your confirmed description is        |
+|     version 1, saved 2026-10-04.     |
 | [ Make an assessment from version 1  |
 |     ]                                |
+| Making it again from the same        |
+| version gives the same assessment.   |
+| Confirm a newer version of your      |
+| description to get a new one.        |
 +--------------------------------------+
 
 ............ Frame: footer .............
@@ -550,24 +620,24 @@ same way.
 | 2 | **Head.** "Step 2 of 5 · Decide", the title "What to do about it" and one sentence: "Here is a short, ranked list of ideas for your factory: for each one you say yes, not yet or no, and then sign off." | FR-UX-16 |
 | 3 | **The SYNTHETIC line.** The tag and one sentence: the ideas and every figure are placeholders written to test the service, not advice and not estimates. It is not in a closed section. | FR-UX-01, FR-UX-24 |
 | 4 | **The assessment.** The heading names the version of the description it was made from; an assessment made from an older version carries the tag "Older version". Then "Drafted by a set of rules ... not by an AI model" with the library and engine versions, and the problems the owner named. | FR-DIAG-01, FR-DIAG-05, FR-DIAG-06 |
-| 5 | **The sign-off card.** A bar with its words, one sentence saying what is left, a link to the next idea with no decision, and the button "Sign off this assessment". The button is disabled until there is at least one idea and every idea has a decision; the sentence on what signing off means is then in a closed section. Once every idea is decided the card also shows a note field and the button becomes the main button. | FR-DIAG-08, FR-UX-23 |
+| 5 | **The sign-off card.** A bar with its words, one sentence saying what is left, a link to the next idea with no decision (drawn once at least one idea is decided) and the button "Sign off this assessment". The button is disabled until there is at least one idea and every idea has a decision. While it is disabled, the sentence on what signing off means is in a closed section "What signing off means". Once every idea is decided the card is highlighted, a note field appears above the button, the button becomes the main button, and that sentence is plain text under it. | FR-DIAG-08, FR-UX-23 |
 | 6 | **The ideas, ranked.** The heading above one card for each idea, best first. | FR-DIAG-02 |
-| 7 | **An idea with a decision.** Rank and title; tags for the decision, for AI or no AI, for readiness and for risk; the summary; what it could do, the one-time cost, the cost every year after, and the first year in all with a comparison to the owner's yearly budget; what to do first and what to check; hidden costs; the risk; why it is here; a closed section "Source and score"; then the form: three radio choices (accept, later, no), a note of up to 500 characters and a button that saves that one decision. On a screen 62 rem wide or more the form is a column beside the idea. | FR-DIAG-04, FR-DIAG-07 |
-| 8 | **The first idea with no decision.** The tag "Not decided yet" and a main button on the save button of this idea. The page marks one main button at a time. | FR-DIAG-07, FR-UX-23 |
+| 7 | **An idea with a decision.** Rank and title; tags for the decision, for AI or no AI, for readiness and for risk; the summary; a line "Answers:" with the problems the owner named that it addresses; what it could do, the one-time cost, the cost every year after, and the first year in all with a comparison to the owner's yearly budget; what to do first and what to check; hidden costs; the risk; why it is here; a closed section "Source and score"; then the form: three radio choices (accept, later, no) under the legend "Your decision on this idea", a note of up to 500 characters and a button that saves that one decision. The button's name ends with the title of the idea ("Save decision on Keep every job on a simple shared log"), so that no two buttons on the page share a name. On a screen 62 rem wide or more the form is a column beside the idea. | FR-DIAG-04, FR-DIAG-07 |
+| 8 | **The first idea with no decision.** The tag "Not decided yet" and a main button on the save button of this idea, the first idea in rank order that has no decision; the other save buttons are plain. The button's name ends with the title of the idea, as in note 7. | FR-DIAG-07, FR-UX-23 |
 | 9 | **Closed sections.** "How the ideas were ranked" (the points for each term) and "Ideas left out (N)" (each with the reason). | FR-DIAG-03, FR-DIAG-06, FR-UX-24 |
-| 10 | **Your assessments.** One link for each assessment, with the tag "Shown above" on the one on view, and a quiet button to make an assessment again from the confirmed version (the same version gives the same assessment). | FR-DIAG-10, FR-DIAG-01 |
+| 10 | **Your assessments.** One link for each assessment, with the tag "Shown above" on the one on view, and a plain button (not the main button) to make an assessment again from the confirmed version, with the sentence on which version that is and a help line (the same version gives the same assessment). | FR-DIAG-10, FR-DIAG-01 |
 
 Other states of this view:
 
-- No ideas match the problems the owner named: a notice, the sign-off button stays disabled and a sign-off is refused.
+- No ideas match the problems the owner named: a notice "Nothing in the library matches the problems you named. Naming "something else" cannot be matched.", the sentence "There is nothing in this assessment to decide on.", a sign-off button that stays disabled, and a sign-off that is refused if it is posted anyway. The card "Your next step" at the foot then says "No idea fits your answers yet" with the button "Update your description" (FR-UX-20).
 - An unknown assessment in the address (?a=) shows no assessment and no message (FSD section 12, item 6).
-- A person who is a member of the company, not the owner, is told that only the owner can make and sign off an assessment (MSG-48).
+- A person who is a member of the company, not the owner, is told that only the owner can make and sign off an assessment (MSG-48). A person with no company is told that the page is for the owner of a company (MSG-49).
 
 Wide screens: From 62 rem wide each idea has its decision form in a column beside it.
 
 #### An assessment that is signed off
 
-Drawn from: Observed in the capture (owner C, where a delivery waits); read in app/diagnose/page.tsx.
+Drawn from: Read in app/diagnose/page.tsx and modules/journey/src/progress.ts. The order is the page's (checked against the capture of owner C, where a delivery waits); the words after "Next:" are those of the rule that fires after the changes of 5 October 2026.
 
 ```text
 ...... Frame: banner and app bar .......
@@ -580,16 +650,25 @@ Step 2 of 5 · Decide
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ~~~~~~~~~~~~~~~~~~~~~
 
-## Assessment from version 1 of your
+<SYNTHETIC> ~~ (1)
+
+## Assessment from version 1 of your (2)
    description
 
-+======================================+ (1)
-| ### Signed off                       |
+Drafted by a set of rules, not by an
+AI model.
+~~~~~~~~~~~~~~~~~~~~~
+Problems you named: ...
+
++======================================+ (3)
+| ### ✓ Signed off                     |
+| Signed off on 2026-10-05. Your note: |
+|     ...                              |
 | [##########] 5 of 5 ideas decided.   |
-| Signed off on 2026-10-05.            |
 | Next: A delivery is waiting for your |
 | decision.                            |
 | [> Check the work done <]            |
+| ~~~~~~~~~~~~~~~~~~~~~                |
 | Fingerprint of what was signed: 16   |
 | characters (checked just now: it     |
 | matches)                             |
@@ -597,14 +676,16 @@ Step 2 of 5 · Decide
 
 ## The ideas, ranked
 
-+--------------------------------------+ (2)
++--------------------------------------+ (4)
 | ### 1. Keep every job on a simple    |
 |     shared log                       |
-| <Your decision: Accept> <No AI       |
+| <✓ Your decision: Accept> <No AI     |
 |     needed>                          |
 | <Ready to start> <Low risk>          |
 | ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
 | ~~~~~~~~~~~~~~~~~~~~~                |
+| Your decision: Accept: I want to do  |
+| this                                 |
 | > Source and score                   |
 +--------------------------------------+
 
@@ -616,8 +697,10 @@ way, without forms.
 
 | No. | What it is | Built from |
 | --- | --- | --- |
-| 1 | **Signed off.** The heading "Signed off" with a tick, the date, the owner's note if any, the bar, and the first 16 characters of the fingerprint with the result of checking it against what is stored just now. When the owner's turn is on a later step, "Next: <title>" and that step's button are in this card, and the card "Your next step" is left out of the foot of the page so the step is not shown twice. | FR-DIAG-08, FR-UX-18 |
-| 2 | **Ideas, no forms.** After the sign-off each idea shows the decision as a tag and in words, and has no form: nothing on a signed-off assessment can be changed. | FR-DIAG-07, FR-DIAG-08 |
+| 1 | **The SYNTHETIC line.** The tag and the sentence that the ideas and every figure are placeholders, as in the deciding view. It is drawn in every state. | FR-UX-01, FR-UX-24 |
+| 2 | **The assessment.** The heading, the line "Drafted by a set of rules, not by an AI model" with the library and engine versions, and the line "Problems you named", as in the deciding view. They are drawn whether or not the assessment is signed off. | FR-DIAG-01, FR-DIAG-06 |
+| 3 | **Signed off.** In this order: the heading "Signed off" with a tick; "Signed off on (date)." and, only if the owner wrote one, "Your note: ..."; the bar with its words; when the owner's turn is on a later step, "Next:" with its title, that step's button (the main button) and one sentence; and the first 16 characters of the fingerprint with the result of checking it against what is stored just now. The card "Your next step" is then left out of the foot of the page, so the step is not shown twice. When the owner's turn is on Describe or Decide, or nothing is needed from the owner, there is no "Next:" part. | FR-DIAG-08, FR-UX-18 |
+| 4 | **Ideas, no forms.** After the sign-off each idea shows the decision as a tag and in words, and has no form: nothing on a signed-off assessment can be changed. | FR-DIAG-07, FR-DIAG-08 |
 
 ### 2.6 SCR-05 What you need
 
@@ -625,11 +708,11 @@ Address `/procure`, source `app/procure/page.tsx`, FSD section 5.6. Lets the own
 
 #### An owner with two requirements, one still without a provider
 
-Drawn from: Observed in the capture (owner D); read in app/procure/page.tsx and modules/procure/src/view.ts.
+Drawn from: Observed in the capture (owner D); read in app/procure/page.tsx and modules/procure/src/view.ts. The strip follows the source after 5 October 2026 (commit f35b835): the capture showed Choose as done.
 
 ```text
 ...... Frame: banner and app bar .......
-  (v)     (v)     (v)     (4)     [5]
+  (v)     (v)     (3)     (4)     [5]
 Describe Decide  Choose Deliver Measure
                  ======                  (1)
 
@@ -677,11 +760,16 @@ Already asked for (7)
 |     provider chosen yet>             |
 | Your turn: choose the provider you   |
 |     want to work with.               |
-| ~~~~~~~~~~~~~~~~~~~~~                |
+| Providers listed for this            |
+| (SYNTHETIC; in name order.)          |
+| * A provider's name, and what it     |
+|   does                               |
 | Which provider do you want to work   |
 |     with?                            |
 | [ Choose a provider v ]              |
 | [> Choose a provider for ... <]      |
+| Others asking for the same thing     |
+| ~~~~~~~~~~~~~~~~~~~~~                |
 | A note for yourself (optional)       |
 | [__________________________________] |
 | [! Withdraw ... !]                   |
@@ -697,7 +785,10 @@ Already asked for (7)
 |   listed for this                    |
 +--------------------------------------+
 
-+======================================+ (11)
+{Back to your assessment} (11)
+{Home}
+
++======================================+ (12)
 | Your next step                       |
 | ### Write down your starting number  |
 | [> Record the number <]              |
@@ -708,7 +799,7 @@ Already asked for (7)
 
 | No. | What it is | Built from |
 | --- | --- | --- |
-| 1 | **The five steps.** Choose is the page; the owner's turn is Measure (the starting number). | FR-UX-17 |
+| 1 | **The five steps.** Choose is the page; the owner's turn is Measure (the starting number). Choose is not marked done because one requirement has no provider chosen yet (FR-UX-21). | FR-UX-17, FR-UX-21 |
 | 2 | **Head.** "Step 3 of 5 · Choose", the title "What you need" and one sentence: "Say what you need for each idea you accepted, then choose a provider." | FR-UX-16 |
 | 3 | **The SYNTHETIC line.** The tag and: the ideas, the clusters and the providers are placeholders; no quote, price, contract or payment exists here; this only records what you are asking for. | FR-UX-01 |
 | 4 | **Where this stands.** Drawn when an idea is accepted or a requirement exists. One sentence saying what is next (grey bar here), tags for the counts (marigold in the application for the one that is the owner's turn), a bar with its words and, when a provider is to be chosen and an idea is ready, a link to the requirements. | FR-UX-23 |
@@ -716,15 +807,17 @@ Already asked for (7)
 | 6 | **Make a requirement.** One card for each idea without a requirement: title, tags, summary, the cost from the assessment (a placeholder), and one field, the cluster, with a drop-down of three SYNTHETIC clusters. The cluster cannot be changed afterwards. | FR-PROC-02, FR-PROC-03 |
 | 7 | **Already asked for.** A card for each idea that has a requirement, with the tag "Asked for" or "Withdrawn". | FR-PROC-02 |
 | 8 | **Your requirements.** One card for each requirement. "None yet." with a sentence when there are none. | FR-PROC-02 |
-| 9 | **An open requirement with no provider.** Tags for the cluster, "Open" and the state. Then one sentence, the providers listed for it (name order, name and summary, no fee), the pool sentence (a lower bound in steps of five from five companies, nothing below), the choose form and the withdraw form. The choose button cannot be undone: the provider cannot be changed afterwards. Withdraw is drawn as a red button. | FR-PROC-04, FR-PROC-05, FR-PROC-06, FR-PROC-11, FR-DEPL-01 |
+| 9 | **An open requirement with no provider.** Tags for the cluster, "Open" and the state. Then one sentence, the providers listed for it (name order, name and summary, no fee), the choose form, the pool sentence (a lower bound in steps of five from five companies, nothing below) and the withdraw form. The choose button cannot be undone: the provider cannot be changed afterwards. Withdraw is drawn as a red button. | FR-PROC-04, FR-PROC-05, FR-PROC-06, FR-PROC-11, FR-DEPL-01 |
 | 10 | **A requirement with a provider.** "You chose <name>.", a button-shaped link to the delivery page, and a closed section holding the pool and the providers. No forms. | FR-DEPL-01, FR-UX-24 |
-| 11 | **Your next step.** The card at the foot, because the owner's turn is on another stage. | FR-UX-18 |
+| 11 | **Two links.** "Back to your assessment" and "Home", at the foot of the page and above the card of note 12. | FSD section 3.1 |
+| 12 | **Your next step.** The card at the foot, because the owner's turn is on another stage. It is left out when the turn is on this page, and when nothing is needed from the owner. | FR-UX-18 |
 
 Other states of this view:
 
 - No signed-off assessment: "A requirement is made from an idea you accepted in an assessment you signed off. You have not signed one off yet." with a link "Go to your assessment".
 - No provider is listed for a requirement in the owner's cluster: "No provider is listed for this in your cluster yet. ..." and no choose form; the withdraw form remains.
 - The page shows only the newest signed-off assessment's ideas (FSD section 12, item 17).
+- Once every open requirement has a provider the top card says "The next step is the plan, on the delivery page.", and that sentence stays after the plan is agreed and the engagement is closed (item 29). The bar "accepted ideas asked for" counts an idea whose requirement was withdrawn as asked for (item 31).
 
 ### 2.7 SCR-06 Delivery
 
@@ -773,6 +866,9 @@ be added or changed now.
 | ~~~~~~~~~~~~~~~~~~~~~                |
 | Payment noted: you recorded a        |
 | payment ...                          |
+| (date) Delivered                     |
+| (date) Accepted                      |
+| (date) Payment recorded              |
 +--------------------------------------+
 
 +--------------------------------------+ (6)
@@ -789,6 +885,11 @@ be added or changed now.
 | [__________________________________] |
 | [> Accept milestone 2 <] [ Reject    |
 |     milestone 2 ]                    |
+| Accept it if it passes the test you  |
+| wrote. Reject it if it does not: it  |
+| can then be delivered again. Your    |
+| answer is recorded and stays on      |
+| record.                              |
 +--------------------------------------+
 
 Plan total ₹2,00,000. Payments you (7)
@@ -820,7 +921,7 @@ have recorded: ₹1,25,000.
 | 3 | **Where things stand.** One tag (Your turn; Waiting for the provider; Nothing to do now; All closed) and one sentence, with a link to the first milestone that waits for a decision. | FR-UX-23 |
 | 4 | **An engagement.** One card for each: the requirement's title, tags for status (Planning, In progress, Complete, Ended early) and cluster, the provider, a bar with its words, and the date the plan was agreed. | FR-DEPL-01, FR-DEPL-06 |
 | 5 | **Milestones.** A numbered list. Once the plan is agreed no milestone can be added or changed. Each milestone shows a state tag (Not started, Delivered waiting for you, Accepted, Rejected, Paid), its date and price, how the owner will check it, any payment noted, and its history as dated lines. | FR-DEPL-02, FR-DEPL-04 |
-| 6 | **The decision.** Only the forms the state of a milestone allows are drawn. A delivered milestone has the decision form: a note and two buttons, the first the main button. The provider does not use this service, so "delivered" is the owner recording what the provider said. | FR-DEPL-04, FR-DEPL-07 |
+| 6 | **The decision.** Only the forms the state of a milestone allows are drawn. A delivered milestone has the decision form: a note and two buttons, the first the main button. The provider does not use this service, so "delivered" is the owner recording what the provider said. Under the buttons the help line says that the answer "is recorded and stays on record"; it does not say that accepting the first milestone ends the chance to record a starting number (FSD section 12, item 28), and "it can then be delivered again" is said even after the last delivery that can be recorded (item 30). | FR-DEPL-04, FR-DEPL-07 |
 | 7 | **Totals.** "Plan total ..." and "Payments you have recorded: ...", in rupees with Indian grouping. A payment is one the owner made outside the service; nothing is compared with the price. | FR-DEPL-05 |
 | 8 | **Close.** Ends the engagement; everything stays on record. | FR-DEPL-06 |
 | 9 | **About this page.** The tag SYNTHETIC and what the page is: the owner's own record. It does not contact the provider, hold money or move any. The provider has not seen any of it. This is at the foot of the page, not under the title. | FR-UX-01, FR-UX-24 |
@@ -831,9 +932,11 @@ Other states of this view:
 - A milestone rejected after being delivered as many times as can be recorded: a notice, and no delivery form.
 - Complete or ended early: milestones with history and no forms.
 
+Wide screens: From 40 rem wide the head of each engagement card is in two columns: the title, the tags and the provider on the left, the bar and the date of the plan on the right.
+
 #### Writing the plan, before it is agreed
 
-Drawn from: Read in app/deliver/page.tsx. The capture has no engagement in this state.
+Drawn from: Read in app/deliver/page.tsx; the sentence in the highlighted card is built in modules/deliver/src/summary.ts. The capture has no engagement in this state.
 
 ```text
 ...... Frame: banner and app bar .......
@@ -866,7 +969,10 @@ None yet. A plan is a list of parts,
 each with a date, a price and the
 test you will check it by.
 
-+--------------------------------------+ (1)
+Plan total ₹0. Payments you have (1)
+recorded: ₹0.
+
++--------------------------------------+ (2)
 | ### 1 Add a milestone                |
 | What is delivered                    |
 | [__________________________________] |
@@ -879,19 +985,41 @@ test you will check it by.
 | [> Add this milestone <]             |
 +--------------------------------------+
 
-+ - - - - - - - - - - - - - - - - - - -+ (2)
++ - - - - - - - - - - - - - - - - - - -+ (3)
 : ### 2 Agree the plan                 :
 : Agreeing the plan locks it ...       :
 : [> Agree this plan <]                :
 + - - - - - - - - - - - - - - - - - - -+
+
++--------------------------------------+ (4)
+| ### Done with this engagement?       |
+| Why you are closing it (optional)    |
+| [__________________________________] |
+| [ Close this engagement ]            |
++--------------------------------------+
+
++--------------------------------------+ (5)
+| ## About this page                   |
+| <SYNTHETIC> The providers and plans  |
+|     here are placeholders written to |
+|     test the service.                |
+| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+| ~~~~~~~~~~~~~~~~~~~~~                |
++--------------------------------------+
+
+[ What you need ] [ Home ] (6)
 
 ............ Frame: footer .............
 ```
 
 | No. | What it is | Built from |
 | --- | --- | --- |
-| 1 | **Add a milestone.** Four fields: what is delivered, how the owner will check it (written now, before any work), a due date written like 2026-12-15, and a price in whole rupees. Up to 12 milestones. | FR-DEPL-02 |
-| 2 | **Agree the plan.** Drawn only once the plan has a milestone. Agreeing locks the plan, and nothing can be delivered, accepted or paid before then. | FR-DEPL-03 |
+| 1 | **Totals.** "Plan total ..." and "Payments you have recorded: ...", drawn in every state, under the list of milestones, here with two zeros. | FR-DEPL-05 |
+| 2 | **Add a milestone.** Four fields: what is delivered, how the owner will check it (written now, before any work), a due date written like 2026-12-15, and a price in whole rupees. Up to 12 milestones. | FR-DEPL-02 |
+| 3 | **Agree the plan.** Drawn only once the plan has a milestone. Agreeing locks the plan, and nothing can be delivered, accepted or paid before then. | FR-DEPL-03 |
+| 4 | **Close.** Drawn while the engagement is open, including before the plan is agreed: a note and the button "Close this engagement". | FR-DEPL-06 |
+| 5 | **About this page.** At the foot of every state of the page. It holds the tag SYNTHETIC and the page's only statement that the providers and plans are placeholders, then what the page is. It is not a closed section. | FR-UX-01, FR-UX-24 |
+| 6 | **Two links.** "What you need" and "Home". | FSD section 3.1 |
 
 ### 2.8 SCR-07 Results
 
@@ -899,11 +1027,11 @@ Address `/run`, source `app/run/page.tsx`, FSD section 5.8. Lets the owner recor
 
 #### The starting number is the owner's turn
 
-Drawn from: Observed in the capture (owner D); read in app/run/page.tsx and modules/run/src/view.ts.
+Drawn from: Observed in the capture (owner D); read in app/run/page.tsx and modules/run/src/view.ts. The strip follows the source after 5 October 2026 (commit f35b835): Choose is not done while a requirement has no provider, as on owner D's page What you need.
 
 ```text
 ...... Frame: banner and app bar .......
-  (v)     (v)     (v)     (4)     [5]
+  (v)     (v)     (3)     (4)     [5]
 Describe Decide  Choose Deliver Measure
                                  ======  (1)
 
@@ -987,6 +1115,9 @@ Other states of this view:
 - A review is due: the tag "Open now", the review form, and "Your turn" in the card at the top.
 - A review is recorded: the record, and tiles showing the starting number, the latest number and the change.
 - No engagement: "Nothing to look at yet. Choose a provider for one of your requirements on What you need, agree a plan on Delivery, and come back."
+- An engagement with no agreed plan, or one that was closed before anything was accepted, still gets the starting-number form and the tag "Your turn", although the home page no longer asks for the number then (FSD section 12, item 27).
+
+Wide screens: From 40 rem wide the head of each engagement card is in two columns: the title, the provider and the cluster on the left, the bar on the right.
 
 ### 2.9 SCR-08 Providers and the listing fee
 
@@ -1078,7 +1209,7 @@ Drawn from: Observed in the capture (the operator, three providers listed, one p
 | 2 | **The SYNTHETIC line.** The tag and: every provider is a placeholder; no company is named or shown; no money is collected, a listing records the fee that is due and nothing more. | FR-UX-01 |
 | 3 | **At a glance.** Three figures side by side from 40 rem wide: the fee in force ("Not decided" before one is set), providers listed out of providers added, and the number of pools at the floor. The fee here is the placeholder written by the demonstration seed (SYNTHETIC). | FR-PROC-07, FR-PROC-10 |
 | 4 | **Listing terms.** One fee at a time, the same for every provider. A new version applies to providers listed from now on; those already listed keep the fee they were listed at, and the page says so when listed providers pay different fees. The real fee is an open question (OQ-11). The earlier versions are listed. | FR-PROC-10 |
-| 5 | **Providers.** A table of providers: the name and what it does, what it serves, the status (Listed with its fee, or Not listed) and one button, List or Unlist. On a phone each provider is a block with those labels. No company is named anywhere. | FR-PROC-08, FR-PROC-09 |
+| 5 | **Providers.** A table of providers: the name and what it does, what it serves, the status (Listed with its fee, or Not listed) and one button, List or Unlist, in a column whose heading, "Action", is for a screen reader only. On a phone each provider is a block with those labels, which may take the table meaning from a screen reader (FSD section 12, item 36). No company is named anywhere. | FR-PROC-08, FR-PROC-09 |
 | 6 | **Add a provider.** A name (required), a summary, at least one idea out of 17 and at least one of three clusters (the server checks). A new provider is not listed until the operator lists it. | FR-PROC-08 |
 | 7 | **Pools at the floor.** Only pools of at least five companies, shown as a count and with no company named. The operator sees the exact count; an owner sees a lower bound (FSD section 12, item 13). The sentence "These are the pools you can take to providers." suggests an action that does not exist (item 18). | FR-PROC-05, FR-PROC-07 |
 
@@ -1523,18 +1654,18 @@ A request with no company on the list yet is not an action for the owner. The ca
 
 | Earlier proposal | Built | See |
 | --- | --- | --- |
-| Section 6.2: the five-step strip on every owner page, each stage a link, "Opens after step N" on a stage not yet reached | The strip is on each of the five stage pages for an owner of a company. The home page has five stage cards in its place. A stage not yet reached is a link to its page, which answers with its own sentence. The words "Opens after step N" are not built. | FR-UX-17 |
+| Section 6.2: the five-step strip on every owner page, each stage a link, "Opens after step N" on a stage not yet reached | The strip is on each of the five stage pages for an owner of a company. The home page has five stage cards in its place. A stage not yet reached is a link to its page, which answers with its own sentence. A step is marked done only when every step before it is done. The words "Opens after step N" are not built. | FR-UX-17 |
 | Section 6.3: the home page is the strip, one card for the next step, and a list of ideas with their stages | The home page shows the next step first, then five stage cards, then the company record. The stages are those of the company, not of each idea; a list of ideas with a stage each is not built. | FR-UX-22, FR-UX-21 |
-| Section 6.4: one rule for the one next step, 13 rows | `nextStep` has thirteen rules in a different order and with different words. For example a delivery that waits for a decision comes before the starting number, and "make a requirement" fires only when the owner has no requirement and no engagement. | FR-UX-20 |
+| Section 6.4: one rule for the one next step, 13 rows | `nextStep` has nineteen rules (eighteen keys) in a different order and with different words. For example a delivery that waits for a decision comes before a review, a plan and the starting number, except that the starting number comes first while a delivery waits and the number can still be recorded; "make a requirement" fires only when the owner has no requirement and no engagement; and three of the steps say that nothing is needed from the owner. | FR-UX-20 |
 | Section 5: replace the platform's words with plain ones, and a page "Words we use" | Not adopted. The strip uses the words Describe, Decide, Choose, Deliver and Measure. The pages keep their names (What to do about it, What you need, Delivery, Results) and the terms assessment, requirement, engagement and fingerprint are still on pages. There is no "Words we use" page. | BR-UX-03; FSD section 5.1 |
 | Principle 1: one sentence under the title and one main button | Each stage page has one sentence under the title. A main button is marked in each form or card, not one for the whole page. | FR-UX-16, FR-UX-23 |
 | Principle 6: say what the service does not do, next to the button | Built in part. Beside the button that chooses a provider the page says it does not contact the provider, agree a price or move any money, and that the choice cannot be changed. Beside the payment form on Delivery it says no money is sent from here. Each stage page has its SYNTHETIC line. | FR-UX-01; SCR-05, SCR-06 |
 | Principle 7: nothing unbuilt is shown as available | In reading section 5 of the FSD no built page was found to offer a control for a function the FSD marks TO BE. This was read, not tested. | FSD section 5 |
 | Principle 8: a refusal is never a line of JSON | Not met. A form posted after the session has ended still answers a line of JSON. | BR-UX-06; FSD section 12, item 16 |
 | Principle 9: an empty or waiting page says what will appear and what causes it | Built on the stage pages: each has a sentence for the empty case. Diagnose ignores an unknown assessment in the address without a message. | FR-UX-03; FSD section 12, item 6 |
-| Principle 10: phone first, controls at least 44 pixels, no sideways scroll, dates picked, no images | One column; controls at least 2.75 rem tall (44 pixels at the default size); no script; no photographs. Dates on Delivery are still typed as YYYY-MM-DD. No page has been walked on a real phone. | FR-UX-15; FSD section 5.1 |
+| Principle 10: phone first, controls at least 44 pixels, no sideways scroll, dates picked, no images | Cards are one column on a phone; buttons (the small ones too), text fields, drop-down lists, option rows and the two summaries that open a section on Diagnose and Procure are at least 2.75 rem tall (44 pixels at the default size) by the style sheets; a link inside a sentence is not. No script; no photographs. Dates on Delivery are still typed as YYYY-MM-DD. No page has been measured or walked on a real phone. | FR-UX-15; FSD section 5.1 |
 | Principle 11: Describe in five parts, one at a time, each saved when the owner moves on | Not built. Describe is one form of five section cards with one save; the buttons stay at the bottom of the screen while the owner scrolls. | SCR-03 |
-| Principle 12: warn before what cannot be undone | Built in part. Choosing a provider says the choice cannot be changed. Results says the starting number is recorded once and must be taken before the first milestone is accepted. Beside "Accept milestone N" on Delivery there is no such warning. | SCR-05, SCR-07; FSD SCR-06 gaps |
+| Principle 12: warn before what cannot be undone | Built in part. Choosing a provider says the choice cannot be changed. Results says the starting number is recorded once and must be taken before the first milestone is accepted, and the home page says so while a delivery waits and the number can still be recorded. Beside "Accept milestone N" on Delivery the page says "Your answer is recorded and stays on record." It does not warn that accepting the first milestone ends the chance to record a starting number. | SCR-05, SCR-07; FSD section 12, item 28 |
 | Principle 13: never show what the rules hide | A pool is shown as a lower bound in steps of five and not at all below five; providers are listed in name order with no fee; the listing fee is on no owner page (two browser tests look for it and expect not to find it). | FR-PROC-05, FR-PROC-06, FR-PROC-11 |
 | Principle 14: mark what is made up | A banner above the app bar in a synthetic environment, and a SYNTHETIC line or tag on each stage page. | FR-UX-01 |
 | Principle 15: built so it can be translated | Not built. English only; the text is in each page's file. | BR-UX-04 |
@@ -1542,4 +1673,4 @@ A request with no company on the list yet is not an action for the owner. The ca
 | Section 6.6: a title bar with a Menu, and a footer with "Words we use" | Not built. The app bar has the mark and, for a signed-in person, "Sign out". The footer has two fixed lines. | FR-UX-15 |
 | Section 6.6: each page's browser title says the step and the page | Not built. Every page has the title "APLYD MSME platform". | FSD section 5.1; section 12, item 12 |
 | Section 6.6: the sign-in page has a way back | Built: the mark in the app bar goes to the home page. | FR-UX-15 |
-| Section 6.6: a form returns to the same page with a message, and a finished stage ends with one button to the next | Built: a posted form returns to its page with a notice at the top, and a stage page ends with the card "Your next step" when the owner's turn is elsewhere. | FR-UX-02, FR-UX-18 |
+| Section 6.6: a form returns to the same page with a message, and a finished stage ends with one button to the next | Built: a posted form returns to its page with a notice at the top, and a stage page ends with the card "Your next step" when a step that needs the owner is on another stage. | FR-UX-02, FR-UX-18 |

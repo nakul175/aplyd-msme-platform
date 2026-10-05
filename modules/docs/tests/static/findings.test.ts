@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { checkCounts, checkEvidence, checkGrouping, checkSourceLinks, FINDING_MODULES, headingAnchors, parseFindings, resolveLink } from "../../src/findings.ts";
+import { checkCounts, checkEvidence, checkGrouping, checkSourceLinks, FINDING_MODULES, headingAnchors, parseFindings, resolveLink, scriptAnchors } from "../../src/findings.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..", "..");
 const REGISTER = "docs/FINDINGS.md";
@@ -13,9 +13,11 @@ const text = readFileSync(join(ROOT, REGISTER), "utf8");
 const findings = parseFindings(text);
 
 const anchorCache = new Map<string, Set<string>>();
+const scriptCache = new Map<string, Set<string>>();
 const resolver = {
   exists: (path: string) => existsSync(join(ROOT, path)),
   anchors: (path: string) => anchorCache.get(path) ?? (anchorCache.set(path, headingAnchors(readFileSync(join(ROOT, path), "utf8"))), anchorCache.get(path)!),
+  scriptAnchors: (path: string) => scriptCache.get(path) ?? (scriptCache.set(path, scriptAnchors(readFileSync(join(ROOT, path), "utf8"))), scriptCache.get(path)!),
 };
 const files = {
   exists: resolver.exists,

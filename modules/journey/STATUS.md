@@ -88,3 +88,32 @@ Two agent reviewers (an interface review and a logic review of the rule order) f
 `Facts` gained `confirmedRevision`, `ideasToAsk` and `requirementsToChoose`; `facts.ts` reads them through the diagnose and procure modules' own reads.
 
 Not fixed here, recorded as follow-up: the Run page (`modules/run`, outside this module) still offers a starting number for a closed engagement; the Deliver page does not warn beside "Accept" that accepting ends the chance to record a starting number.
+
+## Corrections to this file after reviews run by agents (5 October 2026, documentation)
+
+Status of this section: draft, 5 October 2026. Not reviewed by a person. Four reviews run by agents (a fact-check of the functional specification, a review of the wireframes, the interface guide and this module's documents, an interface review and a logic review of the next-step rules) were read by the author of these documents, who then corrected them against the code of commit `f35b835`. The text above is kept as it was written. Where it disagrees with this section, this section is right for that commit, and the section just above it is the code author's own account of the rule changes.
+
+| What the earlier text says | What is so now |
+| --- | --- |
+| `src/progress.ts` is 199 lines and `nextStep` has 13 rules; `tests/unit/progress.test.ts` holds 22 tests | `progress.ts` is 270 lines (`wc -l`). `nextStep` has 19 rules and 18 keys (`record_baseline` is two rules: one before a waiting delivery is judged, one after). The unit test holds 36 tests; the author ran that file on 5 October 2026 and 36 passed |
+| `src/facts.ts` is 53 lines; `tests/integration/facts.test.ts` holds 3 tests | `facts.ts` is 70 lines. The integration test holds 7 tests (`tests/baseline.json`); the author did not run that suite |
+| Step 8 of the browser test: a second company's owner is checked "on each stage's page" | The test visits four pages as the second owner: Decide, Choose, Deliver and Results. Describe is not one of them. It looks for the provider's name, the milestone text, the note and "Starting number: 42" |
+| Limit 5: the test depends on the wording of labels and buttons "on seven pages" | Eight pages: sign-in, home, operator, Describe, Decide, Choose, Deliver and Results |
+| The strip and the home page mark one stage as the owner's turn | Not always. For `keep_going`, `waiting_for_listing` and `caught_up` the step says nothing is needed from the owner, so no stage is marked, and a page other than the home page does not repeat the step. A stage is done only when every stage before it is done |
+| "Things this module's rules do that disagree with a page" (two items) | Both are corrected in `progress.ts`; the functional specification marks items 25 and 26 of its section 12.1 as corrected on 5 October 2026 |
+
+The header of `tests/unit/progress.test.ts` says each rule is also tried on the facts of the rule before it, so that a change of order fails. That is not so for every pair. On scratch copies of `progress.ts` outside the repository, one pair of neighbouring rules was swapped at a time for rules 7 to 19 and the 36 tests were run on each copy. Swapping rules 7 and 8, 8 and 9, 15 and 16, 16 and 17, 17 and 18, or 18 and 19 made one test fail. Swapping rules 9 and 10, 10 and 11, or 11 and 12 left all 36 passing, and each of those swaps can change the answer. The swaps of rule 12 with rules 13 and 14, and of rules 13 and 14 with rule 15, left all 36 passing because no facts make both rules fire. Swaps among rules 1 to 6 were not tried. So the order of rules 9 to 12 is not guarded by any test.
+
+Open, read from the code on 5 October 2026 and recorded in the functional specification, section 12.1, items 27 to 41. None is fixed here:
+
+- The Results page offers the starting-number form for an engagement with no agreed plan, or one closed before anything was accepted, while the home page no longer asks for the number then (item 27, in `modules/run`).
+- Beside "Accept milestone N" the Delivery page does not say that accepting the first milestone ends the chance to record a starting number (item 28). Its help line says "it can then be delivered again" even after the last delivery that can be recorded (item 30).
+- Procure keeps saying "The next step is the plan, on the delivery page." after the plan is agreed (item 29), and its bar counts a withdrawn request as asked for (item 31).
+- The home page's "The next review opens on (date)" gives the UTC date, which can be a day early for a reader in India (item 32).
+- The edge of a control on a tinted card in the dark colours is 2.54 to 1 by calculation, and the contrast guard does not list that pair (item 33). `color-mix` has no plain value before it in most places (item 34).
+- The mark of a notice is generated text that a screen reader may read (item 35). The operator's table on a phone may lose its table meaning (item 36). Every idea's decision group has the same legend (item 37).
+- The home page reads the facts with no guard, so a failure stops it, while `Page` opens a stage page without the strip (item 38). In the strip "your turn" is a colour and a ring, with words only for a screen reader (item 39).
+- The check in the demonstration walk that another company's data is on none of a person's pages is case-sensitive, and a label drawn in capitals would escape it (item 40).
+- Every page has the same browser title (item 12). A crafted `?saved=` value makes Describe say a version was saved (item 5). "Review N is open" does not name the engagement, and the home page's line for Decide names the counted assessment, not the newest (item 41).
+
+What was run for this correction is in [VALIDATION.md](VALIDATION.md). The author looked at no page on a screen.

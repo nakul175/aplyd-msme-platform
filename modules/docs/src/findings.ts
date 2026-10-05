@@ -130,15 +130,27 @@ export function checkGrouping(findings: Finding[]): string[] {
 }
 
 /**
- * The anchors of a Markdown file, made as scripts/check-documentation.mjs makes them: code is removed first, a heading is lower-cased,
- * punctuation other than letters, digits, spaces and hyphens is dropped, spaces become hyphens, and a heading that repeats takes -1, -2.
+ * The anchors of a Markdown file, made as GitHub makes them: fenced blocks are not headings, a heading is lower-cased, the text of an
+ * inline code span is kept (only its backticks go), punctuation other than letters, digits, spaces, hyphens and underscores is dropped,
+ * spaces become hyphens, and a heading that repeats takes -1, -2.
+ * scripts/check-documentation.mjs differs: it removes inline code before it slugs and it drops underscores. A link to a heading that
+ * holds a code span or an underscore can therefore pass here and fail that script; the test of this register reports it (see
+ * scriptAnchors).
  */
 export function headingAnchors(markdown: string): Set<string> {
-  const text = markdown.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+  return anchorsFrom(markdown.replace(/```[\s\S]*?```/g, ""), /[^\p{L}\p{N}\s_-]/gu);
+}
+
+/** The anchors scripts/check-documentation.mjs makes: inline code removed before slugging, underscores dropped. */
+export function scriptAnchors(markdown: string): Set<string> {
+  return anchorsFrom(markdown.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, ""), /[^\p{L}\p{N}\s-]/gu);
+}
+
+function anchorsFrom(text: string, drop: RegExp): Set<string> {
   const seen = new Map<string, number>();
   const out = new Set<string>();
   for (const m of text.matchAll(/^#{1,6}\s+(.+?)\s*#*\s*$/gm)) {
-    const base = m[1]!.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s/g, "-");
+    const base = m[1]!.trim().toLowerCase().replace(drop, "").replace(/\s/g, "-");
     const n = seen.get(base) ?? 0;
     seen.set(base, n + 1);
     out.add(n === 0 ? base : `${base}-${n}`);
@@ -161,7 +173,12 @@ export function resolveLink(fromFile: string, target: string): { path: string; a
   return { path: stack.join("/"), anchor };
 }
 
-export type Resolver = { exists: (path: string) => boolean; anchors: (path: string) => Set<string> };
+export type Resolver = {
+  exists: (path: string) => boolean;
+  anchors: (path: string) => Set<string>;
+  /** The anchors scripts/check-documentation.mjs makes; when given, a link must resolve under both rules. */
+  scriptAnchors?: (path: string) => Set<string>;
+};
 
 /** Every link of every Source cell leads to a file and, where it names a heading, to a heading that is there. */
 export function checkSourceLinks(findings: Finding[], fromFile: string, resolver: Resolver): string[] {
@@ -179,6 +196,9 @@ export function checkSourceLinks(findings: Finding[], fromFile: string, resolver
       }
       if (!r.anchor) problems.push(`${f.id}: the source link "${s.target}" names no heading; a source is a section`);
       else if (r.path.endsWith(".md") && !resolver.anchors(r.path).has(r.anchor)) problems.push(`${f.id}: the source link "${s.target}" has no matching heading`);
+      else if (r.path.endsWith(".md") && resolver.scriptAnchors && !resolver.scriptAnchors(r.path).has(r.anchor)) {
+        problems.push(`${f.id}: the source link "${s.target}" matches a heading on GitHub but not for scripts/check-documentation.mjs, which drops code and underscores before it slugs; link to a heading without either`);
+      }
     }
   }
   return problems;

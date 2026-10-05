@@ -162,7 +162,7 @@ AS BUILT. The modules are directories, not packages: each is a folder under `mod
 | `run` | Baseline, reviews at 30, 90 and 180 days, change since baseline, next idea | `outcome_events` | `/run` | 1 file, 2 operations |
 | `hosting` | Gate and gateway for the demonstration host; no import from any other module | none | none | none |
 | `demo` | The cast, the seeder (through the application's own requests), the presenter script | none | `/demo` (only with `APLYD_DEMO=true`) | none |
-| `journey` | One browser test that walks the whole journey through the pages; no application code | none | none | none |
+| `journey` | The next-step logic behind the home page and the progress strip (`src/progress.ts`, `src/facts.ts`), and the browser test that walks the whole journey through the pages. It has no page and no route of its own | none | none | none |
 | `docs` | Reads the BRD as data for `scripts/check-traceability.mjs`; no application code | none | none | none |
 
 The totals are 9 pages, 23 route files and 29 operations (GET and POST), counted from `app/`. The operation-level catalogue is in [the API reference](API-REFERENCE.md). One route of the `deliver` module lives under the `requirements` path (`requirements/[rid]/engagement`), and the `/operator` page belongs to `procure`.
@@ -190,6 +190,11 @@ flowchart LR
   run --> diagnose
   run --> procure
   demo -->|"types only"| factory
+  journey -->|"reads"| factory
+  journey -->|"reads"| diagnose
+  journey -->|"reads"| procure
+  journey -->|"reads"| deliver
+  journey -->|"reads"| run
 ```
 
 `platform`, `hosting` and `docs` import nothing from another module. `demo` talks to the application over HTTP, not through imports, except for the questionnaire types. The graph has no cycle, and the direction follows the journey: a later stage reads an earlier stage, never the reverse [Certain: imports read by pattern over `modules/*/src`].
@@ -373,7 +378,7 @@ AS BUILT. `pnpm db:local` (`scripts/local-db.mjs`) deletes `.wrangler/state/v3/d
 
 ### 4.7 Tests and continuous integration
 
-AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue (`node scripts/test.mjs --list`) holds 67 suites on 5 October 2026: 17 static, 23 unit, 8 integration, 8 smoke and 11 browser.
+AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue (`node scripts/test.mjs --list`) held 86 suites at commit 21fd329 on 5 October 2026 (23 static, 35 unit, 9 integration, 8 smoke and 11 browser) and holds more as documentation suites are added; the command prints the current list. The earlier figure of 67 in this paragraph was out of date.
 
 | Layer | What runs | Needs |
 | --- | --- | --- |
@@ -385,7 +390,7 @@ AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue 
 
 Each module keeps `tests/baseline.json`; with `--guard` a suite that is missing, has no baseline or passes fewer tests than its baseline fails the run (BR-NFR-05). Mutation checks (`scripts/mutation/mutate.py`) were run by the module authors and are recorded in each `VALIDATION.md`. The recorded full runs on 5 October 2026 passed 58 of 58 suites for the hosting slice and 64 of 64 for the demonstration slice, on a two-core container in about 10.5 and 11 minutes [Certain for those runs; the catalogue now lists 67 suites and no full run of all 67 is recorded in the repository].
 
-CI is `.github/workflows/ci.yml` (`engineering-checks`): on pull requests and pushes to `main` that change something other than Markdown or `docs/`, on `ubuntu-latest` with Node 22 and a 20-minute limit, it checks the catalogue, installs with `pnpm install --frozen-lockfile`, runs `pnpm build`, shows the Chrome version, runs `node scripts/test.mjs pr --guard` and uploads `reports/summary.json`. It holds no secret, uses no hosted database and deploys nothing. `.github/workflows/docs.yml` (`documentation-checks`) runs `scripts/check-documentation.mjs` on every pull request. A concurrency group cancels superseded runs. [Certain for the files; the result of a CI run on the merged tree is not recorded (HANDOVER.md).]
+CI is `.github/workflows/ci.yml` (`engineering-checks`): on pull requests and pushes to `main` that change something other than Markdown or `docs/`, on `ubuntu-latest` with Node 22 and a 20-minute limit, it checks the catalogue, installs with `pnpm install --frozen-lockfile`, runs `pnpm build`, shows the Chrome version, runs `node scripts/test.mjs pr --guard` and uploads `reports/summary.json`. It holds no secret, uses no hosted database and deploys nothing. `.github/workflows/docs.yml` (`documentation-checks`) runs `scripts/check-documentation.mjs`, `scripts/check-traceability.mjs` and `scripts/check-test-docs.mjs` on every pull request. A pull request that changes only Markdown or `docs/` skips `ci.yml`, so the documentation sync suites under `modules/docs/tests/` do not run on it; only these three scripts do. A concurrency group cancels superseded runs. [Certain for the files; the result of a CI run on the merged tree is not recorded (HANDOVER.md).]
 
 ## 5. Data architecture
 
@@ -395,7 +400,7 @@ The column-level description of every table is in [the data dictionary](DATA-DIC
 
 AS BUILT. Four rules shape every table.
 
-1. A confirmed record is never changed. A correction is a new row that carries evidence; the old row stays (BR-DATA-04, AGENTS.md). Fourteen of the 15 tables are append-only. `companies` and `users` are not, but no route creates or edits them: only the seed files and the demonstration seeder write them, so there is no sign-up path today (BR-ID-01 is partial).
+1. A confirmed record is never changed. A correction is a new row that carries evidence; the old row stays (BR-DATA-04, AGENTS.md). Fourteen of the 16 tables are append-only. `companies` and `users` are not, but no route creates or edits them: only the seed files and the demonstration seeder write them, so there is no sign-up path today (BR-ID-01 is partial).
 2. Change is recorded as events. Where something changes state (a decision on an idea, a withdrawal, a listing, a delivery, an acceptance, a review), the change is an event row, and the state is read from the events.
 3. State is derived on read, never stored (5.6). There is no "status" column to go out of step with the events.
 4. Every refusal that matters is also made by the database (5.4), so a bug in the application layer cannot write what a rule forbids.
@@ -404,7 +409,7 @@ Identifiers and time follow one convention. Records that people name in a URL (a
 
 ### 5.2 Table families
 
-AS BUILT. 15 tables, created by migrations 0000 to 0014.
+AS BUILT. 16 tables, created by migrations 0000 to 0014.
 
 | Module | Table | Holds | Append-only | Notes |
 | --- | --- | --- | --- | --- |
@@ -697,7 +702,7 @@ Source. [Diagnose status](../../modules/diagnose/STATUS.md); BR-DIAG-04; commit 
 
 Context. BR-DATA-04, BR-ID-06 and [AGENTS.md](../../AGENTS.md): confirmed records, revisions and audit entries are never edited or deleted, and corrections append.
 
-Decision. Fourteen of the 15 tables are append-only. A change of state is an event row. No table has a stored status column (5.1, 5.6).
+Decision. Fourteen of the 16 tables are append-only. A change of state is an event row. No table has a stored status column (5.1, 5.6).
 
 Consequences. History and audit come with the model, and a stale status is impossible. Reads fold events, which costs more as history grows; the caps (500 revisions, 200 decisions, 12 milestones, 14 deliveries) bound it. A wrong entry cannot be removed, so a wrong provider choice is permanent (OQ-15) and an erasure request has no answer (BR-DATA-05, OQ-07). A hosted demonstration cannot be put back by deleting rows, which is why its reset is a rebuild (AD-19).
 
@@ -1107,4 +1112,4 @@ These are places where the code, a status page and the BRD disagree, or where th
 | 9 | `docs/open-questions.md` | No open question covers a model or speech provider, an operator view of the audit log, or an owner's export | The BRD has requirements that need them (BR-DESC-07, BR-OPS-06, BR-UX-10, BR-DATA-03) | Technical questions TQ-01, TQ-03 and TQ-04 are not tracked in the register |
 | 10 | `modules/factory/src/api/factory.ts` | The factory handlers inline the sign-in check, the scope check and the body bound (their own `MAX_BODY_CHARACTERS`) | `modules/platform/src/api/authorize.ts` says the checks are in one place "so that no endpoint can forget one" | The other four modules call the shared functions; the factory copy has to be kept in step by hand |
 
-Two further observations are not discrepancies. The catalogue lists 67 suites, while the recorded full runs in the module validation records show 58 and 64: the later runs predate the BRD commit that added the documentation suites [Likely]. The hosting status page says the demonstration host was built "on `main` after pull requests #1 to #9 were merged", while the HANDOVER pull-request table stops at #9; the question of what `main` holds is TQ-10.
+Two further observations are not discrepancies. The catalogue listed 86 suites at commit 21fd329, while the recorded full runs in the module validation records show 58 and 64: the later runs predate the commits that added the documentation and interface suites [Likely]. The hosting status page says the demonstration host was built "on `main` after pull requests #1 to #9 were merged", while the HANDOVER pull-request table stops at #9; the question of what `main` holds is TQ-10.
