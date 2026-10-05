@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, mock, test } from "node:test";
+import { authorizeCompanyRead, authorizeCompanyWrite, authorizeOperator, authorizeSignedIn } from "../../src/api/authorize.ts";
 import { handleCompanyRead } from "../../src/api/companies.ts";
 import { handleHealth } from "../../src/api/health.ts";
 import { handleSessionRead, handleSessionWrite } from "../../src/api/session.ts";
@@ -269,4 +270,66 @@ test("signing out while signed in is audited, and signing out as nobody is not",
   const ended = await auditEvents("session.ended");
   assert.equal(ended.length, 1);
   assert.equal(ended[0].user_id, "user-synthetic-owner-a");
+});
+
+// BR-UX-06: what a person at a form meets when the session has ended is the sign-in page, never a page of JSON; a program is answered as before.
+const FORM = "application/x-www-form-urlencoded";
+const MULTIPART = "multipart/form-data; boundary=----aplyd";
+const sent = (path: string, type: string | null, cookie?: string, body = "note=typed+by+the+owner") =>
+  new Request(`${ORIGIN}${path}`, { method: "POST", headers: { origin: ORIGIN, ...(type ? { "content-type": type } : {}), ...(cookie ? { cookie } : {}) }, body });
+const shown = async (res: Response) => ({ status: res.status, location: res.headers.get("location"), json: (res.headers.get("content-type") ?? "").startsWith("application/json") ? await res.json() : null });
+const EXPIRED = { status: 303, location: "/sign-in?expired=1", json: null };
+const NO_SESSION = { status: 401, location: null, json: { error: "not_signed_in" } };
+
+test("a form post with no session, a tampered session or an ended session is sent to the sign-in page by every kind of check; a program still gets 401 JSON", async () => {
+  const good = await signIn("owner-a@synthetic.invalid");
+  const tampered = good.slice(0, -2) + (good.endsWith("AA") ? "BB" : "AA");
+  const company = `/api/companies/${A}/x`;
+  const checks: [string, (r: Request) => Promise<unknown>][] = [
+    ["company change", (r) => authorizeCompanyWrite(r, env, A, "x.write.denied")],
+    ["operator change", (r) => authorizeOperator(r, env, "operator.write.denied", true)],
+    ["signed-in change", (r) => authorizeSignedIn(r, env)],
+  ];
+  const ended = async () => {
+    const start = Date.now();
+    const cookie = await signIn("owner-a@synthetic.invalid");
+    return { cookie, later: () => mock.method(Date, "now", () => start + (SESSION_SECONDS + 5) * 1000) };
+  };
+  for (const [name, check] of checks) {
+    for (const [what, cookie] of [["no cookie", undefined], ["a tampered cookie", tampered], ["an empty cookie", "aplyd_session="]] as const) {
+      for (const type of [FORM, MULTIPART]) assert.deepEqual(await shown((await check(sent(company, type, cookie))) as Response), EXPIRED, `${name}, ${what}, ${type}`);
+      for (const type of ["application/json", "text/plain", null]) assert.deepEqual(await shown((await check(sent(company, type, cookie, "{}"))) as Response), NO_SESSION, `${name}, ${what}, ${type}`);
+    }
+    const old = await ended();
+    const clock = old.later();
+    try {
+      assert.deepEqual(await shown((await check(sent(company, FORM, old.cookie))) as Response), EXPIRED, `${name}, a session that ended eight hours ago, form`);
+      assert.deepEqual(await shown((await check(sent(company, "application/json", old.cookie, "{}"))) as Response), NO_SESSION, `${name}, the same session, program`);
+    } finally {
+      clock.mock.restore();
+    }
+  }
+  assert.equal((await auditEvents("x.write.denied")).length + (await auditEvents("operator.write.denied")).length, 0, "a request with no session is not audited");
+});
+
+test("a read with no session stays JSON, even for a browser that sends a form content type, and the body of a refused post is read so the connection is left clean", async () => {
+  const get401 = (type: string) => new Request(`${ORIGIN}/api/companies/${A}`, { headers: { "content-type": type } });
+  assert.deepEqual(await shown(await handleCompanyRead(get401(FORM), env, A)), NO_SESSION);
+  assert.deepEqual(await shown((await authorizeCompanyRead(get401(FORM), env, A, "x.read.denied")) as Response), NO_SESSION);
+  assert.deepEqual(await shown(await handleSessionRead(get("/api/session"), env)), NO_SESSION);
+  const form = sent(`/api/companies/${A}/x`, FORM);
+  assert.deepEqual(await shown((await authorizeCompanyWrite(form, env, A, "x.write.denied")) as Response), EXPIRED);
+  assert.equal(form.bodyUsed, true);
+});
+
+test("the refusal changes only what is shown: with a valid session the same checks decide exactly as before", async () => {
+  const a = await signIn("owner-a@synthetic.invalid");
+  const b = await signIn("owner-b@synthetic.invalid");
+  const op = await signIn("operator@synthetic.invalid");
+  const path = `/api/companies/${A}/x`;
+  const allowed = (await authorizeCompanyWrite(sent(path, FORM, a), env, A, "x.write.denied")) as { companyId?: string };
+  assert.equal(allowed.companyId, A, "the owner is let through");
+  assert.deepEqual(await shown((await authorizeCompanyWrite(sent(path, FORM, b), env, A, "x.write.denied")) as Response), { status: 404, location: null, json: { error: "not_found" } }, "another company's owner is still 404");
+  assert.deepEqual(await shown((await authorizeOperator(sent(path, FORM, a), env, "operator.write.denied", true)) as Response), { status: 403, location: null, json: { error: "forbidden" } }, "an owner at an operator form is still 403");
+  assert.ok("db" in ((await authorizeOperator(sent(path, FORM, op), env, "operator.write.denied", true)) as object), "the operator is let through");
 });

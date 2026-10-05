@@ -6,9 +6,12 @@ import { Notice, PageHead } from "../_ui/parts.tsx";
 
 export const dynamic = "force-dynamic";
 
-export default async function SignIn({ searchParams }: { searchParams: Promise<{ refused?: string }> }) {
+export default async function SignIn({ searchParams }: { searchParams: Promise<{ refused?: string; expired?: string }> }) {
   const e = env as unknown as AppEnv;
-  const refused = (await searchParams).refused === "1";
+  const q = await searchParams;
+  const refused = q.refused === "1";
+  // A form was posted with no valid session (it ended, or the cookie is gone): the platform sent the person here with ?expired=1.
+  const expired = q.expired === "1";
 
   if (!isSyntheticEnvironment(e) || !e.DB) {
     return (
@@ -28,6 +31,11 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
   return (
     <div className="narrow" style={{ display: "grid", gap: "var(--s-4)" }}>
       <PageHead title="Sign in" lede={<p>Synthetic environment: choose a synthetic user. There is no password.</p>} />
+      {expired ? (
+        <Notice role="alert" tone="warn" data-testid="expired">
+          Your session has ended. Sign in again; what you typed was not saved.
+        </Notice>
+      ) : null}
       {refused ? (
         <Notice role="alert" tone="danger">
           That user was not found.

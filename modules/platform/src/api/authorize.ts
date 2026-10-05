@@ -8,7 +8,7 @@ import { isCrossSite } from "../identity/cross-site.ts";
 import { resolveIdentity } from "../identity/resolve.ts";
 import { canReadCompany, canWriteOwnCompany } from "../identity/scope.ts";
 import type { Identity } from "../identity/scope.ts";
-import { drain, json } from "./http.ts";
+import { drain, json, notSignedIn } from "./http.ts";
 
 export type Allowed = { identity: Identity; companyId: string; db: D1Database };
 export type OperatorAllowed = { identity: Identity; db: D1Database };
@@ -20,7 +20,7 @@ const refuse = (db: D1Database, event: string, identity: Identity, requested: st
 export async function authorizeCompanyRead(request: Request, env: AppEnv, requestedId: string, event: string): Promise<Allowed | Response> {
   if (!env.DB) return json(503, { error: "storage_unavailable" });
   const identity = await resolveIdentity(request, env);
-  if (!identity) return json(401, { error: "not_signed_in" });
+  if (!identity) return notSignedIn(request);
   if (!canReadCompany(identity, requestedId)) {
     await refuse(env.DB, event, identity, requestedId);
     return json(404, { error: "not_found" });
@@ -41,7 +41,7 @@ export async function authorizeCompanyWrite(request: Request, env: AppEnv, reque
   const identity = await resolveIdentity(request, env);
   if (!identity) {
     await drain(request);
-    return json(401, { error: "not_signed_in" });
+    return notSignedIn(request);
   }
   if (!canReadCompany(identity, requestedId)) {
     await drain(request);
@@ -60,7 +60,7 @@ export async function authorizeCompanyWrite(request: Request, env: AppEnv, reque
 export async function authorizeSignedIn(request: Request, env: AppEnv): Promise<{ identity: Identity; db: D1Database } | Response> {
   if (!env.DB) return json(503, { error: "storage_unavailable" });
   const identity = await resolveIdentity(request, env);
-  if (!identity) return json(401, { error: "not_signed_in" });
+  if (!identity) return notSignedIn(request);
   return { identity, db: env.DB };
 }
 
@@ -81,7 +81,7 @@ export async function authorizeOperator(request: Request, env: AppEnv, event: st
   const identity = await resolveIdentity(request, env);
   if (!identity) {
     if (change) await drain(request);
-    return json(401, { error: "not_signed_in" });
+    return notSignedIn(request);
   }
   if (identity.role !== "operator" || identity.companyId !== null) {
     if (change) await drain(request);
