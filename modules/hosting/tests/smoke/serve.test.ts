@@ -33,7 +33,7 @@ async function launch(extra: Record<string, string>): Promise<Launched> {
   const port = await freePort();
   const upstream = await freePort();
   const child = spawn(process.execPath, [SERVE], {
-    env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", CLOUDFLARE_CF_FETCH_ENABLED: "false", WRANGLER_SEND_METRICS: "false", WRANGLER_WRITE_LOGS: "false", PORT: String(port), APLYD_UPSTREAM_PORT: String(upstream), SESSION_SECRET: SECRET, ...extra },
+    env: { NODE_ENV: "production", PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", CLOUDFLARE_CF_FETCH_ENABLED: "false", WRANGLER_SEND_METRICS: "false", WRANGLER_WRITE_LOGS: "false", PORT: String(port), APLYD_UPSTREAM_PORT: String(upstream), SESSION_SECRET: SECRET, ...extra },
     stdio: ["ignore", "pipe", "pipe"],
   });
   children.push(child);
@@ -71,7 +71,7 @@ const exited = (child: ChildProcess, ms: number) =>
   });
 
 test("the launcher refuses to start for a real environment, a weak secret or no gate, says why, and does not echo the secret", () => {
-  const run = (env: Record<string, string>) => spawnSync(process.execPath, [SERVE], { env: { PATH: process.env.PATH ?? "", ...env }, encoding: "utf8", timeout: 30_000 });
+  const run = (env: Record<string, string>) => spawnSync(process.execPath, [SERVE], { env: { NODE_ENV: "production", PATH: process.env.PATH ?? "", ...env }, encoding: "utf8", timeout: 30_000 });
   const production = run({ SESSION_SECRET: SECRET, DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD, APLYD_ENV: "production" });
   assert.equal(production.status, 2);
   assert.match(production.stderr, /synthetic environments only/);

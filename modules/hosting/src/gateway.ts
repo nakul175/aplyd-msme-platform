@@ -9,6 +9,8 @@ import type { Config } from "./gate.ts";
 export type GatewayOptions = {
   access: Config["access"];
   upstreamPort: number;
+  /** See Config.publicHosts in gate.ts. */
+  publicHosts?: string[];
   /** False while the database is being built and the application is starting: every request but /healthz is answered 503, and /healthz says "starting". */
   ready: () => boolean;
   upstreamHost?: string;
@@ -80,7 +82,7 @@ export function createGateway(options: GatewayOptions): http.Server {
       return reply(res, 413, "The request is too large.");
     }
 
-    const headers = upstreamHeaders(req.headers);
+    const headers = upstreamHeaders(req.headers, options.publicHosts);
     for (const name of HOP_BY_HOP) delete headers[name];
     let received = 0;
     let refused = false;

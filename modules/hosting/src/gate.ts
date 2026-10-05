@@ -21,6 +21,8 @@ export type Config = {
   environment: string;
   sessionSecret: string;
   access: { kind: "open" } | { kind: "password"; user: string; password: string };
+  /** Hosts, besides the Host header of the request itself, whose Origin counts as this site's own (APLYD_PUBLIC_HOSTS): for an ingress that rewrites Host. */
+  publicHosts: string[];
   /** Add the demonstration package (the demo module) after the application is up. The database is rebuilt from the migrations and the synthetic seed on every start, so a restart is a reset. */
   demo: boolean;
 };
@@ -69,6 +71,14 @@ export function parseConfig(env: Environment): ConfigResult {
     access = { kind: "password", user, password };
   }
 
+  const publicHosts: string[] = [];
+  for (const raw of (env.APLYD_PUBLIC_HOSTS ?? "").split(",")) {
+    const host = raw.trim().toLowerCase();
+    if (host === "") continue;
+    if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/.test(host)) problems.push(`APLYD_PUBLIC_HOSTS holds "${raw.trim()}", which is not a host name with an optional port.`);
+    else publicHosts.push(host);
+  }
+
   if (problems.length > 0 || access === null) return { ok: false, problems };
   return {
     ok: true,
@@ -78,6 +88,7 @@ export function parseConfig(env: Environment): ConfigResult {
       environment,
       sessionSecret: secret,
       access,
+      publicHosts,
       demo: env.APLYD_DEMO === "true",
     },
   };
@@ -103,12 +114,12 @@ export function passesGate(authorization: string | undefined, access: Config["ac
  * The headers handed to the application. The application refuses a state-changing request whose Origin differs from the origin of the
  * request URL it is given, and the URL it is given is the proxy's own (http, the Host the browser sent), not the public https one the
  * platform's ingress terminated. So an Origin whose host is exactly the Host the browser sent is rewritten to the origin the application
- * sees. A page on another site cannot send an Origin with this host, so every other Origin (another host, "null", something that is not
+ * sees. Hosts named in `publicHosts` count too, for a platform that rewrites Host on its way in. A page on another site cannot send an Origin with this host, so every other Origin (another host, "null", something that is not
  * a URL) is passed on untouched and the application refuses it as cross-site, as it would without the proxy. The scheme is not compared:
  * the ingress's forwarded-scheme header is not relied on, and the session cookie is Secure, so a request that arrived over plain http
  * carries no session. The gate's own Authorization header is not passed on.
  */
-export function upstreamHeaders(headers: IncomingHttpHeaders): IncomingHttpHeaders {
+export function upstreamHeaders(headers: IncomingHttpHeaders, publicHosts: readonly string[] = []): IncomingHttpHeaders {
   const out: IncomingHttpHeaders = { ...headers };
   delete out.authorization;
   // Neither header is a list: a value with a comma in it is not an origin, and is left for the application to refuse.
@@ -122,7 +133,7 @@ export function upstreamHeaders(headers: IncomingHttpHeaders): IncomingHttpHeade
     } catch {
       /* not a URL: left as it is */
     }
-    if (parsed !== null && (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.host.toLowerCase() === host && parsed.origin === origin) out.origin = `http://${hostHeader}`;
+    if (parsed !== null && (parsed.protocol === "http:" || parsed.protocol === "https:") && (parsed.host.toLowerCase() === host || publicHosts.includes(parsed.host.toLowerCase())) && parsed.origin === origin) out.origin = `http://${hostHeader}`;
   }
   return out;
 }

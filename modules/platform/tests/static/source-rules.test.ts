@@ -9,15 +9,33 @@ import { headerReadProblems } from "../support/header-rule.ts";
 const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const git = (...a: string[]) => execFileSync("git", a, { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
 
+// The two files of the host launcher (modules/hosting). They run in a Node process in front of the Worker, not in it: they hand a request's
+// headers on and read one header, Authorization, as the hosting gate's own password (never an application identity; the gate removes it before
+// the Worker sees the request). The rule below is about code that decides who a person is, which runs in the Worker. The exemption is exactly these
+// two files, and the test after the first one fails if anything the Worker runs imports either of them.
+export const HOST_PROCESS_FILES = ["modules/hosting/src/gate.ts", "modules/hosting/src/gateway.ts"];
+
 test("request code reads only the headers on the allow-list, so identity cannot come from a header", () => {
   // Every source file of the application, found by listing directories (a pathspec with ** skipped top-level files such as app/page.tsx).
-  const files = git("ls-files", "--cached", "--others", "--exclude-standard", "--", "app", "worker", "modules").filter(
-    (f) => /^(app|worker)\/.*\.tsx?$/.test(f) || /^modules\/[^/]+\/src\/.*\.tsx?$/.test(f),
-  );
+  const files = git("ls-files", "--cached", "--others", "--exclude-standard", "--", "app", "worker", "modules")
+    .filter((f) => /^(app|worker)\/.*\.tsx?$/.test(f) || /^modules\/[^/]+\/src\/.*\.tsx?$/.test(f))
+    .filter((f) => !HOST_PROCESS_FILES.includes(f));
   for (const mustBeScanned of ["app/page.tsx", "app/layout.tsx", "worker/index.ts", "modules/platform/src/env.ts", "modules/platform/src/identity/resolve.ts"]) {
     assert.ok(files.includes(mustBeScanned), `${mustBeScanned} must be among the scanned files`);
   }
   const problems = files.flatMap((file) => headerReadProblems(file, readFileSync(`${ROOT}${file}`, "utf8")));
+  assert.deepEqual(problems, []);
+});
+
+test("the host launcher's files are exempt from the header rule only because nothing the Worker runs imports them", () => {
+  const all = git("ls-files", "--cached", "--others", "--exclude-standard", "--", "app", "worker", "modules");
+  for (const f of HOST_PROCESS_FILES) assert.ok(all.includes(f), `${f} is listed as exempt but does not exist`);
+  const workerSide = all.filter((f) => (/^(app|worker)\/.*\.tsx?$/.test(f) || /^modules\/[^/]+\/src\/.*\.tsx?$/.test(f)) && !f.startsWith("modules/hosting/"));
+  const importers = workerSide.filter((f) => /modules\/hosting|\/hosting\/src|gateway\.ts|\bgate\.ts/.test(readFileSync(`${ROOT}${f}`, "utf8")));
+  assert.deepEqual(importers, [], "a file the Worker runs refers to the host launcher");
+  // The exemption covers only these two files: any other file under modules/hosting/src is scanned like the rest.
+  const otherHostFiles = all.filter((f) => /^modules\/hosting\/src\/.*\.tsx?$/.test(f) && !HOST_PROCESS_FILES.includes(f));
+  const problems = otherHostFiles.flatMap((f) => headerReadProblems(f, readFileSync(`${ROOT}${f}`, "utf8")));
   assert.deepEqual(problems, []);
 });
 

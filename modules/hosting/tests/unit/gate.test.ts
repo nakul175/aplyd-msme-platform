@@ -71,6 +71,17 @@ test("ports must be whole numbers in range and different from each other", () =>
   assert.ok(ok.ok && ok.config.port === 3000 && ok.config.upstreamPort === 3001);
 });
 
+test("public hosts are optional, lower-cased, and refused when they are not host names", () => {
+  const none = parseConfig(good);
+  assert.ok(none.ok && none.config.publicHosts.length === 0);
+  const two = parseConfig({ ...good, APLYD_PUBLIC_HOSTS: "Demo.Example, app.example:8443 ,," });
+  assert.ok(two.ok);
+  if (two.ok) assert.deepEqual(two.config.publicHosts, ["demo.example", "app.example:8443"]);
+  for (const bad of ["https://demo.example", "demo.example/path", "-x.example", "a b", "demo.example:99999x", "x@y"]) {
+    assert.match(problemsOf({ ...good, APLYD_PUBLIC_HOSTS: bad }).join("\n"), /APLYD_PUBLIC_HOSTS/, bad);
+  }
+});
+
 test("every problem is reported at once, so one launch shows all of them", () => {
   const problems = problemsOf({ APLYD_ENV: "production", SESSION_SECRET: "short", PORT: "0" });
   assert.ok(problems.length >= 4, problems.join(" | "));
@@ -145,6 +156,14 @@ test("every other Origin reaches the application unchanged, so the application s
   for (const origin of cases) assert.equal(upstreamHeaders({ host: "demo.example", origin }).origin, origin, JSON.stringify(origin));
   assert.equal(upstreamHeaders({ host: "demo.example" }).origin, undefined, "no Origin stays none");
   assert.equal(upstreamHeaders({ origin: "https://demo.example" }).origin, "https://demo.example", "no Host: nothing to compare with");
+});
+
+test("a listed public host's Origin is rewritten too, when the platform has rewritten Host; an unlisted one still is not", () => {
+  const inner = { host: "10.0.0.5:8080", origin: "https://demo.example" };
+  assert.equal(upstreamHeaders(inner).origin, "https://demo.example", "without the list, a rewritten Host makes the Origin foreign");
+  assert.equal(upstreamHeaders(inner, ["demo.example"]).origin, "http://10.0.0.5:8080");
+  assert.equal(upstreamHeaders({ ...inner, origin: "https://evil.example" }, ["demo.example"]).origin, "https://evil.example");
+  assert.equal(upstreamHeaders({ ...inner, origin: "https://demo.example:444" }, ["demo.example"]).origin, "https://demo.example:444", "the port is part of the host");
 });
 
 test("the request size limit is above anything the application accepts and far below anything that could matter", () => {

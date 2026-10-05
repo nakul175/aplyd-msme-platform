@@ -141,6 +141,16 @@ test("an Origin that is this site's own is rewritten for the application; a fore
   assert.equal(seen[1].headers.origin, "https://evil.example");
 });
 
+test("with a listed public host, an Origin from that host is rewritten even though Host differs", async () => {
+  seen.length = 0;
+  await withGateway({ publicHosts: ["demo.example"] }, async (base) => {
+    await fetch(`${base}/api/session`, { method: "POST", headers: { authorization: AUTH, origin: "https://demo.example" }, body: "x=1" });
+    await fetch(`${base}/api/session`, { method: "POST", headers: { authorization: AUTH, origin: "https://other.example" }, body: "x=1" });
+  });
+  assert.equal(seen[0].headers.origin?.startsWith("http://127.0.0.1:"), true);
+  assert.equal(seen[1].headers.origin, "https://other.example");
+});
+
 test("redirects and cookies come back as the application sent them, and a body goes through whole", async () => {
   seen.length = 0;
   await withGateway({}, async (base) => {

@@ -8,6 +8,7 @@
 //   DEMO_USER, DEMO_PASSWORD   the access gate (HTTP Basic), or DEMO_ACCESS=open to leave the address open
 //   PORT             default 8080
 //   APLYD_ENV        local, synthetic (default) or test; anything else is refused
+//   APLYD_PUBLIC_HOSTS  optional, comma-separated: public host names to treat as this site's own if the platform rewrites Host
 //   APLYD_DEMO=true  add the demonstration package after start (modules/demo)
 //
 // The choices that can be tested without starting anything are in modules/hosting/src/gate.ts and gateway.ts.
@@ -36,7 +37,7 @@ if (!existsSync(join(dist, "wrangler.json"))) {
 const built = JSON.parse(readFileSync(join(dist, "wrangler.json"), "utf8"));
 
 let ready = false;
-const gateway = createGateway({ access: config.access, upstreamPort: config.upstreamPort, ready: () => ready, log: (line) => console.log(line) });
+const gateway = createGateway({ access: config.access, publicHosts: config.publicHosts, upstreamPort: config.upstreamPort, ready: () => ready, log: (line) => console.log(line) });
 await new Promise((resolveListening, reject) => {
   gateway.once("error", reject);
   gateway.listen(config.port, "0.0.0.0", () => resolveListening(undefined));
