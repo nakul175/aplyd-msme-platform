@@ -808,6 +808,7 @@ test("the database refuses a payment with no amount or a fraction of a rupee, an
   await assert.rejects(pay(null), /a payment has an amount/, "the shape check passes a NULL, so the trigger is what refuses it");
   await assert.rejects(pay(1.5), /whole number of rupees/, "1.5 rupees passes BETWEEN 1 AND 100000000");
   await assert.rejects(pay(40000.25), /whole number of rupees/);
+  await assert.rejects(pay("abc"), /whole number of rupees/, "text is refused by this rule, and not left to the range check, which text also fails");
   await assert.rejects(pay(0), /CHECK/, "a CHECK still refuses zero");
   await assert.rejects(pay(100000001), /CHECK/, "and a payment above the largest one");
   assert.equal(await count("engagement_events"), before);
@@ -849,6 +850,11 @@ test("a delivery refused for the limit is refused for it only, and one that awai
   assert.equal((await event(A, p.id, p.a, { kind: "rejected", milestoneId: first })).status, 201);
   await assert.rejects(deliver(), /too many deliveries of this milestone/);
   await assert.rejects(deliver(), (error: unknown) => !/delivered once/.test(String(error)), "the rule about order does not answer at the limit");
+  // after the close it is the rule about closing that refuses, and the limit stays out of it (a mutant that let the limit answer
+  // after the close survived the first set of checks)
+  assert.equal((await event(A, p.id, p.a, { kind: "closed" })).status, 201);
+  await assert.rejects(deliver(), /the engagement is closed/, "closed, at the limit");
+  await assert.rejects(deliver(), (error: unknown) => !/too many deliveries/.test(String(error)), "the limit does not answer after the close");
 });
 
 test("an engagement is refused for one reason only: a withdrawn requirement is told so whether or not the provider is listed, and an open one is told about the provider", async () => {
@@ -857,6 +863,10 @@ test("an engagement is refused for one reason only: a withdrawn requirement is t
     db.prepare("INSERT INTO engagements (id, company_id, requirement_id, provider_id, created_at, created_by) VALUES ('e-direct', ?, ?, ?, 'x', ?)").bind(A, requirementId, providerId, OWNER).run();
   assert.equal((await handleProviderUnlist(req(`/api/operator/providers/${providerId}/unlist`, op, {}), env, providerId)).status, 201);
   await assert.rejects(asEngagement(), /needs a listed provider/, "open requirement, unlisted provider");
+  // another company's requirement is not the provider rule's business: that company has no such requirement, and the key answers
+  const asOtherCompany = () =>
+    db.prepare("INSERT INTO engagements (id, company_id, requirement_id, provider_id, created_at, created_by) VALUES ('e-other', 'company-synthetic-b', ?, ?, 'x', 'user-synthetic-owner-b')").bind(requirementId, providerId).run();
+  await assert.rejects(asOtherCompany(), (error: unknown) => !/listed provider/.test(String(error)), "the provider rule does not answer for a requirement that is not the company's");
   assert.equal((await handleRequirementWithdraw(req(`/api/companies/${A}/requirements/${requirementId}/withdraw`, a, {}), env, A, requirementId)).status, 201);
   await assert.rejects(asEngagement(), /needs an open requirement/, "withdrawn requirement and unlisted provider: the requirement is the reason");
   await assert.rejects(asEngagement(), (error: unknown) => !/listed provider/.test(String(error)), "the provider rule does not answer when the requirement already does");
