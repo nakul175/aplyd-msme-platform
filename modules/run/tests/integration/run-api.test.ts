@@ -173,6 +173,62 @@ test("a delivered but not yet accepted milestone does not close the baseline: on
   assert.equal((await outcomes(A, p.id, p.a, { kind: "baseline", value: 5 })).status, 201);
 });
 
+test("a baseline is not offered or taken for an engagement that is closed or whose plan is not agreed: refused with a plain reason, nothing written, nothing audited", async () => {
+  const s = await base();
+  // No plan agreed: a milestone is written but the plan is not agreed.
+  const open = await engageFor(s, 0);
+  assert.equal((await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${open.id}/milestones`, s.a, MILESTONE), env, A, open.id)).status, 201);
+  const draft = await view(open.id, s.a);
+  assert.deepEqual([draft.canRecordBaseline, draft.baselineBlocked], [false, "no_plan"]);
+  const early = await outcomes(A, open.id, s.a, { kind: "baseline", value: 42 });
+  assert.equal(early.status, 409);
+  assert.deepEqual(await early.json(), { error: "baseline_no_plan" });
+  const earlyForm = await handleOutcomeRecord(form(`/api/companies/${A}/engagements/${open.id}/outcomes`, s.a, [["kind", "baseline"], ["value", "42"]]), env, A, open.id);
+  assert.equal(earlyForm.headers.get("location"), "/run?problem=baseline_no_plan");
+
+  // Closed before anything was accepted, with an agreed plan.
+  const agreed = await engageFor(s, 1);
+  const m = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${agreed.id}/milestones`, s.a, MILESTONE), env, A, agreed.id);
+  assert.equal(m.status, 201);
+  assert.equal((await deliverEvent(agreed.id, s.a, { kind: "plan_agreed" })).status, 201);
+  assert.equal((await view(agreed.id, s.a)).canRecordBaseline, true, "open and agreed: the form is offered");
+  assert.equal((await deliverEvent(agreed.id, s.a, { kind: "closed", note: "SYNTHETIC: the provider stopped" })).status, 201);
+  const closed = await view(agreed.id, s.a);
+  assert.deepEqual([closed.canRecordBaseline, closed.baselineBlocked], [false, "closed"]);
+  const late = await outcomes(A, agreed.id, s.a, { kind: "baseline", value: 42 });
+  assert.equal(late.status, 409);
+  assert.deepEqual(await late.json(), { error: "baseline_closed" });
+  const lateForm = await handleOutcomeRecord(form(`/api/companies/${A}/engagements/${agreed.id}/outcomes`, s.a, [["kind", "baseline"], ["value", "42"]]), env, A, agreed.id);
+  assert.equal(lateForm.headers.get("location"), "/run?problem=baseline_closed");
+
+  // Closed before any plan: closed is the reason, not the plan.
+  const never = await engageFor(s, 2);
+  assert.equal((await deliverEvent(never.id, s.a, { kind: "closed" })).status, 201);
+  assert.equal((await view(never.id, s.a)).baselineBlocked, "closed");
+  assert.deepEqual(await (await outcomes(A, never.id, s.a, { kind: "baseline", value: 1 })).json(), { error: "baseline_closed" });
+
+  assert.equal(await count("outcome_events"), 0, "no number was written for any of them");
+  assert.equal((await audits("outcome.baseline")).length, 0, "and none was audited as a baseline");
+});
+
+test("a recorded baseline and a late one keep their own reasons after the engagement is closed", async () => {
+  const p = await planned();
+  assert.equal((await outcomes(A, p.id, p.a, { kind: "baseline", value: 7 })).status, 201);
+  assert.equal((await deliverEvent(p.id, p.a, { kind: "closed" })).status, 201);
+  assert.equal((await view(p.id, p.a)).baselineBlocked, "recorded");
+  assert.deepEqual(await (await outcomes(A, p.id, p.a, { kind: "baseline", value: 8 })).json(), { error: "baseline_exists" }, "a second number is 'recorded once', as the database says first");
+  const e = await engageFor(p, 1);
+  const m = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${e.id}/milestones`, p.a, MILESTONE), env, A, e.id);
+  assert.equal(m.status, 201);
+  assert.equal((await deliverEvent(e.id, p.a, { kind: "plan_agreed" })).status, 201);
+  const q = { id: e.id, a: p.a, milestoneId: ((await m.json()) as { id: string }).id };
+  await accept(q);
+  assert.equal((await deliverEvent(q.id, q.a, { kind: "closed" })).status, 201);
+  assert.equal((await view(q.id, q.a)).baselineBlocked, "too_late");
+  assert.deepEqual(await (await outcomes(A, q.id, q.a, { kind: "baseline", value: 8 })).json(), { error: "baseline_too_late" }, "after an acceptance it is too late, closed or not");
+  assert.equal(await count("outcome_events"), 1);
+});
+
 test("a review needs an accepted milestone", async () => {
   const p = await planned();
   const far = new Date(Date.now() + 1000 * DAY);

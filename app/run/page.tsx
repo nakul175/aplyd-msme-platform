@@ -20,6 +20,8 @@ const PROBLEMS: Record<string, string> = {
   invalid: `That could not be saved. Give a whole number from 0 to ${MAX_VALUE.toLocaleString("en-IN")}, and for a review say whether it did what was expected and whether it is still in use.`,
   baseline_exists: "You have already recorded the starting number for this. It is recorded once.",
   baseline_too_late: "The starting number has to be taken before the first milestone is accepted. It cannot be recorded afterwards.",
+  baseline_closed: "This engagement is closed, so a starting number cannot be recorded for it.",
+  baseline_no_plan: "Agree the plan on Delivery first. The starting number is recorded after the plan is agreed and before the first milestone is accepted.",
   review_exists: "That review is already recorded. Each review is recorded once.",
   nothing_accepted: "A review needs an accepted milestone. Accept one on Delivery first.",
   not_due: "That review is not due yet. It opens on the date shown.",
@@ -135,7 +137,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                         {baselineDone ? <Check /> : 2}
                       </span>
                       <h3>Before the work</h3>
-                      {baselineDone ? <Tag tone="ok">Recorded</Tag> : o.canRecordBaseline ? <Tag tone="turn">Your turn</Tag> : <Tag>Not recorded</Tag>}
+                      {baselineDone ? <Tag tone="ok">Recorded</Tag> : o.canRecordBaseline ? <Tag tone="turn">Your turn</Tag> : o.baselineBlocked === "no_plan" ? <Tag>Not yet</Tag> : <Tag>Not recorded</Tag>}
                     </div>
                     {o.baseline ? (
                       <p className="ru-baseline" data-testid="baseline">
@@ -166,6 +168,14 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                         </div>
                         <p className="help">It is recorded once and cannot be changed. It has to be taken before the first milestone is accepted.</p>
                       </form>
+                    ) : o.baselineBlocked === "no_plan" ? (
+                      <p className="muted" data-testid="baseline-needs-plan">
+                        Agree the plan on <a href="/deliver">Delivery</a> first. Then record the starting number here, before the first milestone is accepted.
+                      </p>
+                    ) : o.baselineBlocked === "closed" ? (
+                      <p className="muted" data-testid="baseline-closed">
+                        This engagement was closed before any milestone was accepted, so there is no starting number to record.
+                      </p>
                     ) : (
                       <Notice tone="info" data-testid="no-baseline">
                         No starting number was recorded before the first milestone was accepted, and it cannot be added now. The reviews below are still worth recording; there is just nothing to compare them with.

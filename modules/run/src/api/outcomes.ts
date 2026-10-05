@@ -14,8 +14,8 @@ import { loadAssessment } from "../../../diagnose/src/db/assessments.ts";
 import { listRequirements } from "../../../procure/src/db/requirements.ts";
 import { listOutcomes, recordBaseline, recordReview } from "../db/outcomes.ts";
 import type { OutcomeRow } from "../db/outcomes.ts";
-import { IN_USE, MAX_NOTE_LENGTH, MAX_VALUE, VERDICTS, isReviewNo, reviewSlots } from "../state.ts";
-import type { InUse, ReviewSlot, Verdict } from "../state.ts";
+import { IN_USE, MAX_NOTE_LENGTH, MAX_VALUE, VERDICTS, baselineBlock, isReviewNo, reviewSlots } from "../state.ts";
+import type { BaselineBlock, InUse, ReviewSlot, Verdict } from "../state.ts";
 
 export type PresentedOutcomes = {
   engagementId: string;
@@ -24,8 +24,10 @@ export type PresentedOutcomes = {
   expected: { measure: string; unit: "percent" | "days" | "rupees_per_year"; low: number; high: number; synthetic: true } | null;
   baseline: { value: number; at: string; note: string } | null;
   firstAcceptedAt: string | null;
-  /** The baseline can be taken until something is accepted, and only once. */
+  /** The baseline can be taken once, after the plan is agreed, while the engagement is open and before anything is accepted. */
   canRecordBaseline: boolean;
+  /** Why the baseline cannot be taken now (`recorded`, `too_late`, `closed`, `no_plan`), or null when it can. */
+  baselineBlocked: BaselineBlock | null;
   reviews: (ReviewSlot & { record: { at: string; value: number; verdict: Verdict; inUse: InUse; note: string } | null })[];
   /** The latest review's number less the baseline, in the unit; null unless both exist. Not compared with the expected range: which way is better depends on the measure. */
   changeSinceBaseline: number | null;
@@ -55,13 +57,15 @@ export async function presentOutcomes(db: D1Database, companyId: string, e: Enga
     return { ...s, record: row ? { at: row.at, value: row.value, verdict: row.verdict as Verdict, inUse: row.inUse as InUse, note: row.note } : null };
   });
   const latest = [...reviews].reverse().find((r) => r.record)?.record ?? null;
+  const blocked = baselineBlock({ recorded: baselineRow !== null, accepted: firstAcceptedAt !== null, closed: e.events.some((x) => x.kind === "closed"), planAgreed: e.events.some((x) => x.kind === "plan_agreed") });
   return {
     engagementId: e.id,
     title: e.title,
     expected: item && view ? { measure: item.benefit.measure, unit: item.benefit.unit, low: item.benefit.low, high: item.benefit.high, synthetic: view.result.synthetic } : null,
     baseline: baselineRow ? { value: baselineRow.value, at: baselineRow.at, note: baselineRow.note } : null,
     firstAcceptedAt,
-    canRecordBaseline: baselineRow === null && firstAcceptedAt === null,
+    canRecordBaseline: blocked === null,
+    baselineBlocked: blocked,
     reviews,
     changeSinceBaseline: latest && baselineRow ? latest.value - baselineRow.value : null,
     next: nextItem ? { opportunityId: nextItem.opportunityId, title: nextItem.title } : null,
@@ -110,6 +114,18 @@ export async function handleOutcomeRecord(request: Request, env: AppEnv, request
   }
   if (Object.keys(fields).length) return form ? redirect("/run?problem=invalid") : json(400, { error: "invalid", fields });
   if (engagementId.length === 0 || engagementId.length > 64) return form ? redirect("/run?problem=missing") : json(404, { error: "not_found" });
+
+  if (kind === "baseline") {
+    // A closed engagement, or one whose plan is not agreed, takes no starting number. Checked here so that the owner is told why; the
+    // database refuses the same rows (drizzle/0015_run_corrections.sql). A second number and a late one are left to the database's
+    // own answers, which come first there too.
+    const record = await loadEngagement(allowed.db, allowed.companyId, engagementId);
+    if (!record) return form ? redirect("/run?problem=missing") : json(404, { error: "not_found" });
+    const recorded = (await listOutcomes(allowed.db, allowed.companyId, engagementId)).some((x) => x.kind === "baseline");
+    const blocked = baselineBlock({ recorded, accepted: record.events.some((x) => x.kind === "accepted"), closed: record.events.some((x) => x.kind === "closed"), planAgreed: record.events.some((x) => x.kind === "plan_agreed") });
+    if (blocked === "closed") return form ? redirect("/run?problem=baseline_closed") : json(409, { error: "baseline_closed" });
+    if (blocked === "no_plan") return form ? redirect("/run?problem=baseline_no_plan") : json(409, { error: "baseline_no_plan" });
+  }
 
   const common = { companyId: allowed.companyId, userId: allowed.identity.userId, engagementId, value: value as number, note: note as string, at: now() };
   const done = kind === "baseline" ? await recordBaseline(allowed.db, common) : await recordReview(allowed.db, { ...common, reviewNo: reviewNo as 1 | 2 | 3, verdict: verdict as Verdict, inUse: inUse as InUse });
