@@ -23,3 +23,10 @@ test("a citation of something defined nowhere is reported once per file and id",
 test("a definition in one file satisfies a citation in another", () => {
   assert.deepEqual(brokenReferences([{ path: "a.md", text: "#### UC-RUN-01 Record a review" }, { path: "b.md", text: "UC-RUN-01" }]), []);
 });
+
+test("a finding of the findings register is an identifier of three digits, defined by its row", () => {
+  const text = ["| FND-001 | A finding | evidence |", "A citation of FND-002, FND-12 and FND-0003 in prose."].join("\n");
+  assert.deepEqual([...definedIds(text)], ["FND-001"]);
+  assert.deepEqual([...citedIds(text)].sort(), ["FND-001", "FND-002"]);
+  assert.deepEqual(brokenReferences([{ path: "a.md", text }]), ["a.md: FND-002 is cited but defined in no document"]);
+});

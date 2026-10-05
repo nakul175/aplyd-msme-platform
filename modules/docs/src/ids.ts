@@ -1,5 +1,6 @@
 // The document set cites its own identifiers: functions (FR), use cases (UC), screens (SCR), messages (MSG), rules (RULE), architecture
-// decisions (AD), test scenarios (SC), test cases (TC), regression entries (RP), test data (TD), threats (TH) and operations (API).
+// decisions (AD), test scenarios (SC), test cases (TC), regression entries (RP), test data (TD), threats (TH), operations (API) and the
+// findings of the findings register (FND).
 // An identifier is defined where it starts a table row or sits in a heading, and may be cited anywhere. A citation of an identifier
 // that is defined nowhere is a broken reference, the same fault as a broken link. Pure functions: they take text.
 
@@ -16,6 +17,7 @@ const KINDS: { kind: string; re: RegExp }[] = [
   { kind: "TD", re: /\bTD-\d{2,3}\b/g },
   { kind: "TH", re: /\bTH-\d{2,3}\b/g },
   { kind: "API", re: /\bAPI-\d{2,3}\b/g },
+  { kind: "FND", re: /\bFND-\d{3}\b/g },
 ];
 
 export const ID_KIND_NAMES = KINDS.map((k) => k.kind);
