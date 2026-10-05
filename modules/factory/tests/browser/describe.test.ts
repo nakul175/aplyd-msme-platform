@@ -107,9 +107,9 @@ test("a draft with nothing filled in is refused and nothing is saved", { timeout
     const page = await (await h.newContext()).newPage();
     await signInAsOwner(page, 1);
     await page.goto("/factory");
-    const response = page.waitForResponse((r) => new URL(r.url()).pathname === `/api/companies/${OTHER_COMPANY.id}/factory/revisions`);
-    await page.getByRole("button", { name: "Save as draft" }).click();
-    assert.equal((await response).status(), 400, "an empty form is not a description");
+    // The form post is sent back to the page with a message (the review-fixes branch); it used to be answered with a 400 and a page of JSON.
+    await Promise.all([page.waitForURL((u) => u.pathname === "/factory" && u.searchParams.has("problem")), page.getByRole("button", { name: "Save as draft" }).click()]);
+    assert.match(await page.getByTestId("problem").innerText(), /Nothing was saved/, "an empty form is not a description, and the person is told");
     const shown = await getFromPage(page, `/api/companies/${OTHER_COMPANY.id}/factory`);
     assert.equal(JSON.parse(shown.body).latest, null, "nothing was written");
   });
