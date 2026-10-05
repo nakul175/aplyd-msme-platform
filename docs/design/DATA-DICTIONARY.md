@@ -1067,6 +1067,8 @@ A successful change writes its audit entry in the same D1 batch as the row, and 
 | `outcome.baseline` | API-21 | A baseline was recorded. | engagement, review (0) |
 | `outcome.review` | API-21 | A review was recorded. | engagement, review |
 | `company.read.denied` | API-04 | A signed-in person asked for a company that is not their own. | requested |
+| `company.export` | API-30 | A person of the company downloaded the file of its records. Each download writes one. | version, records |
+| `company.export.denied` | API-30 | A signed-in person asked for the file of a company that is not their own. | requested |
 | `factory.read.denied` | API-05 | The same, for the description. | requested |
 | `factory.write.denied` | API-06 | A refused attempt to save a revision: another company (404) or a member (403). | requested |
 | `assessment.read.denied` | API-07, API-09 | A refused read of assessments. | requested |
