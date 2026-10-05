@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { acceptedCount, acceptedLabel, deliverySummary, firstWaitingDecision, primaryAction } from "../../src/summary.ts";
+import { acceptedCount, acceptedLabel, acceptEndsBaseline, deliverySummary, firstWaitingDecision, primaryAction } from "../../src/summary.ts";
 import type { EngagementView } from "../../src/summary.ts";
 
 const g = (status: EngagementView["status"], ...states: EngagementView["states"]): EngagementView => ({ status, states });
@@ -57,4 +57,13 @@ test("the link at the top goes to the first delivery waiting for a decision, in 
   assert.deepEqual(firstWaitingDecision([{ id: "e1", status: "ended_early", milestones: ms("delivered") }, { id: "e2", status: "in_progress", milestones: ms("rejected", "delivered") }]), { engagementId: "e2", milestoneId: "m2", seq: 2 });
   assert.equal(firstWaitingDecision([{ id: "e1", status: "in_progress", milestones: ms("planned", "rejected", "accepted") }]), null);
   assert.equal(firstWaitingDecision([]), null);
+});
+
+test("accepting is said to end the starting number only while it still can be recorded: open, nothing accepted, no number yet", () => {
+  assert.equal(acceptEndsBaseline({ closed: false, baselineRecorded: false, states: ["delivered", "planned"] }), true);
+  assert.equal(acceptEndsBaseline({ closed: false, baselineRecorded: false, states: ["rejected", "delivered"] }), true, "a rejection does not end it");
+  assert.equal(acceptEndsBaseline({ closed: false, baselineRecorded: true, states: ["delivered"] }), false, "the number is recorded");
+  assert.equal(acceptEndsBaseline({ closed: false, baselineRecorded: false, states: ["accepted", "delivered"] }), false, "something is accepted: it is already too late");
+  assert.equal(acceptEndsBaseline({ closed: false, baselineRecorded: false, states: ["paid", "delivered"] }), false, "a paid milestone was accepted");
+  assert.equal(acceptEndsBaseline({ closed: true, baselineRecorded: false, states: ["delivered"] }), false, "closed: nothing can be accepted");
 });

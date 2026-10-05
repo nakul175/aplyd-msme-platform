@@ -120,6 +120,9 @@ test("after the first acceptance the page says when each review opens, offers no
   const a = await signIn("owner-a@synthetic.invalid");
   const events = `/api/companies/${A}/engagements/${engagementId}/events`;
   assert.equal((await form(a, events, [["kind", "delivered"], ["milestone", milestoneId]])).headers.get("location"), "/deliver?saved=delivered");
+  const deliver = await page(a, "/deliver?saved=delivered");
+  assert.match(deliver, /Accept milestone 1/);
+  assert.ok(!deliver.includes("You have not recorded your starting number"), "the starting number is recorded, so Delivery does not warn beside Accept");
   assert.equal((await form(a, events, [["kind", "accepted"], ["milestone", milestoneId]])).headers.get("location"), "/deliver?saved=accepted");
   firstAccepted = ((await getJson(a, `/api/companies/${A}/engagements/${engagementId}/outcomes`)) as { firstAcceptedAt: string }).firstAcceptedAt;
   assert.match(firstAccepted, /^\d{4}-\d\d-\d\dT/);

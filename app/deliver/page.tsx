@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 import { presentEngagements } from "../../modules/deliver/src/api/engagements.ts";
 import { MAX_AMOUNT_INR, MAX_DELIVERIES, MAX_MILESTONES, MAX_NOTE_LENGTH, MAX_TEST_LENGTH, MAX_TITLE_LENGTH } from "../../modules/deliver/src/state.ts";
 import type { EngagementStatus, EventKind, MilestoneState } from "../../modules/deliver/src/state.ts";
-import { acceptedCount, acceptedLabel, deliverySummary, firstWaitingDecision, primaryAction } from "../../modules/deliver/src/summary.ts";
+import { acceptEndsBaseline, acceptedCount, acceptedLabel, deliverySummary, firstWaitingDecision, primaryAction } from "../../modules/deliver/src/summary.ts";
+import { listOutcomes } from "../../modules/run/src/db/outcomes.ts";
 import { clusterLabel } from "../../modules/procure/src/clusters.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
@@ -53,6 +54,9 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
 
   const companyId = identity.companyId;
   const engagements = await presentEngagements(e.DB, companyId);
+  // Which engagements have a starting number, so the page can warn beside Accept while one can still be recorded (Results, /run).
+  const db = e.DB;
+  const withBaseline = new Set((await Promise.all(engagements.map(async (g) => ((await listOutcomes(db, companyId, g.id)).some((o) => o.kind === "baseline") ? g.id : null)))).filter((id) => id !== null));
   const base = (id: string) => `/api/companies/${companyId}/engagements/${id}`;
   const summary = deliverySummary(engagements.map((g) => ({ status: g.status, states: g.milestones.map((m) => m.state) })));
   const waiting = firstWaitingDecision(engagements);
@@ -104,6 +108,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
               const open = g.closedAt === null;
               const states = g.milestones.map((m) => m.state);
               const main = open ? primaryAction(g.milestones) : null;
+              const warnBaseline = acceptEndsBaseline({ closed: !open, baselineRecorded: withBaseline.has(g.id), states });
               return (
                 <li key={g.id} className="card item dl-eng" data-testid={`engagement-${g.requirementId}`}>
                   <div className="dl-head">
@@ -180,6 +185,11 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                               <form method="post" action={`${base(g.id)}/events`} className="dl-act" data-testid={`form-decision-${m.seq}`}>
                                 <input type="hidden" name="milestone" value={m.id} />
                                 <p className="dl-act-title">Check it against the test above, then decide.</p>
+                                {warnBaseline ? (
+                                  <Notice tone="warn" data-testid={`baseline-warning-${m.seq}`}>
+                                    You have not recorded your starting number. Once you accept a milestone, it can no longer be recorded. <a href={`/run#bl-${g.id}`}>Record the starting number first</a>.
+                                  </Notice>
+                                ) : null}
                                 <div className="question">
                                   <label htmlFor={`note-decision-${m.id}`} className="label">
                                     Your note, against your test (optional)
