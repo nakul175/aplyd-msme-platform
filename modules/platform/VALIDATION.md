@@ -133,6 +133,36 @@ The responses of the home page, the sign-in page and the JSON API carry only `ca
 
 The old session token still returns 200 on the company API after sign-out, because sign-out only clears the cookie and the token is not revoked server-side. A token with a changed signature returns 401. This is the known limit 3 in [STATUS.md](STATUS.md). It was seen with a throwaway probe on 4 October 2026; no suite asserts it, so that the limit is not frozen in as expected behaviour.
 
+## Review-fixes branch (migration 0014, bounded body reader, input limits)
+
+Environment: a Linux container, Node v22.22.0, pnpm 11.25.0, 5 October 2026. The branch `review-fixes-s2-s4` (draft pull request #8) is stacked on slice 6. It carries what the independent reviews of slices 2 to 5 found the application kept and the database did not (migration 0014), a bounded reader for request bodies (`readTextWithin`), input limits in the factory module, and the tests written for those findings. The same agent that wrote the code wrote the tests and the mutation list; a second agent, which had not written either, then reviewed the branch.
+
+**Results.** On the branch tip before the review of the branch (`d144e22`): `node scripts/test.mjs static unit --guard` 30 of 30 suites, and `node scripts/test.mjs integration --guard` 7 of 7 suites (factory 34, diagnose 34, procure 34, deliver 32, run 29, platform 26 and 2). After the fixes below, the full run (`pnpm build`, then `node scripts/test.mjs pr --guard`) was made on the tip of the next branch in the stack, which holds this branch and one more test file; its result is in `modules/journey/VALIDATION.md`. A pass there is a pass of this branch's code: the journey module adds no application code.
+
+**Independent review of the branch (0 high, 3 medium, 3 low).** The reviewer proved findings by probes through Miniflare D1 on the real migrations and spot-checked five of the mutations (all caught). Its full report is not stored in the repository; this is the record.
+
+| Finding | What was wrong | Disposition |
+| --- | --- | --- |
+| **M1** The 500-character note limit is bypassed by a NUL character | SQLite's `length()` stops at a NUL: a note of `a`, a NUL and 100,000 more characters counted as one and was accepted in `factory_revisions` and `listing_terms` (probed). STATUS said the table holds the limit. | **Fixed.** Each of the six note triggers also refuses a note over 2,000 bytes (`length(CAST(note AS BLOB))`). A test in each of factory, diagnose, procure (three tables) and deliver stores `a`, a NUL and 5,000 characters and expects refusal. **Not fixed:** the older CHECKs on a milestone's title and test (migration 0010) and on a run note (0012) count with `length()` too and have the same gap; STATUS (deliver, run) says so. The diagnose handler counts characters and does not refuse control characters, unlike the factory handler; a short note with a NUL in it is stored as text. |
+| **M2** `answers` stored as a BLOB passes "answers are a JSON object" | The bytes of `{}` bound as a BLOB satisfy `json_valid()`; the column kept the BLOB, which `JSON.parse` in the factory reader cannot read: the failure the trigger was written to prevent, and unrepairable because rows are append-only. | **Fixed.** The three revision triggers require `typeof(answers) = 'text'`; a test inserts the BLOB and expects the refusal. |
+| **M3** `readTextWithin` bounds the sum of the pieces, not one piece | A piece is in memory when it is checked; "never held beyond the bound" was stronger than the code. | **Reworded**, not changed: the comment in `body.ts` and STATUS say the bound is checked between pieces and is not a hard cap on memory; the platform limits the size of a request itself. The unit tests use 1 KiB pieces and do not show the difference. |
+| **L1** `?problem=__proto__` crashes the person's own page | `PROBLEMS[q.problem]` on a plain object answers `Object.prototype` for `__proto__` (and a function for `constructor`), which React cannot draw: a 500 on the factory page. The same line was in the diagnose, procure, deliver, run and operator pages. | **Fixed on all six pages** with `Object.hasOwn`. A static rule (`platform/static/page-lookups`) names the pattern; a built-application test requests every page with `problem=__proto__`, `constructor`, `toString` and `saved=...` and expects 200 and no `[object Object]`. |
+| **L2** "No insert is refused by two triggers" is not true everywhere | The header of 0014 said so for every trigger; only the three revision triggers are exclusive. A second engagement for an engaged requirement with an unlisted provider matches two rules (not run). | **Reworded** in the migration header and in deliver STATUS limit 17. Not made exclusive. |
+| **L3** Blank text means ASCII blanks only | A title of non-breaking spaces is stored by direct SQL. | Already stated as a gap in deliver STATUS limit 17; unchanged. |
+
+**What the first runs found, besides the review.** The merge of slice 6 into this branch turned `platform/static/source-rules` red: the new body reader reads the `content-length` header, which the "identity never comes from a header" rule did not allow. A length is not an identity, so the header was added to the allow-list (with its own accepted case in the rule's test and a line in STATUS); the rule still reports any other header.
+
+**Mutation checks.** Sixty breaks of migration 0014 and its tests, listed in `modules/platform/mutations/review-fixes-0014.json`, run with `scripts/mutation/mutate.py` on two throwaway copies of the branch tip at once (a baseline of the four integration suites was green on both first). They are: each of the 19 triggers neutered (a trigger that cannot fire), and 41 boundary and weakening variants (limits one over and one under, a rule that counts every company, the wrong table's rows, text or NULL allowed, a blank-trim that leaves out one character, a limit that overlaps another rule). **@@TALLY@@** The runs were against `d144e22`, before the fixes for M1 and M2; the fixes are checked by the second set below.
+
+@@SECOND@@
+
+**What these results do not show.**
+- The mutation list is the author's, and the author wrote the tests it checks. The reviewer found two holes (NUL, BLOB) that no mutant covered: a mutation table shows only the breaks someone thought of.
+- A "caught" is a failed suite, not a named failing assertion; two runs shared a two-core machine with a reviewer agent and builds, so a suite that failed for time and not for the break would be counted. No suite here has a timer that could do that, and one mutant that hung the suite (not failed it) is listed above, not counted as a clean catch.
+- Miniflare runs the same SQLite as D1 but is not hosted D1: how `length()` of text with a NUL, or `json_valid` of a BLOB, behaves there was not tested.
+- The triggers refuse a second writer's rows; nothing here shows that a second writer does not exist (a migration, a script run by a person with database access).
+- No person has read this branch.
+
 ## Limits
 
 - GitHub Actions ran both workflows on pull request #1 at commit a6c806f and again at d5e1fde on 4 October 2026 and they passed. It also ran at d5b3c12, the review-fix commit, on 4 October 2026 (17:33 UTC) and passed.

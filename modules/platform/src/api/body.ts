@@ -12,9 +12,10 @@ export type BodyProblem = "unsupported" | "too_large" | "bad";
 export const MAX_BODY_CHARACTERS = 64 * 1024;
 
 /**
- * Reads a request's body as text without holding more than a bounded amount of it. A body whose declared length is over the bound is
+ * Reads a request's body as text without buffering it to the end when it is over a bound. A body whose declared length is over the bound is
  * refused without being read; a body that turns out to be over it (no length declared, or a false one) is abandoned as soon as the
- * bound is passed, not buffered to the end. The bound is in bytes, four for each character allowed (the most one character takes in UTF-8);
+ * bound is passed, not buffered to the end. The bound is checked between pieces of the stream, so one piece bigger than the bound is held
+ * whole before it is checked: this is not a hard cap on memory. The bound is in bytes, four for each character allowed (the most one character takes in UTF-8);
  * the count of characters is checked by the caller after decoding. "bad" is a body that cannot be read.
  */
 export async function readTextWithin(request: Request, maxCharacters: number): Promise<{ ok: true; text: string } | { ok: false; problem: "too_large" | "bad" }> {

@@ -82,7 +82,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
           The listing fee was saved as a new version.
         </p>
       ) : null}
-      {q.problem && PROBLEMS[q.problem] ? (
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
         <p role="alert" className="notice" data-testid="problem">
           {PROBLEMS[q.problem]}
         </p>

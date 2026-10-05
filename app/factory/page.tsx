@@ -127,7 +127,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
           It was saved as a draft, not confirmed. To confirm, please answer: {missing.map((k) => LABELS.get(k) ?? k).join("; ")}.
         </p>
       ) : null}
-      {q.problem && PROBLEMS[q.problem] ? (
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
         <p role="alert" className="notice" data-testid="problem">
           {PROBLEMS[q.problem]}
           {q.problem === "invalid" && problemFields.length ? ` Check: ${problemFields.map((k) => LABELS.get(k)).join("; ")}.` : ""}

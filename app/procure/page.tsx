@@ -83,7 +83,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
           Your requirement was withdrawn. It stays on record, marked as withdrawn.
         </p>
       ) : null}
-      {q.problem && PROBLEMS[q.problem] ? (
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
         <p role="alert" className="notice" data-testid="problem">
           {PROBLEMS[q.problem]}
         </p>
