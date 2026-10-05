@@ -5,6 +5,7 @@ import { MAX_AMOUNT_INR, MAX_DELIVERIES, MAX_MILESTONES, MAX_NOTE_LENGTH, MAX_TE
 import type { EngagementStatus, EventKind, MilestoneState } from "../../modules/deliver/src/state.ts";
 import { acceptEndsBaseline, acceptedCount, acceptedLabel, deliverySummary, firstWaitingDecision, primaryAction } from "../../modules/deliver/src/summary.ts";
 import { listOutcomes } from "../../modules/run/src/db/outcomes.ts";
+import { testFlagSentence, testQuality } from "../../modules/deliver/src/test-quality.ts";
 import { clusterLabel } from "../../modules/procure/src/clusters.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
@@ -165,6 +166,11 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                             <p className="dl-check">
                               <strong>How you will check it:</strong> {m.acceptanceTest}
                             </p>
+                            {testFlagSentence(testQuality(m.acceptanceTest)) ? (
+                              <p className="help dl-test-flag" data-testid={`test-flag-${m.seq}`}>
+                                {testFlagSentence(testQuality(m.acceptanceTest))}
+                              </p>
+                            ) : null}
                             {m.paidInr !== null ? (
                               <p className="dl-paid">
                                 <Check />
@@ -277,8 +283,30 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                               <label htmlFor={`test-${g.id}`} className="label">
                                 How you will check it
                               </label>
-                              <p className="help">Write the test now, before any work starts. You accept or reject the work against it.</p>
-                              <input id={`test-${g.id}`} name="test" type="text" required maxLength={MAX_TEST_LENGTH} />
+                              <p className="help" id={`test-help-${g.id}`}>
+                                Write the test now, before any work starts. You accept or reject the work against it. Write it so that someone else could check it: what is measured, the number that counts as done and its unit, who checks it, and by when.
+                              </p>
+                              <input id={`test-${g.id}`} name="test" type="text" required maxLength={MAX_TEST_LENGTH} aria-describedby={`test-help-${g.id}`} />
+                              <details className="dl-example" data-testid="test-example">
+                                <summary>What a good test looks like</summary>
+                                <p>
+                                  <Tag>SYNTHETIC</Tag> An example made up to show the parts, not a figure for your factory:
+                                </p>
+                                <p className="dl-example-text">“For 20 orders in a row, the time from order to dispatch is 3 days or less for at least 18 of them. The supervisor checks it in the job log by the due date.”</p>
+                                <dl className="dl-example-parts">
+                                  <dt>What is measured</dt>
+                                  <dd>the time from order to dispatch</dd>
+                                  <dt>The unit</dt>
+                                  <dd>days</dd>
+                                  <dt>What counts as done</dt>
+                                  <dd>3 days or less, for at least 18 of 20 orders</dd>
+                                  <dt>Who checks it</dt>
+                                  <dd>the supervisor, from the job log</dd>
+                                  <dt>By when</dt>
+                                  <dd>the due date of this milestone</dd>
+                                </dl>
+                                <p className="help">A test with no number or no unit can still be saved. The page then points out what is missing.</p>
+                              </details>
                             </div>
                             <div className="field-row two">
                               <div className="question">

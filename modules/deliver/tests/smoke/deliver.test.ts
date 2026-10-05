@@ -138,6 +138,11 @@ test("the plan: a bad milestone and an empty plan are sent back with a message; 
   assert.match(html, /Price ₹1,25,000/, "Indian digit grouping");
   assert.match(html, /Plan total ₹2,05,000/);
   assert.match(html, /How you will check it:<\/strong> Ten real jobs entered/);
+  assert.match(html, /What a good test looks like/, "the add form shows what a good test looks like");
+  assert.match(html, /What is measured<\/dt><dd>the time from order to dispatch<\/dd><dt>The unit<\/dt><dd>days<\/dd><dt>What counts as done<\/dt>/);
+  assert.ok(!html.includes('data-testid="test-flag-1"'), "a test with a number and a unit is not flagged");
+  assert.ok(html.includes('data-testid="test-flag-2"'), "a test with no number is flagged");
+  assert.match(html, /This test has no number, so someone else could not tell whether it was met\./, "flagged, and it was saved all the same");
   assert.match(html, /Agree this plan/);
   assert.ok(!html.includes("Record that milestone"), "nothing can be delivered before the plan is agreed");
 
