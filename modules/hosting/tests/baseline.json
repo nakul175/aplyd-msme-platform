@@ -1,0 +1,10 @@
+{
+  "updatedAt": "2026-10-05",
+  "reason": "Slice 8: hosting launcher suites (unit, integration, static, smoke) and the header-rule exemption test in platform source-rules",
+  "suites": {
+    "integration/gateway": 14,
+    "smoke/serve": 6,
+    "static/deploy-files": 6,
+    "unit/gate": 17
+  }
+}

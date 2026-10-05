@@ -192,6 +192,44 @@ test("a body over the limit is refused with 413 whether its length is declared o
   assert.equal(seen.length, 1, "only the request that fit reached the application");
 });
 
+test("a declared length over the limit is refused at once, before any of the body is sent", async () => {
+  seen.length = 0;
+  await withGateway({ maxBodyBytes: 1000 }, async (_base, host) => {
+    const [h, p] = host.split(":");
+    const status = await new Promise<number>((resolve) => {
+      const timer = setTimeout(() => resolve(0), 3_000);
+      const req = http.request({ host: h, port: Number(p), method: "POST", path: "/api/session", headers: { authorization: AUTH, "content-length": "100000" } }, (res) => {
+        clearTimeout(timer);
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      });
+      req.on("error", () => resolve(0));
+      req.write("z".repeat(10)); // ten bytes of the hundred thousand it declared, then nothing: only the declared length can be what is refused
+    });
+    assert.equal(status, 413, "answered 413 without waiting for the rest of the body");
+  });
+  assert.deepEqual(seen, []);
+});
+
+test("headers that belong to one hop are not handed on to the application", async () => {
+  seen.length = 0;
+  await withGateway({}, async (_base, host) => {
+    const [h, p] = host.split(":");
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = http.request({ host: h, port: Number(p), path: "/page", headers: { authorization: AUTH, "proxy-authorization": "Basic c2VjcmV0", "keep-alive": "timeout=5", te: "trailers", "x-kept": "yes" } }, (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    assert.equal(status, 200);
+  });
+  assert.equal(seen.length, 1);
+  for (const name of ["proxy-authorization", "keep-alive", "te", "authorization"]) assert.equal(seen[0].headers[name], undefined, `${name} reached the application`);
+  assert.equal(seen[0].headers["x-kept"], "yes", "an ordinary header goes through");
+});
+
 test("when the application is down the gateway says 502 and its health route says 503, and it does not crash", async () => {
   const dead = http.createServer();
   await new Promise<void>((r) => dead.listen(0, "127.0.0.1", () => r()));

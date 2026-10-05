@@ -1,74 +1,12 @@
 // Starts the launcher itself (scripts/serve.mjs) against the BUILT application, as a host would, and talks to it over HTTP the way a
 // browser behind a platform's ingress does. Needs `pnpm build` first. Ports are chosen free; the database is the launcher's own, in memory.
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
-import { createServer } from "node:net";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import { after, test } from "node:test";
+import { AUTH, PASSWORD, SECRET, SERVE, exited, launchServe, stopAllLaunched } from "../support/launcher.ts";
 
-const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
-const SERVE = join(ROOT, "scripts/serve.mjs");
-const SECRET = `smoke-${crypto.randomUUID()}-padding`;
-const PASSWORD = `pw-${crypto.randomUUID()}`;
-const AUTH = `Basic ${Buffer.from(`demo:${PASSWORD}`).toString("base64")}`;
-const children: ChildProcess[] = [];
-
-const freePort = () =>
-  new Promise<number>((resolve, reject) => {
-    const s = createServer();
-    s.listen(0, "127.0.0.1", () => {
-      const { port } = s.address() as { port: number };
-      s.close(() => resolve(port));
-    });
-    s.on("error", reject);
-  });
-
-type Launched = { base: string; output: () => string; child: ChildProcess };
-
-async function launch(extra: Record<string, string>): Promise<Launched> {
-  if (!existsSync(join(ROOT, "dist/server/wrangler.json"))) throw new Error("dist/server/wrangler.json is missing. Run `pnpm build` before the smoke layer.");
-  const port = await freePort();
-  const upstream = await freePort();
-  const child = spawn(process.execPath, [SERVE], {
-    env: { NODE_ENV: "production", PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", CLOUDFLARE_CF_FETCH_ENABLED: "false", WRANGLER_SEND_METRICS: "false", WRANGLER_WRITE_LOGS: "false", PORT: String(port), APLYD_UPSTREAM_PORT: String(upstream), SESSION_SECRET: SECRET, ...extra },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  children.push(child);
-  let log = "";
-  child.stdout.on("data", (c) => (log += c));
-  child.stderr.on("data", (c) => (log += c));
-  const base = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 90_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`the launcher stopped (${child.exitCode}):\n${log}`);
-    try {
-      if ((await fetch(`${base}/healthz`)).status === 200) return { base, output: () => log, child };
-    } catch {
-      /* not listening yet */
-    }
-    await new Promise((r) => setTimeout(r, 400));
-  }
-  throw new Error(`the launcher was not healthy in 90 seconds:\n${log}`);
-}
-
-// Stopped with SIGTERM, as a platform does, so the launcher ends the Worker's process too; SIGKILL only for one that does not leave.
-after(async () => {
-  for (const c of children) if (c.exitCode === null) c.kill("SIGTERM");
-  for (const c of children) if ((await exited(c, 15_000)) === null) c.kill("SIGKILL");
-});
-
-const exited = (child: ChildProcess, ms: number) =>
-  new Promise<number | null>((resolve) => {
-    if (child.exitCode !== null) return resolve(child.exitCode);
-    const t = setTimeout(() => resolve(null), ms);
-    child.once("exit", (code) => {
-      clearTimeout(t);
-      resolve(code);
-    });
-  });
+const launch = launchServe;
+after(stopAllLaunched);
 
 test("the launcher refuses to start for a real environment, a weak secret or no gate, says why, and does not echo the secret", () => {
   const run = (env: Record<string, string>) => spawnSync(process.execPath, [SERVE], { env: { NODE_ENV: "production", PATH: process.env.PATH ?? "", ...env }, encoding: "utf8", timeout: 30_000 });
