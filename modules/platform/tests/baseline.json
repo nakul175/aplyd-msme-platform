@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-04",
-  "reason": "Slice 1 review fixes: tests for review findings H1, M1 to M7, L1 to L4, L7, L9",
+  "reason": "Slice 1b merged with the slice 1 review fixes: browser layer first baseline (headless Chromium through playwright-core 1.56.1)",
   "suites": {
     "integration/platform-api": 26,
     "smoke/built-app": 11,
@@ -10,6 +10,10 @@
     "unit/session": 10,
     "unit/migrations": 2,
     "unit/secret": 4,
-    "unit/security-headers": 2
+    "unit/security-headers": 2,
+    "browser/cross-origin": 5,
+    "browser/harness": 8,
+    "browser/pages": 3,
+    "browser/session-and-scope": 8
   }
 }

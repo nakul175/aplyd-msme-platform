@@ -16,12 +16,13 @@ This is slice 1, the walking skeleton. It is application plumbing with no produc
 - Sign-in refuses anywhere `APLYD_ENV` is not exactly local, synthetic or test, and without a good `SESSION_SECRET`. A build carries no environment name; only the development server sets `local`.
 - The interface shows a SYNTHETIC banner and tag.
 - Test runner with layers, per-module baselines and a guard; CI that runs it; a documentation integrity check.
+- A browser test layer (slice 1b): the built application in a local Worker, walked in a real headless Chromium through `playwright-core`. It checks that the pages render with the SYNTHETIC banner, that sign-in through the form leaves an HttpOnly, SameSite=Lax session cookie that script on the page cannot read, that the scope rule and sign-out hold in the browser, and that a cross-site post is refused. First run on 4 October 2026 in Chromium 141.0.7390.37 on Linux; GitHub Actions ran it on the same day at commit 0a5633c, with Google Chrome on the runner, and it passed (one run). What it does not prove is in [VALIDATION.md](VALIDATION.md).
 
 ## Not built
 
 - Real sign-in (OQ-13). Hosted staging and its access layer, and the deployment workflow (needs the sponsor's Cloudflare account and OQ-07).
 - Creating or editing a company record. Slice 2 (Describe) does that, as appended revisions, not edits.
-- A browser test layer. The supply-chain gate (SBOM and audit).
+- The supply-chain gate (SBOM and audit).
 - Any money, vendor, pooling or aggregate code. The invariants in AGENTS.md about vendor-neutral earnings, certification, selling data and the five-company floor have no code to test yet; each gets its test in the slice that adds the code.
 
 ## Known limits
@@ -36,3 +37,4 @@ This is slice 1, the walking skeleton. It is application plumbing with no produc
 8. An authenticated person can still write many rows to the audit log by repeating denied reads or sign-outs. They are attributable to that person; there is no cap or rate limit.
 9. The regression baseline can be edited by hand in a pull request. There is no code-owner rule to route that to a person. The audit log has no hash chain, so tampering with the database itself would not be detected.
 10. The cookie is named `aplyd_session`, not `__Host-aplyd_session`, and security headers carry no script restrictions (no full Content-Security-Policy).
+11. The browser layer covers one browser engine (Chromium) on desktop Linux against a local Worker over plain HTTP on loopback. Firefox, Safari, phones, Secure-cookie behaviour over real HTTPS, and any hosted environment are untested.

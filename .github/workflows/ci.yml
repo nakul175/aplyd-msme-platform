@@ -35,6 +35,10 @@ jobs:
           pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
+      # The browser layer drives the Google Chrome that the runner image already has, through playwright-core. Nothing is
+      # downloaded. If Chrome is missing this step fails, and so does the layer; it never skips.
+      - name: Show the browser the browser layer will use
+        run: google-chrome --version
       - name: All layers with the regression guard
         run: node scripts/test.mjs pr --guard
       - uses: actions/upload-artifact@v4

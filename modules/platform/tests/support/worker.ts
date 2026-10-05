@@ -22,7 +22,15 @@ function freePort(): Promise<number> {
   });
 }
 
-export type RunningWorker = { base: string; stop: () => Promise<void> };
+export type RunningWorker = {
+  base: string;
+  /** Stops the Worker and removes its temporary files. Safe to call more than once. */
+  stop: () => Promise<void>;
+  /** Synchronous and abrupt: kills the Worker's process group and removes its files. For signal and exit handlers only. */
+  killNow: () => void;
+  /** Everything the Worker process has printed so far, for diagnosing a failure. */
+  output: () => string;
+};
 
 export async function startBuiltApp(vars: Record<string, string>): Promise<RunningWorker> {
   if (!existsSync(CONFIG)) throw new Error("dist/server/wrangler.json is missing. Run `pnpm build` before the smoke layer.");
@@ -32,6 +40,9 @@ export async function startBuiltApp(vars: Record<string, string>): Promise<Runni
   writeFileSync(sql, [...migrationStatements(), ...seedStatements()].map((s) => s.replace(/;\s*$/, "") + ";").join("\n") + "\n");
   const env = {
     ...process.env,
+    // Without this, Wrangler fetches Request.cf from the network a few seconds after start and, when that fails or is slow,
+    // reloads the Worker, so requests sent in that window get "worker restarted mid-request" (503) or hang.
+    CLOUDFLARE_CF_FETCH_ENABLED: "false",
     WRANGLER_SEND_METRICS: "false",
     WRANGLER_WRITE_LOGS: "false",
     WRANGLER_LOG_PATH: join(work, "logs"),
@@ -53,6 +64,15 @@ export async function startBuiltApp(vars: Record<string, string>): Promise<Runni
   child.stderr.on("data", (c) => (log += c));
   const base = `http://127.0.0.1:${port}`;
 
+  const killNow = () => {
+    try {
+      process.kill(-child.pid!, "SIGKILL");
+    } catch {
+      /* already gone */
+    }
+    rmSync(work, { recursive: true, force: true });
+  };
+
   const stop = async () => {
     try {
       process.kill(-child.pid!, "SIGTERM");
@@ -72,7 +92,7 @@ export async function startBuiltApp(vars: Record<string, string>): Promise<Runni
   while (Date.now() < deadline) {
     try {
       const res = await fetch(`${base}/api/health`);
-      if (res.status === 200) return { base, stop };
+      if (res.status === 200) return { base, stop, killNow, output: () => log };
     } catch {
       /* not up yet */
     }

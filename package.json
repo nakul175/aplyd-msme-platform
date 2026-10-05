@@ -38,6 +38,7 @@
     "@vitejs/plugin-rsc": "0.5.26",
     "drizzle-kit": "0.31.10",
     "miniflare": "4.20260515.0",
+    "playwright-core": "1.56.1",
     "react-server-dom-webpack": "19.2.6",
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.5",
