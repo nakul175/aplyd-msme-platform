@@ -1,6 +1,6 @@
 # Run module: status
 
-Owner: the run module. Paths: `modules/run/`, `app/run/`, `app/api/companies/[id]/engagements/[eid]/outcomes/`, and migrations 0012 and 0013 in `drizzle/`. It also adds a "Results" link on the home page and a test-only `exec` helper to `modules/platform/tests/support/worker.ts` (see Known limits). Last updated 5 October 2026 (the page rebuilt, slice 10c).
+Owner: the run module. Paths: `modules/run/`, `app/run/`, `app/api/companies/[id]/engagements/[eid]/outcomes/`, and migrations 0012 and 0013 in `drizzle/`. It also adds a "Results" link on the home page and a test-only `exec` helper to `modules/platform/tests/support/worker.ts` (see Known limits). Last updated 6 October 2026 (slice 11b: no starting number on a closed or unagreed engagement; corrections; migration 0015).
 
 This is slice 6, Run: once the owner has accepted work (slice 5), they record a baseline (what the thing they were fixing was like before) and look again 30, 90 and 180 days after the first acceptance: the number now, whether it did what the assessment expected, and whether it is still in use. The page also names the next idea in the owner's plan that has no requirement yet. Protected paths touched: data scope (a company's measurements, read and written only by that company's owner) and migrations (one append-only table and nine guard triggers). A separate agent has not yet read this slice; see [VALIDATION.md](VALIDATION.md). No person has read it.
 
@@ -31,19 +31,31 @@ This is slice 6, Run: once the owner has accepted work (slice 5), they record a 
 - **Logic that was added** is in `src/view.ts` and tested in `tests/unit/view.test.ts` (9 tests): the tag of each review state, the latest recorded review, how many are recorded, the state of the whole page in one sentence, the first open review, and where the owner's turn is. Nothing in it judges a number.
 - **No script runs on the page.** It is server-rendered with plain forms, and has its own small stylesheet (`app/run/run.css`, every class prefixed `ru-`).
 
+## Slice 11b (6 October 2026): the starting number only while it means something, and corrections
+
+Built by an agent at the sponsor's instruction; no person has read it. Protected path touched: a database migration (0015).
+
+- **No starting number for an engagement that is closed or whose plan is not agreed (FND-253).** `presentOutcomes` offers the form only when the plan is agreed, the engagement is open, nothing is accepted and no number is recorded (`baselineBlock` in `src/state.ts`; the reason is in `baselineBlocked`). Results then says which it is instead of the form: "Agree the plan on Delivery first. Then record the starting number here, before the first milestone is accepted." (tag "Not yet") or "This engagement was closed before any milestone was accepted, so there is no starting number to record." The top sentence and the link to the owner's turn follow, because they read `canRecordBaseline`. The page and the home page's rule (`modules/journey/src/progress.ts` `canRecordBaseline`) now agree.
+- **Refused at the handler and in the database.** A baseline posted for a closed engagement gets 409 `baseline_closed` (a form: `/run?problem=baseline_closed`, "This engagement is closed, so a starting number cannot be recorded for it."); one posted before the plan is agreed gets `baseline_no_plan` ("Agree the plan on Delivery first. ..."). Nothing is written and nothing is audited. Migration 0015 adds two triggers on `outcome_events` that refuse the same rows for whoever writes (`outcome_events_baseline_not_after_close`, `outcome_events_baseline_needs_an_agreed_plan`); the data layer names their refusals the same way. No existing trigger was changed. Their conditions are written not to overlap with the six of 0013: a second number is still "recorded once" and a number after an acceptance is still "too late", closed or not.
+- **Correcting a number (BR-RUN-09).** Under a recorded starting number or review, a collapsed "Correct this number" form takes the right number and why the first was wrong (required, up to 500 characters). It posts `kind=correction` to the same endpoint (API-21) and appends a row to the new table `outcome_corrections` that names the row it corrects. The row it corrects is never changed. The latest correction of a row is its current value: the large number, the tiles and the change since the starting number use it. The page shows the first number struck through with the tag "Corrected", and each correction with its date and reason; an earlier correction that a later one replaced is struck through too. A correction can be corrected by another; all stay.
+- **A correction is the company's and the engagement's own.** The insert checks, in the same statement, that the row it names is a number of this engagement of this company; otherwise nothing is written and the answer is 404 (`/run?problem=missing`), the same as for a row that does not exist. A trigger (`outcome_corrections_names_an_outcome`) refuses the same for any writer, and a composite foreign key ties the row to the company's engagement. The table is append-only (three triggers) and refuses a figure that is not a whole number (a trigger) and a reason that is empty or over 500 characters or 2,000 bytes (a CHECK). Each correction writes an audit entry, `outcome.corrected`, with the engagement and the corrected row, in the same batch.
+- **What is not corrected.** A review's verdict and its answer on use, the dates, and the notes. A correction is allowed whether or not the engagement is closed (a typing slip can be found late).
+
 ## Not built
 
 - **Anything for the provider.** No sign-in, no view of the results, no way to dispute a number.
 - **Measuring.** No reading from a machine, a sheet or an app; no check that a number is plausible, current or the same measure as the baseline.
 - **Comparing a result with the expected range** as better or worse, or turning the verdict into a score.
 - **Reminders.** Nothing tells the owner a review is due; they see it when they open the page.
-- **Correcting a number.** A baseline or a review cannot be edited or replaced, by design. A wrong number stays; the only remedy today is a note on a later review.
+- **Correcting a review's verdict or its answer on use.** Only the number is corrected (slice 11b). A baseline or a review is still never edited or replaced.
 - **More than three reviews, or a different schedule.** The three day counts are fixed.
 - **Aggregates.** No count or average across companies; any such figure would need the five-company floor (C-04) and does not exist.
 - **Acting on the next idea.** It is a link.
 - English only; no export or print.
 
 ## Known limits
+
+Limits added by slice 11b (6 October 2026) are 19 to 22, at the end.
 
 1. **The number is the owner's word.** Nothing checks it, and the baseline is taken by the same person whose purchase it judges. A baseline typed after the work is not caught, only a baseline typed after an acceptance is recorded in the application (OQ-08).
 2. **The expected range is invented.** It comes from the SYNTHETIC library. A "met" or "not met" against it is not evidence of anything.
@@ -63,3 +75,7 @@ This is slice 6, Run: once the owner has accepted work (slice 5), they record a 
 16. **A JSON body may send the figure as digits in text** (`"17"`), as a form does; the review number must be a number. Deliberate (a test says so), and inconsistent: noted by the review.
 17. **Dates are UTC.** The day a review opens is the UTC day of the first acceptance plus 30, 90 or 180 days, to the millisecond; an owner in India may see a date a day off from theirs, and the form appears at the exact instant, not at the start of the day.
 18. **A run note is bounded by a CHECK that counts with `length()`** (`outcome_events_note`, 500 characters), and SQLite's `length()` stops at a NUL character: a direct insert of `a`, a NUL and more text would be stored whole (found by the review of the review fixes, for the notes of earlier slices; the same is true here). The handler counts characters and refuses control characters, so the application cannot write it; migration 0014 bounds the earlier slices' notes in bytes too and does not cover this table.
+19. **A correction is the owner's word too.** Nothing checks that the corrected number is righter than the first; the reason is free text. Both stay on record, which is all the BRD row asks.
+20. **The guard list of the health check does not list the seven triggers of migration 0015.** `modules/platform/src/db/guards.ts` belongs to the platform module and was not changed by this slice, so `platform/unit/guards` fails on this branch until the platform owner adds them, and the health check does not yet notice if one is missing. The exact change is in the slice's report.
+21. **The drizzle snapshots of 0012 to 0014 hold an older text of the CHECK `outcome_events_shape`** (without `IS NOT NULL`; migration 0012 was edited before it was published and its snapshot was not). `drizzle-kit generate` therefore wrote a rebuild of `outcome_events` into 0015; the rebuild was removed by hand (it would have dropped the table's triggers) and the 0015 snapshot holds the CHECK as the database has it. A person who runs `pnpm db:generate` on an older snapshot chain would meet the same rebuild.
+22. **A baseline posted by a stale form after the engagement was closed** gets `baseline_closed` from the handler, which reads the engagement first; the database's own answer to a direct write is the same. Between the handler's read and the insert, a close by another request is caught by the trigger, not by the handler.
