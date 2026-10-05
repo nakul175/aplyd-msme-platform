@@ -135,3 +135,38 @@ The page was opened in Chromium at 390 and 1280 pixels wide, in the light and th
 - **The wording is unproven with owners**, and the sentences added (the tags on the three blocks, "Go to ...", the labels of the tiles, "Nothing needs you today. ...") are not checked by a test of their own, apart from the unit test of `src/view.ts`.
 - **A review that is open was seen only in a database with an acceptance dated in the past**, because the page's clock cannot be moved; the demonstration shows the dates only.
 - **The tiles show numbers and a signed change and nothing else**, on purpose: whether a higher number is better is not known to the page.
+
+## Slice 11b: the starting number only on an agreed, open engagement; corrections; migration 0015 (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 11b". The author is an agent; no person has read it and no separate agent has reviewed it. Protected path: migration 0015 (one new table, seven new triggers; no earlier migration, table or trigger changed).
+
+### What was run (real results, branch `slice-11b-deliver-run`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `run/unit/state` (new test: `baselineBlock`, in the database's order of answers) | 7 passed |
+| `run/unit/view` | 9 passed |
+| `run/static/rules` (two new tests: `outcome_corrections` is append-only, read only bound to the company, written by one INSERT that checks the corrected row is this engagement's and company's in the same statement, touched only by the data layer; its column list holds nothing about money. The `saved` words are now `baseline`, `correction` and `review`) | 10 passed |
+| `run/integration/run-api` (seven new tests: a baseline refused for no agreed plan, for a closed engagement and for one closed before any plan, by JSON and by form, nothing written or audited; a recorded and a late baseline keep their own reasons after a close; the two new triggers by direct SQL, with the fraction and "once" and "too late" answered as before; a correction is the current value and both stay, the change uses it, a correction of a correction, the original rows unchanged, three audit rows; the field checks of a correction and its form answers; another engagement's number, a missing number and another company refused with 404 and nothing written; the table's rules by direct SQL) | 36 passed (98 s, the run that recorded the baseline; an earlier run of the same file also passed 36) |
+| `deliver/integration/deliver-api`, `platform/integration/append-only-keys` (the new table's only unique key, the id, is looked at by its no_replace trigger) | 32 and 2 passed |
+| `pnpm build`, then `run/smoke/run`, `run/browser/run` (new browser steps: a starting number corrected from the page, the corrected number shown, the first one struck through with the reason) | 7 and 4 passed |
+| `journey/integration/facts`, `journey/browser/journey`, `journey/unit/progress`, `journey/unit/contrast` | 7, 1, 36 and 8 passed |
+| `docs/static/dictionary-sync`, `docs/static/api-sync`, `docs/static/lld-sync` after this slice's rows were written | 30 of 31, 21 and 6 passed (the one failure is below) |
+| `platform/unit/migrations` (new test, added to the platform's migration tests as the brief asks: 0015 is in the journal, is read as at least eight statements, and drops, alters and rebuilds nothing, with one CREATE TABLE and seven triggers) | 3 passed. The platform's baseline (2) was not changed: it is not this module's |
+| `platform/unit/guards` | **fails, 2 of 3**: the guard list in `modules/platform/src/db/guards.ts` does not name the seven triggers of 0015. That file is the platform module's; this slice did not change it. The exact entries are in the slice's report |
+| `docs/static/dictionary-sync`, last test | **fails**: it pins 16 tables, 15 migrations and 91 triggers; the database now has 17, 16 and 98. The test is the docs module's; this slice did not change it |
+| `node scripts/test.mjs static` (with `static/typecheck`) | typecheck, documentation, traceability, test-docs and migrations pass; the only failing suite is `docs/static/dictionary-sync` for the pinned figures above |
+
+The baselines of `run/unit/state` (6 to 7), `run/static/rules` (8 to 10) and `run/integration/run-api` (29 to 36) were recorded with `--update-baseline`, after the runs above.
+
+### Fail before, pass after
+
+The new integration tests were not run against the code before this slice (it has no `baselineBlocked`, `listCorrections` or `recordCorrection`, so the file would not load). Read from the code: before this slice a baseline posted on a closed engagement, or before the plan was agreed, was answered 201 and written, which the first assertion of each new baseline test refuses. The mutation checks below are the evidence that the tests notice each new rule going.
+
+### What this does not show
+
+- **No separate review**, and the wording is unproven with owners ("Correct this number", "The right number", "Why the first number was wrong", the two notices that replace the form).
+- **Only the number is corrected.** A wrong verdict or answer on use stays; a note on a later review is still the only remedy for those.
+- **The health check does not yet know the new triggers** (STATUS limit 20).
+- **The drizzle snapshot chain** had a stale CHECK text for `outcome_events`; the rebuild drizzle-kit wrote was removed by hand (STATUS limit 21). `static/migrations` (`drizzle-kit check`) passes, which checks the chain, not the SQL.
+- **Two Workers racing** a correction and a close, or a baseline and a close, were not run; the handler reads the engagement and the trigger decides the rest.

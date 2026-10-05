@@ -133,3 +133,30 @@ The page was opened in Chromium at 390 and 1280 pixels wide, in the light and th
 - **Not independent**, and **no mutation checks** were run for this slice: the page's wording is pinned by the existing tests and by the unit test of `src/summary.ts`, which is a small set. Whether the browser tests would notice the main button on the wrong form is not tested.
 - **The wording is unproven with owners.** Nobody who owns a factory has read the sentences (the ten-owner test is where that is checked). The sentences added are listed in the status page.
 - **The collapsed-section choice was tested only one way.** The SYNTHETIC and no-money sentences stay visible because a browser test reads the visible text; whether they would be missed at the foot of a long page is not known.
+
+## Slice 11b: the warning beside Accept and the acceptance-test flag (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 11b". The author is an agent; no person has read it and no separate agent has reviewed it. The API, the data layer and the migrations of this module were not changed; the page reads the run module's `listOutcomes`.
+
+### What was run (real results, branch `slice-11b-deliver-run`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `deliver/unit/summary` (new test: `acceptEndsBaseline` is true only while the engagement is open, nothing is accepted and no starting number is recorded) | 9 passed |
+| `deliver/unit/test-quality` (new suite: an empty test, a test with no number, no unit or neither, nine tests with both in digits, words and symbols, and the sentence) | 4 passed |
+| `deliver/unit/reads`, `deliver/unit/state`, `deliver/static/rules` | 3, 7 and 9 passed |
+| `deliver/integration/deliver-api` | 32 passed (94 s) |
+| `pnpm build`, then `deliver/smoke/deliver` (new assertions: the warning and its link after the first delivery, no warning once something is accepted; the worked example in the add form; a test with no number flagged and saved, a test with a number and a unit not flagged) | 8 passed |
+| `deliver/browser/deliver` (new assertions: the warning beside "Accept milestone 1" and its link to `/run#bl-...`) | 3 passed |
+| `run/smoke/run` (new assertion: no warning on Delivery once the starting number is recorded) | 7 passed |
+| `journey/browser/journey`, `journey/integration/facts` | 1 and 7 passed |
+| `node scripts/test.mjs static` (with `static/typecheck`) | typecheck, documentation, traceability and migrations pass; see the run module's record for the two suites that fail on this branch and why |
+
+The baselines of `deliver/unit/summary` (8 to 9) and the new `deliver/unit/test-quality` (4) were recorded with `--update-baseline`, after the runs above.
+
+### What this does not show
+
+- **The flag reads words, not meaning.** The word lists of `testQuality` are assumptions written for this check; a sensible test can be flagged and a useless one can pass. Nobody who owns a factory has read the example or the sentence.
+- **An empty test is still refused**, not flagged, because the database requires the text; the BRD row asks for a flag (see the status page).
+- **No mutation checks** were run for the page or `src/test-quality.ts`, and the page was not looked at by a person at phone width; the new CSS uses only existing tokens, and `journey/unit/contrast` was not changed.
+- **The warning is shown only in the decision form.** An owner who accepts through the JSON interface is not warned; the database still refuses a late starting number.
