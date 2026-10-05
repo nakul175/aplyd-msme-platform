@@ -9,6 +9,7 @@ import { MAX_NOTE_LENGTH, presentRequirements } from "../../modules/procure/src/
 import { askedLabel, nothingLeftToAsk, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState } from "../../modules/procure/src/view.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
+import { formatDate } from "../_ui/dates.ts";
 import { Arrow, Check, Eye, Lock } from "../_ui/icons.tsx";
 import { Meter, Notice, NotOwner, Page, SignedOut, Tag } from "../_ui/parts.tsx";
 
@@ -119,7 +120,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
         ) : (
           <>
             <p className="help">
-              From your assessment of {view.createdAt.slice(0, 10)}, signed off {view.signoff?.at.slice(0, 10)}.
+              From your assessment of {formatDate(view.createdAt)}{view.signoff ? `, signed off ${formatDate(view.signoff.at)}` : ""}.
             </p>
             {ready.length > 0 ? (
               <>
@@ -271,7 +272,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                     </div>
                   </div>
                   {r.withdrawnAt ? (
-                    <p className="muted">Withdrawn on {r.withdrawnAt.slice(0, 10)}. It no longer counts in any pool.</p>
+                    <p className="muted">Withdrawn on {formatDate(r.withdrawnAt)}. It no longer counts in any pool.</p>
                   ) : chosen ? (
                     <>
                       <div data-testid="engaged" className="pr-block pr-wide">

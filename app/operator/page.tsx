@@ -8,6 +8,7 @@ import { currentTerms, listAllProviders, listTermsHistory } from "../../modules/
 import { distinctListedFees, operatorSummary, serviceGroups } from "../../modules/procure/src/view.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
+import { formatDate } from "../_ui/dates.ts";
 import { Notice, PageHead, SignedOut, Tag } from "../_ui/parts.tsx";
 
 export const dynamic = "force-dynamic";
@@ -111,7 +112,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
           {terms ? <Tag tone="ok">Fee in force</Tag> : <Tag tone="turn">Fee not decided</Tag>}
           {terms ? (
             <p data-testid="fee-now">
-              In force: <strong>{rupees(terms.feeInr)}</strong> (version {terms.version}, set <span className="op-nw">{terms.at.slice(0, 10)}</span>).
+              In force: <strong>{rupees(terms.feeInr)}</strong> (version {terms.version}, set <span className="op-nw">{formatDate(terms.at)}</span>).
             </p>
           ) : (
             <p data-testid="fee-now">The fee has not been decided (OQ-11), so no provider can be listed.</p>

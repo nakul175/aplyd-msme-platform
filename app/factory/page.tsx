@@ -6,6 +6,7 @@ import { MAX_NOTE_LENGTH, REQUIRED_TO_CONFIRM, SECTIONS } from "../../modules/fa
 import type { Answers, Field } from "../../modules/factory/src/questionnaire.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
+import { formatDate } from "../_ui/dates.ts";
 import { Check } from "../_ui/icons.tsx";
 import { Meter, NotOwner, Notice, Page, SignedOut, Tag } from "../_ui/parts.tsx";
 import "./factory.css";
@@ -184,7 +185,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
         <p data-testid="status" className="fc-status">
           {latest ? (
             <>
-              Newest version: {latest.revision}, {latest.confirmed ? "confirmed as accurate" : "a draft"}, saved <span className="fc-date">{latest.createdAt.slice(0, 10)}</span>.
+              Newest version: {latest.revision}, {latest.confirmed ? "confirmed as accurate" : "a draft"}, saved <span className="fc-date">{formatDate(latest.createdAt)}</span>.
             </>
           ) : (
             <>Nothing saved yet.</>
@@ -196,7 +197,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
 
       {readOnly && viewing ? (
         <Notice tone="info" data-testid="viewing">
-          You are looking at version {viewing.revision}, saved <span className="fc-date">{viewing.createdAt.slice(0, 10)}</span>. It cannot be changed. <a href="/factory">Go to the newest version</a> to make changes.
+          You are looking at version {viewing.revision}, saved <span className="fc-date">{formatDate(viewing.createdAt)}</span>. It cannot be changed. <a href="/factory">Go to the newest version</a> to make changes.
         </Notice>
       ) : null}
 
@@ -243,7 +244,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
                   Version {h.revision}
                 </a>{" "}
                 <Tag tone={h.confirmed ? "ok" : undefined}>{h.confirmed ? "confirmed" : "draft"}</Tag>{" "}
-                <span className="muted num">{h.createdAt.slice(0, 10)}</span>{" "}
+                <span className="muted num">{formatDate(h.createdAt)}</span>{" "}
                 {viewing?.revision === h.revision ? <Tag tone="brand">Shown above</Tag> : null}{" "}
                 {h.note ? <span className="muted fc-note">{h.note}</span> : null}
               </li>

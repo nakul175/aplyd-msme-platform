@@ -6,6 +6,7 @@ import type { StageStatus } from "../modules/journey/src/progress.ts";
 import { loadOwnCompany } from "../modules/platform/src/db/companies.ts";
 import type { AppEnv } from "../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../modules/platform/src/identity/resolve.ts";
+import { formatDate } from "./_ui/dates.ts";
 import { Arrow, Check, Coin, Eye, Layers, Lock } from "./_ui/icons.tsx";
 import { Tag } from "./_ui/parts.tsx";
 
@@ -112,7 +113,7 @@ export default async function Home() {
               <span className="tag">SYNTHETIC</span>
             </p>
           ) : null}
-          <p className="muted">Record created {company.createdAt.slice(0, 10)}.</p>
+          <p className="muted">Record created {formatDate(company.createdAt)}.</p>
         </>
       ) : (
         <p className="muted">No company is linked to this account, so there is no company record to show.</p>
