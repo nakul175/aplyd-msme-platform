@@ -1,0 +1,722 @@
+[
+ {
+  "name": "0014 trigger neutered: factory_revisions_answers_are_an_object",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER factory_revisions_answers_are_an_object BEFORE INSERT ON factory_revisions\nWHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))\n AND NOT (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)\nBEGIN\n  SELECT RAISE(ABORT, 'the answers of a revision are a JSON object');\nEND;",
+  "new": "CREATE TRIGGER factory_revisions_answers_are_an_object BEFORE INSERT ON factory_revisions\nWHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))\n AND NOT (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: factory_revisions_no_gaps",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER factory_revisions_no_gaps BEFORE INSERT ON factory_revisions\nWHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))\n AND (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)\n AND NEW.revision_no <> COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1\nBEGIN\n  SELECT RAISE(ABORT, 'a revision number follows the one before it');\nEND;",
+  "new": "CREATE TRIGGER factory_revisions_no_gaps BEFORE INSERT ON factory_revisions\nWHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))\n AND (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)\n AND NEW.revision_no <> COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: factory_revisions_limit",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER factory_revisions_limit BEFORE INSERT ON factory_revisions\nWHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))\n AND (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)\n AND NEW.revision_no = COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1\n AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 500\nBEGIN\n  SELECT RAISE(ABORT, 'a company has the most revisions it may have');\nEND;",
+  "new": "CREATE TRIGGER factory_revisions_limit BEFORE INSERT ON factory_revisions\nWHEN NOT EXISTS (SELECT 1 FROM factory_revisions WHERE id = NEW.id OR (company_id = NEW.company_id AND revision_no = NEW.revision_no))\n AND (CASE WHEN json_valid(NEW.answers) THEN json_type(NEW.answers) = 'object' ELSE 0 END)\n AND NEW.revision_no = COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1\n AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 500\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: provider_services_closed_after_first_listing",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER provider_services_closed_after_first_listing BEFORE INSERT ON provider_services\nWHEN EXISTS (SELECT 1 FROM provider_events WHERE provider_id = NEW.provider_id)\n AND NOT (NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM provider_services WHERE id = NEW.id OR (provider_id = NEW.provider_id AND opportunity_id = NEW.opportunity_id AND cluster = NEW.cluster)))\nBEGIN\n  SELECT RAISE(ABORT, 'what a provider serves is fixed once it has been listed');\nEND;",
+  "new": "CREATE TRIGGER provider_services_closed_after_first_listing BEFORE INSERT ON provider_services\nWHEN EXISTS (SELECT 1 FROM provider_events WHERE provider_id = NEW.provider_id)\n AND NOT (NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM provider_services WHERE id = NEW.id OR (provider_id = NEW.provider_id AND opportunity_id = NEW.opportunity_id AND cluster = NEW.cluster)))\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: assessment_events_decision_needs_a_value",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER assessment_events_decision_needs_a_value BEFORE INSERT ON assessment_events\nWHEN NEW.kind = 'decision' AND NEW.decision IS NULL\nBEGIN\n  SELECT RAISE(ABORT, 'a decision is accept, defer or reject');\nEND;",
+  "new": "CREATE TRIGGER assessment_events_decision_needs_a_value BEFORE INSERT ON assessment_events\nWHEN NEW.kind = 'decision' AND NEW.decision IS NULL\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "diagnose/integration/diagnose-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: factory_revisions_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT RAISE(ABORT, 'a note is at most 500 characters');\nEND;",
+  "new": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: assessment_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER assessment_events_note_is_short BEFORE INSERT ON assessment_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT RAISE(ABORT, 'a note is at most 500 characters');\nEND;",
+  "new": "CREATE TRIGGER assessment_events_note_is_short BEFORE INSERT ON assessment_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "diagnose/integration/diagnose-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: listing_terms_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER listing_terms_note_is_short BEFORE INSERT ON listing_terms\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT RAISE(ABORT, 'a note is at most 500 characters');\nEND;",
+  "new": "CREATE TRIGGER listing_terms_note_is_short BEFORE INSERT ON listing_terms\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: provider_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER provider_events_note_is_short BEFORE INSERT ON provider_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT RAISE(ABORT, 'a note is at most 500 characters');\nEND;",
+  "new": "CREATE TRIGGER provider_events_note_is_short BEFORE INSERT ON provider_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: requirement_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER requirement_events_note_is_short BEFORE INSERT ON requirement_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT RAISE(ABORT, 'a note is at most 500 characters');\nEND;",
+  "new": "CREATE TRIGGER requirement_events_note_is_short BEFORE INSERT ON requirement_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: engagement_events_note_is_short",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER engagement_events_note_is_short BEFORE INSERT ON engagement_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT RAISE(ABORT, 'a note is at most 500 characters');\nEND;",
+  "new": "CREATE TRIGGER engagement_events_note_is_short BEFORE INSERT ON engagement_events\nWHEN length(NEW.note) > 500\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: listing_terms_fee_is_whole",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER listing_terms_fee_is_whole BEFORE INSERT ON listing_terms\nWHEN typeof(NEW.fee_inr) <> 'integer'\nBEGIN\n  SELECT RAISE(ABORT, 'a fee is a whole number of rupees');\nEND;",
+  "new": "CREATE TRIGGER listing_terms_fee_is_whole BEFORE INSERT ON listing_terms\nWHEN typeof(NEW.fee_inr) <> 'integer'\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: engagement_events_amount_is_whole",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER engagement_events_amount_is_whole BEFORE INSERT ON engagement_events\nWHEN NEW.amount_inr IS NOT NULL AND typeof(NEW.amount_inr) <> 'integer'\nBEGIN\n  SELECT RAISE(ABORT, 'an amount is a whole number of rupees');\nEND;",
+  "new": "CREATE TRIGGER engagement_events_amount_is_whole BEFORE INSERT ON engagement_events\nWHEN NEW.amount_inr IS NOT NULL AND typeof(NEW.amount_inr) <> 'integer'\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: engagement_events_payment_has_an_amount",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER engagement_events_payment_has_an_amount BEFORE INSERT ON engagement_events\nWHEN NEW.kind = 'payment_recorded' AND NEW.amount_inr IS NULL\nBEGIN\n  SELECT RAISE(ABORT, 'a payment has an amount');\nEND;",
+  "new": "CREATE TRIGGER engagement_events_payment_has_an_amount BEFORE INSERT ON engagement_events\nWHEN NEW.kind = 'payment_recorded' AND NEW.amount_inr IS NULL\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: milestones_numbers_are_whole",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER milestones_numbers_are_whole BEFORE INSERT ON milestones\nWHEN typeof(NEW.seq) <> 'integer' OR typeof(NEW.agreed_inr) <> 'integer'\nBEGIN\n  SELECT RAISE(ABORT, 'a place in the plan and a price are whole numbers');\nEND;",
+  "new": "CREATE TRIGGER milestones_numbers_are_whole BEFORE INSERT ON milestones\nWHEN typeof(NEW.seq) <> 'integer' OR typeof(NEW.agreed_inr) <> 'integer'\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: milestones_due_is_a_date",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER milestones_due_is_a_date BEFORE INSERT ON milestones\nWHEN date(NEW.due_on) IS NOT NEW.due_on OR NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'\nBEGIN\n  SELECT RAISE(ABORT, 'a due date is a real date between 2000 and 2100');\nEND;",
+  "new": "CREATE TRIGGER milestones_due_is_a_date BEFORE INSERT ON milestones\nWHEN date(NEW.due_on) IS NOT NEW.due_on OR NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: milestones_text_is_not_blank",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER milestones_text_is_not_blank BEFORE INSERT ON milestones\nWHEN length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0\n  OR length(trim(NEW.acceptance_test, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0\nBEGIN\n  SELECT RAISE(ABORT, 'a milestone has a name and a test');\nEND;",
+  "new": "CREATE TRIGGER milestones_text_is_not_blank BEFORE INSERT ON milestones\nWHEN length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0\n  OR length(trim(NEW.acceptance_test, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: engagement_events_delivery_limit",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER engagement_events_delivery_limit BEFORE INSERT ON engagement_events\nWHEN NEW.kind = 'delivered'\n AND (SELECT COUNT(*) FROM engagement_events WHERE milestone_id = NEW.milestone_id AND kind = 'delivered') >= 14\n AND IFNULL((SELECT kind FROM engagement_events WHERE milestone_id = NEW.milestone_id ORDER BY id DESC LIMIT 1), 'rejected') = 'rejected'\n AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'plan_agreed')\n AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'closed')\nBEGIN\n  SELECT RAISE(ABORT, 'too many deliveries of this milestone');\nEND;",
+  "new": "CREATE TRIGGER engagement_events_delivery_limit BEFORE INSERT ON engagement_events\nWHEN NEW.kind = 'delivered'\n AND (SELECT COUNT(*) FROM engagement_events WHERE milestone_id = NEW.milestone_id AND kind = 'delivered') >= 14\n AND IFNULL((SELECT kind FROM engagement_events WHERE milestone_id = NEW.milestone_id ORDER BY id DESC LIMIT 1), 'rejected') = 'rejected'\n AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'plan_agreed')\n AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'closed')\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 trigger neutered: engagements_needs_a_listed_provider",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER engagements_needs_a_listed_provider BEFORE INSERT ON engagements\nWHEN (NOT EXISTS (\n        SELECT 1 FROM requirements r JOIN provider_services s ON s.opportunity_id = r.opportunity_id AND s.cluster = r.cluster\n        WHERE r.id = NEW.requirement_id AND s.provider_id = NEW.provider_id)\n      OR IFNULL((SELECT kind FROM provider_events WHERE provider_id = NEW.provider_id ORDER BY id DESC LIMIT 1), 'unlist') <> 'list')\n AND EXISTS (SELECT 1 FROM requirements WHERE id = NEW.requirement_id AND company_id = NEW.company_id)\n AND NOT EXISTS (SELECT 1 FROM requirement_events WHERE requirement_id = NEW.requirement_id AND kind = 'withdraw')\nBEGIN\n  SELECT RAISE(ABORT, 'an engagement needs a listed provider that serves the requirement');\nEND;",
+  "new": "CREATE TRIGGER engagements_needs_a_listed_provider BEFORE INSERT ON engagements\nWHEN (NOT EXISTS (\n        SELECT 1 FROM requirements r JOIN provider_services s ON s.opportunity_id = r.opportunity_id AND s.cluster = r.cluster\n        WHERE r.id = NEW.requirement_id AND s.provider_id = NEW.provider_id)\n      OR IFNULL((SELECT kind FROM provider_events WHERE provider_id = NEW.provider_id ORDER BY id DESC LIMIT 1), 'unlist') <> 'list')\n AND EXISTS (SELECT 1 FROM requirements WHERE id = NEW.requirement_id AND company_id = NEW.company_id)\n AND NOT EXISTS (SELECT 1 FROM requirement_events WHERE requirement_id = NEW.requirement_id AND kind = 'withdraw')\nBEGIN\n  SELECT 1;\nEND;",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 note limit 501 on factory_revisions",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 500",
+  "new": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 501",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 note limit 499 on factory_revisions",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 500",
+  "new": "CREATE TRIGGER factory_revisions_note_is_short BEFORE INSERT ON factory_revisions\nWHEN length(NEW.note) > 499",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 factory revisions limit 501",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 500",
+  "new": "AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 501",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 factory revisions limit 499",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 500",
+  "new": "AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 499",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 factory revisions limit counts every company",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND (SELECT COUNT(*) FROM factory_revisions WHERE company_id = NEW.company_id) >= 500",
+  "new": "AND (SELECT COUNT(*) FROM factory_revisions) >= 500",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 answers: an array is an object",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "json_type(NEW.answers) = 'object' ELSE 0 END)\nBEGIN\n  SELECT RAISE(ABORT, 'the answers of a revision are a JSON object');",
+  "new": "json_type(NEW.answers) IN ('object', 'array') ELSE 0 END)\nBEGIN\n  SELECT RAISE(ABORT, 'the answers of a revision are a JSON object');",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 no gaps: numbers may skip upwards",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND NEW.revision_no <> COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1\nBEGIN",
+  "new": "AND NEW.revision_no < COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 no gaps: the latest taken from every company",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND NEW.revision_no <> COALESCE((SELECT MAX(revision_no) FROM factory_revisions WHERE company_id = NEW.company_id), 0) + 1\nBEGIN",
+  "new": "AND NEW.revision_no <> COALESCE((SELECT MAX(revision_no) FROM factory_revisions), 0) + 1\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "factory/integration/factory-api"
+  ]
+ },
+ {
+  "name": "0014 services: a replace by id is the services trigger's",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND NOT (NEW.id IS NOT NULL AND EXISTS (SELECT 1 FROM provider_services WHERE id = NEW.id OR (provider_id = NEW.provider_id AND opportunity_id = NEW.opportunity_id AND cluster = NEW.cluster)))\nBEGIN",
+  "new": "\nBEGIN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 decision: a decision with a value is refused too",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN NEW.kind = 'decision' AND NEW.decision IS NULL",
+  "new": "WHEN NEW.kind = 'decision'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "diagnose/integration/diagnose-api"
+  ]
+ },
+ {
+  "name": "0014 decision: a sign-off with no decision is refused too",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN NEW.kind = 'decision' AND NEW.decision IS NULL",
+  "new": "WHEN NEW.decision IS NULL",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "diagnose/integration/diagnose-api"
+  ]
+ },
+ {
+  "name": "0014 fee: a fraction above one allowed",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN typeof(NEW.fee_inr) <> 'integer'",
+  "new": "WHEN typeof(NEW.fee_inr) <> 'integer' AND NEW.fee_inr < 1",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 fee: text allowed",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN typeof(NEW.fee_inr) <> 'integer'",
+  "new": "WHEN typeof(NEW.fee_inr) = 'real'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "0014 amount: NULL treated as a fraction",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN NEW.amount_inr IS NOT NULL AND typeof(NEW.amount_inr) <> 'integer'",
+  "new": "WHEN typeof(NEW.amount_inr) <> 'integer'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 amount: text allowed",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN NEW.amount_inr IS NOT NULL AND typeof(NEW.amount_inr) <> 'integer'",
+  "new": "WHEN NEW.amount_inr IS NOT NULL AND typeof(NEW.amount_inr) = 'real'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 payment amount: any kind needs an amount",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN NEW.kind = 'payment_recorded' AND NEW.amount_inr IS NULL",
+  "new": "WHEN NEW.amount_inr IS NULL",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 milestones: place in the plan may be a fraction",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN typeof(NEW.seq) <> 'integer' OR typeof(NEW.agreed_inr) <> 'integer'",
+  "new": "WHEN typeof(NEW.agreed_inr) <> 'integer'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 milestones: price may be a fraction",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN typeof(NEW.seq) <> 'integer' OR typeof(NEW.agreed_inr) <> 'integer'",
+  "new": "WHEN typeof(NEW.seq) <> 'integer'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 due: any text of the right shape",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN date(NEW.due_on) IS NOT NEW.due_on OR NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'",
+  "new": "WHEN NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 due: any date in range",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN date(NEW.due_on) IS NOT NEW.due_on OR NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'",
+  "new": "WHEN date(NEW.due_on) IS NOT NEW.due_on",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 due: from 1999",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'",
+  "new": "NEW.due_on NOT BETWEEN '1999-01-01' AND '2100-12-31'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 due: to 2101",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'",
+  "new": "NEW.due_on NOT BETWEEN '2000-01-01' AND '2101-12-31'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 due: from 2001",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'",
+  "new": "NEW.due_on NOT BETWEEN '2001-01-01' AND '2100-12-31'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 due: to 2099",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "NEW.due_on NOT BETWEEN '2000-01-01' AND '2100-12-31'",
+  "new": "NEW.due_on NOT BETWEEN '2000-01-01' AND '2099-12-31'",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: only spaces",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0",
+  "new": "length(trim(NEW.title, ' ')) = 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: tab not a blank",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0",
+  "new": "length(trim(NEW.title, ' ' || char(10) || char(11) || char(12) || char(13))) = 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: line feed not a blank",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0",
+  "new": "length(trim(NEW.title, ' ' || char(9) || char(11) || char(12) || char(13))) = 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: vertical tab not a blank",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0",
+  "new": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(12) || char(13))) = 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: form feed not a blank",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0",
+  "new": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(13))) = 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: carriage return not a blank",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0",
+  "new": "length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12))) = 0",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: a blank test is allowed",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "\n  OR length(trim(NEW.acceptance_test, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 blank: a blank name is allowed",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN length(trim(NEW.title, ' ' || char(9) || char(10) || char(11) || char(12) || char(13))) = 0\n  OR",
+  "new": "WHEN",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 deliveries: limit 15",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND (SELECT COUNT(*) FROM engagement_events WHERE milestone_id = NEW.milestone_id AND kind = 'delivered') >= 14",
+  "new": "AND (SELECT COUNT(*) FROM engagement_events WHERE milestone_id = NEW.milestone_id AND kind = 'delivered') >= 15",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 deliveries: limit 13",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND (SELECT COUNT(*) FROM engagement_events WHERE milestone_id = NEW.milestone_id AND kind = 'delivered') >= 14",
+  "new": "AND (SELECT COUNT(*) FROM engagement_events WHERE milestone_id = NEW.milestone_id AND kind = 'delivered') >= 13",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 deliveries: counts the engagement's",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "AND (SELECT COUNT(*) FROM engagement_events WHERE milestone_id = NEW.milestone_id AND kind = 'delivered') >= 14",
+  "new": "AND (SELECT COUNT(*) FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'delivered') >= 14",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 deliveries: limit overlaps the order rule",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": " AND IFNULL((SELECT kind FROM engagement_events WHERE milestone_id = NEW.milestone_id ORDER BY id DESC LIMIT 1), 'rejected') = 'rejected'\n AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'plan_agreed')\n AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'closed')\nBEGIN\n  SELECT RAISE(ABORT, 'too many deliveries of this milestone');",
+  "new": " AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'plan_agreed')\n AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'closed')\nBEGIN\n  SELECT RAISE(ABORT, 'too many deliveries of this milestone');",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 deliveries: limit applies after the close",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": " AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'closed')\nBEGIN\n  SELECT RAISE(ABORT, 'too many deliveries of this milestone');",
+  "new": "\nBEGIN\n  SELECT RAISE(ABORT, 'too many deliveries of this milestone');",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 engagement: provider rule overlaps the requirement rule",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": " AND NOT EXISTS (SELECT 1 FROM requirement_events WHERE requirement_id = NEW.requirement_id AND kind = 'withdraw')\nBEGIN\n  SELECT RAISE(ABORT, 'an engagement needs a listed provider that serves the requirement');",
+  "new": "\nBEGIN\n  SELECT RAISE(ABORT, 'an engagement needs a listed provider that serves the requirement');",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 engagement: provider rule overlaps another company's requirement",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": " AND EXISTS (SELECT 1 FROM requirements WHERE id = NEW.requirement_id AND company_id = NEW.company_id)\n",
+  "new": " ",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 engagement: the provider need not be listed now",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "      OR IFNULL((SELECT kind FROM provider_events WHERE provider_id = NEW.provider_id ORDER BY id DESC LIMIT 1), 'unlist') <> 'list')",
+  "new": "      OR 0)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ },
+ {
+  "name": "0014 engagement: the provider need not serve the idea",
+  "path": "drizzle/0014_review_fixes.sql",
+  "old": "WHEN (NOT EXISTS (\n        SELECT 1 FROM requirements r JOIN provider_services s ON s.opportunity_id = r.opportunity_id AND s.cluster = r.cluster\n        WHERE r.id = NEW.requirement_id AND s.provider_id = NEW.provider_id)\n      OR",
+  "new": "WHEN (0\n      OR",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "deliver/integration/deliver-api"
+  ]
+ }
+]
