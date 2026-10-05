@@ -65,8 +65,8 @@ The [test cases](TEST-CASES.md) hold 34 cases whose automation is `people`; thei
 | TC-RUN-37 | BR-RUN-06 | A person other than the owner re-checks at each review point | Checker, sponsor | Session | OQ-18 |
 | TC-OPS-05 | BR-OPS-03 | An owner who has stopped appears in a queue that respects the scope rule | Operator staff | Session | OQ-08, OQ-18 |
 | TC-OPS-07 | BR-OPS-05 | Each playbook is published and used in the ten-owner test | Operator staff | Session | The playbooks |
-| TC-UX-01 | BR-UX-01 | An owner says what each page is for and what to do next | Owner | Session | Pages that state both |
-| TC-UX-02 | BR-UX-02 | The home page shows the five stages and one button for the next step | Owner | Session | The home page |
+| TC-UX-01 | BR-UX-01 | An owner says what each page is for and what to do next | Owner | Session | An owner session; the owner pages now state both (functional specification, section 5.1) |
+| TC-UX-02 | BR-UX-02 | The home page shows the five stages and one button for the next step | Owner | Session | An owner session; the home page now shows both (functional specification, section 5.2) |
 | TC-UX-03 | BR-UX-03 | Every term is plain or explained where it first appears | Owner | Session | A glossary in the interface |
 | TC-UX-04 | BR-UX-04 | An owner uses every owner page in a chosen language | Owner | Session | OQ-17 |
 | TC-UX-29 | BR-UX-11 | An owner uses a channel they already use | Owner | Session | OQ-17 |
@@ -163,7 +163,7 @@ The pages that show ideas from the opportunity library carry placeholder figures
 | Step | The facilitator | The recorder writes | Runs today |
 | --- | --- | --- | --- |
 | 1 | Reads the opening: this is a test of the pages; the company and the figures are invented; you can stop at any time | The time, the language, who is present | Yes |
-| 2 | Shows the home page and asks what the owner would do here, and which stage they are at | The words; whether the owner named a stage (TC-UX-02) | The home page is a list of links, so the second question has no answer to test |
+| 2 | Shows the home page and asks what the owner would do here, and which stage they are at | The words; whether the owner named a stage (TC-UX-02) | Yes. The home page now names a stage as the owner's turn, so the second question has an answer to compare with; no owner has been asked |
 | 3 | Shows each owner page in turn: Describe, What to do about it, What you need, Delivery, Results. Asks what the page is for and what they would do next | The answer in the owner's words, then whether it matches (TC-UX-01) | Yes, in English only |
 | 4 | Points at each of these words where they appear: assessment, requirement, engagement, listing, baseline. Asks what it means | Whether the owner knew without help (TC-UX-03) | Yes |
 | 5 | Asks the owner to find where the company's description is saved and say what a new version means | What they did and said, and any help given (TC-DESC-48) | Yes, in English only |

@@ -54,7 +54,7 @@ Sample figures (names, rupee amounts, dates) come from the synthetic demonstrati
 
 ## 2. The screens as built
 
-Observed on 5 October 2026 on the application running with synthetic demo data, at a phone width of 390 pixels and a desktop width of 1,280 pixels, and read against the source; no owner of a factory has used these screens.
+Drawn on 5 October 2026 from a capture of the pages as the application sent them, running on synthetic demo data, for six synthetic people (a visitor, four owners and the operator), and read against the source. The capture was made before this document was written, by someone other than its author, in a Chromium window 1,000 pixels wide, and is not kept in the repository. The author looked at no page on a screen, at a phone width or any other: the drawings show what each page says and in what order, not how it looks. What is said about layout at a narrow width comes from reading the style sheets. No owner of a factory has used these screens.
 
 The drawings are made from the structure of the pages in that capture (the owner of a company with only a confirmed description, one with nothing, one with a delivery waiting, one with an agreed plan and no starting number, a visitor and the operator). Where a state was not in the capture, the drawing says it was read from the source. No screenshot is reproduced: the capture is not kept in the repository.
 

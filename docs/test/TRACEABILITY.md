@@ -43,8 +43,8 @@ Cases: 623, citing 116 of 116 requirements.
 | covered-automated | 23 | 3 | 0 | 26 |
 | covered-partly | 18 | 8 | 1 | 27 |
 | designed-only | 3 | 2 | 0 | 5 |
-| people-only | 0 | 0 | 0 | 0 |
-| not-testable-yet | 23 | 27 | 8 | 58 |
+| people-only | 2 | 0 | 0 | 2 |
+| not-testable-yet | 21 | 27 | 8 | 56 |
 | uncovered | 0 | 0 | 0 | 0 |
 | **All** | 67 | 40 | 9 | 116 |
 
@@ -137,8 +137,8 @@ One row per requirement, in the order of the BRD. Case IDs in a run of three or 
 | BR-OPS-06 | A way to see the system's health and its audit trail. | Should | Partial | TC-ID-74, TC-OPS-08 to TC-OPS-10 | 4 | covered-partly | to be linked |
 | BR-OPS-07 | A presenter can show the journey in about 15 minutes. | Should | Built | TC-GOV-33, TC-GOV-34, TC-DIAG-26, TC-OPS-11 to TC-OPS-29, TC-OPS-67 to TC-OPS-70 | 26 | covered-automated | to be linked |
 | BR-OPS-08 | A hosted synthetic demonstration behind an access gate. | Should | Built | TC-OPS-30 to TC-OPS-66 | 37 | covered-automated | to be linked |
-| BR-UX-01 | Every page says what it is for and what to do next. | Must | Not built | TC-UX-01 | 0 | not-testable-yet | to be linked |
-| BR-UX-02 | One view of the journey. | Must | Not built | TC-UX-02 | 0 | not-testable-yet | to be linked |
+| BR-UX-01 | Every page says what it is for and what to do next. | Must | Not built | TC-UX-01 | 0 | people-only | to be linked |
+| BR-UX-02 | One view of the journey. | Must | Not built | TC-UX-02 | 0 | people-only | to be linked |
 | BR-UX-03 | Plain words. | Must | Not built | TC-UX-03 | 0 | not-testable-yet | to be linked |
 | BR-UX-04 | The interface in the owner's language. | Must | Not built | TC-UX-04 | 0 | not-testable-yet | to be linked |
 | BR-UX-05 | Works on a phone. | Should | Unverified | TC-UX-05 | 0 | designed-only | to be linked |
