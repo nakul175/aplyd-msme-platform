@@ -151,10 +151,12 @@ test("two assessments with no ideas at all compare as nothing moved, and one wit
   const full = diagnose(A);
   const gained = compareAssessments(none, full, { ...A, problems: ["other_problem"] }, A, false);
   assert.equal(gained.entered.length, 5);
+  assert.equal(gained.nothingMoved, false, "ideas came in, so something moved even though no idea changed its place");
   assert.deepEqual(gained.entered.map((e) => e.rank), [1, 2, 3, 4, 5]);
   assert.ok(gained.entered.every((e) => e.before === "Before, it did not match a problem you named." || /^Before, it was left out/.test(e.before)));
   const lost = compareAssessments(full, none, A, { ...A, problems: ["other_problem"] }, false);
   assert.equal(lost.dropped.length, 5);
+  assert.equal(lost.nothingMoved, false, "ideas dropped out, so something moved even though no idea changed its place");
   assert.equal(lost.moved.length, 0);
 });
 

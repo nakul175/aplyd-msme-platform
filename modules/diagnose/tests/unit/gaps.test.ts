@@ -101,6 +101,19 @@ test("the same lines are read idea by idea, in rank order, and an idea with noth
   assert.equal(view.ideas.reduce((n, i) => n + i.blockers.length, 0), byArea);
 });
 
+test("inside an area the lines follow the ideas' order, then what comes first, what to check, what answer is missing and the cost; the held-up count is of ideas, not lines", () => {
+  const answers = without(A, "production_tracking");
+  const view = gapView(diagnose(answers), answers);
+  assert.deepEqual(area(view, "systems").blockers.map((b) => [b.rank, b.kind, b.opportunityId]), [
+    [1, "answer", "digital_job_log"],
+    [3, "check", "ai_job_scheduling"],
+    [3, "answer", "ai_job_scheduling"],
+    [5, "first", "demand_forecast_ai"],
+  ]);
+  assert.equal(area(view, "systems").heldUp, 3, "four lines about three ideas");
+  assert.deepEqual(view.areas.map((a) => a.heldUp), [1, 0, 3, 3, 1]);
+});
+
 test("a question the owner did not answer is named, in the area it belongs to, and the area it leaves with nothing to go on is not assessed", () => {
   const answers = without(A, "it_support", "data_kept");
   const result = diagnose(answers);
