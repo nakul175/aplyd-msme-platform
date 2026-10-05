@@ -150,7 +150,7 @@ What changed is in [the status page](STATUS.md), "Slice 11b". The author is an a
 | `deliver/browser/deliver` (new assertions: the warning beside "Accept milestone 1" and its link to `/run#bl-...`) | 3 passed |
 | `run/smoke/run` (new assertion: no warning on Delivery once the starting number is recorded) | 7 passed |
 | `journey/browser/journey`, `journey/integration/facts` | 1 and 7 passed |
-| `node scripts/test.mjs static` (with `static/typecheck`) | typecheck, documentation, traceability and migrations pass; see the run module's record for the two suites that fail on this branch and why |
+| `node scripts/test.mjs static` (with `static/typecheck`) | 27 of 28 suites pass, typecheck among them; the run module's record says which one fails on this branch and why (a figure pinned in the docs module's test) |
 
 The baselines of `deliver/unit/summary` (8 to 9) and the new `deliver/unit/test-quality` (4) were recorded with `--update-baseline`, after the runs above.
 
@@ -158,5 +158,5 @@ The baselines of `deliver/unit/summary` (8 to 9) and the new `deliver/unit/test-
 
 - **The flag reads words, not meaning.** The word lists of `testQuality` are assumptions written for this check; a sensible test can be flagged and a useless one can pass. Nobody who owns a factory has read the example or the sentence.
 - **An empty test is still refused**, not flagged, because the database requires the text; the BRD row asks for a flag (see the status page).
-- **No mutation checks** were run for the page or `src/test-quality.ts`, and the page was not looked at by a person at phone width; the new CSS uses only existing tokens, and `journey/unit/contrast` was not changed.
+- **No mutation checks** were run for the page or `src/test-quality.ts`. An agent looked at the page at 390 pixels wide in Chromium (the warning beside Accept for the demonstration's owner D, the worked example open for owner E; no sideways scroll); not in the dark scheme or at desktop width. The new CSS uses only existing tokens; `journey/unit/contrast` passes (8) and was not changed.
 - **The warning is shown only in the decision form.** An owner who accepts through the JSON interface is not warned; the database still refuses a late starting number.

@@ -155,13 +155,32 @@ What changed is in [the status page](STATUS.md), "Slice 11b". The author is an a
 | `platform/unit/migrations` (new test, added to the platform's migration tests as the brief asks: 0015 is in the journal, is read as at least eight statements, and drops, alters and rebuilds nothing, with one CREATE TABLE and seven triggers) | 3 passed. The platform's baseline (2) was not changed: it is not this module's |
 | `platform/unit/guards` | **fails, 2 of 3**: the guard list in `modules/platform/src/db/guards.ts` does not name the seven triggers of 0015. That file is the platform module's; this slice did not change it. The exact entries are in the slice's report |
 | `docs/static/dictionary-sync`, last test | **fails**: it pins 16 tables, 15 migrations and 91 triggers; the database now has 17, 16 and 98. The test is the docs module's; this slice did not change it |
-| `node scripts/test.mjs static` (with `static/typecheck`) | typecheck, documentation, traceability, test-docs and migrations pass; the only failing suite is `docs/static/dictionary-sync` for the pinned figures above |
+| `node scripts/test.mjs static` (with `static/typecheck`), last run after every commit of this slice | 27 of 28 suites pass, typecheck, documentation, traceability, test-docs and migrations among them; the one failing suite is `docs/static/dictionary-sync`, for the pinned figures above only (30 of 31). An earlier run failed two more tests because this slice's sections were inserted into the middle of the two STATUS pages (the dictionary's section 9 reads `modules/deliver/STATUS.md` by line number) and their "Last updated" lines were changed (the documentation index gives 5 October 2026); the sections were moved to the end and the lines restored |
 
 The baselines of `run/unit/state` (6 to 7), `run/static/rules` (8 to 10) and `run/integration/run-api` (29 to 36) were recorded with `--update-baseline`, after the runs above.
 
 ### Fail before, pass after
 
 The new integration tests were not run against the code before this slice (it has no `baselineBlocked`, `listCorrections` or `recordCorrection`, so the file would not load). Read from the code: before this slice a baseline posted on a closed engagement, or before the plan was agreed, was answered 201 and written, which the first assertion of each new baseline test refuses. The mutation checks below are the evidence that the tests notice each new rule going.
+
+### Mutation checks
+
+Run by `scripts/mutation/mutate.py` on a copy of the tree (`git archive` of the branch), each break against `run/integration/run-api`; the list is `modules/run/mutations/slice-11b.json`. **6 written, 6 caught**, 6 October 2026.
+
+| Break | Result |
+| --- | --- |
+| Trigger 0015: a baseline on a closed engagement let through | caught |
+| Trigger 0015: a baseline before the plan is agreed let through | caught |
+| The presenter offers the form as before this slice (closed and unagreed ignored) | caught |
+| The first correction read as the current value, not the latest | caught |
+| The correction's insert not bound to the company (`? IS NOT NULL` for `company_id = ?`) | caught |
+| Trigger 0015: a correction of another engagement's number let through | caught |
+
+Not written: removing the handler's own check of a closed or unagreed engagement. With the triggers in place that break is equivalent from outside (the data layer gives the same named reason from the trigger's message), so it would survive; the handler's check is there to answer before the database is asked.
+
+### What was looked at
+
+The built application was run locally with the demonstration cast (`APLYD_DEMO=true`) and opened in Chromium at 390 pixels wide: owner E (a provider chosen, no plan) sees "Agree the plan on Delivery first ..." on Results and no form; owner D, after recording a delivery from the page, sees the warning and its link beside "Accept milestone 1"; owner C corrected the starting number 42 to 40 from the page and saw 40 as the starting number, 42 struck through with the tag "Corrected", and the reason; the add-milestone form with "What a good test looks like" open. No page scrolled sideways (the document was 390 pixels wide each time). Not looked at: the dark scheme, a desktop width, a keyboard-only walk.
 
 ### What this does not show
 
