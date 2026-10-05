@@ -4,8 +4,10 @@ import { listEngagements } from "../../deliver/src/db/engagements.ts";
 import type { EngagementRecord } from "../../deliver/src/db/engagements.ts";
 import { MILESTONE_KINDS } from "../../deliver/src/state.ts";
 import type { MilestoneKind } from "../../deliver/src/state.ts";
-import { listAssessments } from "../../diagnose/src/db/assessments.ts";
+import { standingDecisions } from "../../diagnose/src/digest.ts";
+import { listAssessments, loadAssessment } from "../../diagnose/src/db/assessments.ts";
 import { loadLatest } from "../../factory/src/db/revisions.ts";
+import { listedProvidersFor } from "../../procure/src/db/providers.ts";
 import { listRequirements } from "../../procure/src/db/requirements.ts";
 import { listOutcomes } from "../../run/src/db/outcomes.ts";
 import { milestoneStatesOf } from "./progress.ts";
@@ -43,11 +45,26 @@ export async function loadFacts(db: D1Database, companyId: string): Promise<Fact
   const counted = assessments.find((a) => a.signedOffAt !== null) ?? assessments[0] ?? null;
   const active = requirements.filter((r) => r.withdrawnAt === null);
   const engaged = new Set(engagements.map((g) => g.requirementId));
+  const withoutProvider = active.filter((r) => !engaged.has(r.id));
+  const providerCounts = await Promise.all(withoutProvider.map(async (r) => (await listedProvidersFor(db, r.opportunityId, r.cluster)).length));
+
+  // The ideas the owner accepted in the signed-off assessment that nothing has been asked for yet. A withdrawn requirement still counts as
+  // asked for, as it does on the Choose page: a withdrawn requirement is not made again.
+  let ideasToAsk = 0;
+  if (counted?.signedOffAt) {
+    const record = await loadAssessment(db, companyId, counted.id);
+    if (record) {
+      const asked = new Set(requirements.filter((r) => r.assessmentId === counted.id).map((r) => r.opportunityId));
+      ideasToAsk = standingDecisions(record.result, record.events.filter((e) => e.kind === "decision")).filter((d) => d.decision === "accept" && !asked.has(d.opportunityId)).length;
+    }
+  }
   return {
-    factory: { latestRevision: latest?.revision ?? null, anyConfirmed: confirmed !== null },
+    factory: { latestRevision: latest?.revision ?? null, confirmedRevision: confirmed?.revision ?? null },
     assessment: counted ? { items: counted.items, decided: counted.decided, signedOff: counted.signedOffAt !== null } : null,
+    ideasToAsk,
     requirements: active.length,
-    requirementsWithoutProvider: active.filter((r) => !engaged.has(r.id)).length,
+    requirementsWithoutProvider: withoutProvider.length,
+    requirementsToChoose: providerCounts.filter((n) => n > 0).length,
     engagements: engagements.map((g, i) => engagementFacts(g, outcomes[i])),
   };
 }

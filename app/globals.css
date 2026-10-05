@@ -137,7 +137,7 @@
 
 /* ---------- base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-block-end: 7rem; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 1rem/1.55 var(--font); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; min-height: 100vh; display: flex; flex-direction: column; }
 main { flex: 1 0 auto; width: 100%; max-width: 62rem; margin: 0 auto; padding: var(--s-6) var(--gutter) var(--s-8); display: grid; gap: var(--s-4); align-content: start; grid-template-columns: minmax(0, 1fr); }
 h1, h2, h3, h4 { line-height: 1.2; text-wrap: balance; margin: 0; }
@@ -261,12 +261,12 @@ button.danger, .btn.danger { color: var(--danger); border-color: color-mix(in sr
 button.danger:hover, .btn.danger:hover { background: var(--danger-tint); border-color: var(--danger); color: var(--danger); }
 button.quiet, .btn.quiet { border-color: transparent; background: transparent; color: var(--brand); padding-inline: var(--s-3); }
 button.quiet:hover, .btn.quiet:hover { background: var(--brand-tint); border-color: transparent; color: var(--brand-hover); }
-button.small, .btn.small { min-height: 2.25rem; padding: 0.3rem 0.8rem; font-size: 0.875rem; }
+button.small, .btn.small { min-height: 2.75rem; padding: 0.3rem 0.8rem; font-size: 0.875rem; }
 button.big, .btn.big { min-height: 3.25rem; padding: 0.75rem 1.5rem; font-size: 1.0625rem; border-radius: var(--r); }
 button:disabled, .btn[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; transform: none; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; }
 .actions > p { margin: 0; }
-.sticky-actions { position: sticky; bottom: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-top: 1px solid var(--line); margin-inline: calc(var(--gutter) * -1); padding: var(--s-3) var(--gutter) calc(var(--s-3) + env(safe-area-inset-bottom, 0px)); }
+.sticky-actions { position: sticky; bottom: 0; z-index: 10; background: var(--bg); background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-top: 1px solid var(--line); margin-inline: calc(var(--gutter) * -1); padding: var(--s-3) var(--gutter) calc(var(--s-3) + env(safe-area-inset-bottom, 0px)); }
 
 /* ---------- forms ---------- */
 form { margin: 0; }

@@ -34,6 +34,8 @@ export function firstUndecided(items: readonly { opportunityId: string }[], deci
 /** What the journey says is the owner's turn, as far as this page needs it. Written out here so this module does not depend on the journey's. */
 export type TurnLike = { key: string; stage: string; title: string; body: string; cta: string; href: string };
 export type Onward = { title: string; body: string; cta: string; href: string };
+/** The journey's steps that say nothing needs the owner (its `isOwnersTurn` is false for them). Written out here for the same reason as `TurnLike`. */
+const NOTHING_NEEDED: ReadonlySet<string> = new Set(["keep_going", "waiting_for_listing", "caught_up"]);
 
 /**
  * Where a signed-off assessment points the owner next: the step the journey names, with its own words, when that step is further on than
@@ -41,7 +43,7 @@ export type Onward = { title: string; body: string; cta: string; href: string };
  * nothing to do today, so the page never points at a step that is not the owner's.
  */
 export function afterSignOff(turn: TurnLike): Onward | null {
-  if (turn.key === "caught_up" || turn.stage === "describe" || turn.stage === "diagnose") return null;
+  if (NOTHING_NEEDED.has(turn.key) || turn.stage === "describe" || turn.stage === "diagnose") return null;
   return { title: turn.title, body: turn.body, cta: turn.cta, href: turn.href };
 }
 

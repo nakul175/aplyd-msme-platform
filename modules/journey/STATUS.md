@@ -25,3 +25,18 @@ Everything is SYNTHETIC: the synthetic users, the synthetic library, a placehold
 4. It runs in Chromium only, against a local Worker, with a synthetic sign-in, like every browser test here. It says nothing about a phone, a slow connection, another browser, or a real owner reading the pages. It is not the ten-owner test (docs/ten-owner-test.md), which needs people.
 5. It depends on the wording of labels and buttons on seven pages, as every browser test does: a changed label fails it, which is how it is meant to notice a rename, and also what makes it brittle. It takes 10 to 30 seconds on this machine.
 6. The timeout is 170 seconds for the journey. On a slow or busy machine it can fail for time and not for a defect; run it again alone before treating it as a regression.
+
+## Next-step rules after the independent reviews (5 October 2026)
+
+Two agent reviewers (an interface review and a logic review of the rule order) found defects in `nextStep` and `stageStatuses` in `modules/journey/src/progress.ts`; this change fixes them. What changed, in the order the rules now run:
+
+1. `describe`, `confirm`, `diagnose` as before; `no_ideas` is new (a description for which the fixed rules suggest nothing is sent back to Describe, not to sign-off).
+2. `decide` and `sign_off` as before.
+3. `record_baseline` is asked for before `judge_delivery` when a delivery is waiting and the starting number is not written down, because accepting first loses the number for good. Closed engagements no longer count as a delivery waiting, nor as one that can still take a starting number.
+4. `judge_delivery`, `review_due`, `agree_plan`, `record_baseline`, `choose_provider` (only when at least one provider is listed), `make_requirement` (only when an accepted idea has no request; otherwise `new_assessment`), `close_engagement` (new), `keep_going`, `waiting_for_listing` (new), `ask_for_more` (new), `caught_up`.
+5. `keep_going`, `waiting_for_listing` and `caught_up` are not the owner's turn (`isOwnersTurn`): no stage is marked current for them and pages other than their own do not repeat them.
+6. A stage is shown as done only when every stage before it is (`stageStatuses`), and the lines under the stages no longer contradict the records (a newer draft, a closed engagement, plural forms).
+
+`Facts` gained `confirmedRevision`, `ideasToAsk` and `requirementsToChoose`; `facts.ts` reads them through the diagnose and procure modules' own reads.
+
+Not fixed here, recorded as follow-up: the Run page (`modules/run`, outside this module) still offers a starting number for a closed engagement; the Deliver page does not warn beside "Accept" that accepting ends the chance to record a starting number.

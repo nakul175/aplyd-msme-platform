@@ -39,7 +39,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
   const identity = await resolveIdentityFromCookieHeader((await headers()).get("cookie"), e);
 
   if (!identity) return <SignedOut title="What you need" reason="to see your requirements." />;
-  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="What you need" />;
+  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="What you need" hasCompany={identity.companyId !== null} />;
 
   const db = e.DB;
   const companyId = identity.companyId;

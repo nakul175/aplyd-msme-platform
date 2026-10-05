@@ -45,7 +45,7 @@
 .dg-first > * + * { margin-top: 0; }
 .dg-notes { display: grid; gap: var(--s-2); font-size: 0.9375rem; }
 .dg-notes > * + * { margin-top: 0; }
-.dg-more > summary { cursor: pointer; font-weight: 650; color: var(--brand); min-height: 2.5rem; display: flex; align-items: center; gap: var(--s-2); list-style: none; border-radius: var(--r-sm); }
+.dg-more > summary { cursor: pointer; font-weight: 650; color: var(--brand); min-height: 2.75rem; display: flex; align-items: center; gap: var(--s-2); list-style: none; border-radius: var(--r-sm); }
 .dg-more > summary::-webkit-details-marker { display: none; }
 .dg-more > summary::before { content: ""; width: 0.5rem; height: 0.5rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 120ms ease; flex: none; }
 .dg-more[open] > summary::before { transform: rotate(45deg); }

@@ -19,3 +19,9 @@ It has not been shown to. A mutation of a page needs a rebuild for each break (a
 - It cannot record a review, because a review opens 30 days after the first acceptance and the pages have no way to move the clock. Reviews are tested in the run module, where the database is given an acceptance dated in the past.
 - The test is long and depends on the wording of labels on seven pages; a change of wording fails it. It also takes the harness's whole 170-second allowance on a very slow machine.
 - No hosted environment was used: the Worker is local and the database is Miniflare's.
+
+## Next-step rules after the independent reviews (5 October 2026)
+
+The agent that changed the rules ran, on the rebuilt application (`pnpm build`): `npx tsc --noEmit` (no errors); `journey/unit/progress` 36 passed (was 22), `journey/unit/contrast` 8 passed, `diagnose/unit/progress` 7 passed, `diagnose/unit/not-owner` 1 passed; `journey/integration/facts` 7 passed (was 3; new scenarios: baseline before judging a delivery, two milestones to close, a closed engagement, a signed-off company that accepted nothing, a withdrawn request, a request with no listed provider, a newer draft); `diagnose/integration/diagnose-api` 34 passed; browser suites `journey`, `diagnose`, `demo/walk`, `deliver`, `factory/describe`, `platform/pages`, `platform/session-and-scope`, `procure`, `run` all passed; every smoke suite (8) passed. Baselines in `modules/journey/tests/baseline.json` were raised to match. The full `pr --guard` run has not been repeated since this change.
+
+Limits: both reviewers were agents and no person has read the change. The rules were checked against synthetic records only. The unit tests assert the rule order the reviewers described; they do not show that an owner finds the order natural. Two defects found by the logic review sit outside this module and are not fixed (see STATUS).

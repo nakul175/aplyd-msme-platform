@@ -26,7 +26,7 @@ function Promises() {
         <li>
           <Layers />
           <span>
-            <strong>Nothing is overwritten.</strong> Every save is kept as a new version, so you can always see what you said before.
+            <strong>Nothing is overwritten.</strong> Your description keeps every saved version, and decisions and events are added to the record, never erased.
           </span>
         </li>
         <li>
@@ -61,8 +61,8 @@ export default async function Home() {
       <>
         <section className="hero">
           <h1 className="brandline">APLYD MSME platform</h1>
-          <p className="display">Find the technology that fits your factory, and get it working.</p>
-          <p>Tell us how your factory runs. You get a short, ranked list of what is worth doing, a plan you can check one milestone at a time, and your own numbers to see whether it paid off.</p>
+          <p className="display">See which technology is worth trying in your factory.</p>
+          <p>Tell us how your factory runs. You get a short, ranked list of what is worth doing. Then you write down what you need, keep the plan you agree with a provider, check each piece of work, and measure the result with your own numbers.</p>
           <div className="actions">
             <a className="btn turn big" href="/sign-in">
               Sign in
@@ -146,7 +146,7 @@ export default async function Home() {
         <section className="hero" aria-label="Your account">
           <p className="eyebrow">APLYD MSME platform</p>
           <h1 className="display">You are signed in</h1>
-          <p>This account is not linked to a company, so there are no steps to work through here.</p>
+          <p>{identity.companyId !== null ? "Only the owner of your company can work through the steps. You can see your company's record below." : "This account is not linked to a company, so there are no steps to work through here."}</p>
         </section>
       )}
 

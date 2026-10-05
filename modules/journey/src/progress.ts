@@ -44,18 +44,26 @@ export type EngagementFacts = {
 };
 
 export type Facts = {
-  factory: { latestRevision: number | null; anyConfirmed: boolean };
-  /** The newest assessment, or null if there is none. */
+  /** The newest saved version of the description, and the newest one the owner confirmed (null if none was). */
+  factory: { latestRevision: number | null; confirmedRevision: number | null };
+  /** The assessment that counts (the newest signed-off one, else the newest), or null if there is none. */
   assessment: { items: number; decided: number; signedOff: boolean } | null;
+  /**
+   * Of the ideas the owner accepted in the signed-off assessment, how many have no requirement. An idea whose requirement was withdrawn
+   * counts as asked for, because a withdrawn requirement is not made again. Zero when nothing is signed off.
+   */
+  ideasToAsk: number;
   /** Requirements that were not withdrawn. */
   requirements: number;
   /** Of those, the ones for which no provider has been chosen yet. */
   requirementsWithoutProvider: number;
+  /** Of those, the ones that have at least one listed provider to choose from. Never more than `requirementsWithoutProvider`. */
+  requirementsToChoose: number;
   engagements: EngagementFacts[];
 };
 
 /** The facts of a company that has not done anything yet. */
-export const NO_FACTS: Facts = { factory: { latestRevision: null, anyConfirmed: false }, assessment: null, requirements: 0, requirementsWithoutProvider: 0, engagements: [] };
+export const NO_FACTS: Facts = { factory: { latestRevision: null, confirmedRevision: null }, assessment: null, ideasToAsk: 0, requirements: 0, requirementsWithoutProvider: 0, requirementsToChoose: 0, engagements: [] };
 
 /** An engagement's milestone states from the kinds of event recorded on each milestone. A convenience for the reader of the facts. */
 export function milestoneStatesOf(eventKindsByMilestone: readonly (readonly MilestoneKind[])[]): MilestoneState[] {
@@ -71,6 +79,7 @@ export type NextStep = {
     | "describe"
     | "confirm"
     | "diagnose"
+    | "no_ideas"
     | "decide"
     | "sign_off"
     | "judge_delivery"
@@ -79,7 +88,11 @@ export type NextStep = {
     | "record_baseline"
     | "choose_provider"
     | "make_requirement"
+    | "new_assessment"
+    | "close_engagement"
     | "keep_going"
+    | "waiting_for_listing"
+    | "ask_for_more"
     | "caught_up";
   title: string;
   body: string;
@@ -92,19 +105,39 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 const step = (stage: StageId, key: NextStep["key"], title: string, body: string, cta: string): NextStep => ({ stage, key, title, body, cta, href: stageById(stage).href });
 
+/**
+ * The steps that say "nothing needs you": they are shown, but no stage is marked as the owner's turn for them, and a page that is not about
+ * them does not repeat them at its foot. `ask_for_more` is not one of them: it is optional, but it is something the owner can do.
+ */
+const NOTHING_NEEDED: ReadonlySet<NextStep["key"]> = new Set(["keep_going", "waiting_for_listing", "caught_up"]);
+export const isOwnersTurn = (s: Pick<NextStep, "key">): boolean => !NOTHING_NEEDED.has(s.key);
+
+/** A first-acceptance time that cannot be read is treated as "nothing accepted yet", so one bad value cannot stop every page. */
+const readable = (at: string | null): string | null => (at !== null && Number.isNaN(Date.parse(at)) ? null : at);
+const slotsOf = (g: EngagementFacts, now: Date) => reviewSlots({ firstAcceptedAt: readable(g.firstAcceptedAt), now, recorded: g.reviewsRecorded });
+
+/** A starting number can still be recorded: the plan is agreed, the engagement is open and nothing has been accepted. */
+const canRecordBaseline = (g: EngagementFacts) => g.planAgreed && !g.closed && !g.baselineRecorded && g.firstAcceptedAt === null;
+const hasDelivery = (g: EngagementFacts) => !g.closed && g.milestones.includes("delivered");
+/** Every milestone of an agreed plan is accepted or paid, and the engagement is still open. */
+const allAccepted = (g: EngagementFacts) => !g.closed && g.planAgreed && g.milestones.length > 0 && g.milestones.every((m) => m === "accepted" || m === "paid");
+
 /** The one thing that is the owner's turn. Urgent decisions on work in progress come before earlier stages only once the earlier stages are done. */
 export function nextStep(facts: Facts, now: Date): NextStep {
   const { factory, assessment, engagements } = facts;
   if (factory.latestRevision === null) {
     return step("describe", "describe", "Start by describing your factory", "Plain questions about what you make, how work moves through the shop floor and what hurts. Nothing is lost if you stop halfway: every save is kept.", "Start with your factory");
   }
-  if (!factory.anyConfirmed) {
+  if (factory.confirmedRevision === null) {
     return step("describe", "confirm", "Confirm your description", "Your answers are saved as a draft. When they are accurate, confirm them: that is what the ideas are worked out from.", "Review and confirm");
   }
   if (assessment === null) {
     return step("diagnose", "diagnose", "See what is worth doing", "Your answers go through a fixed set of rules and come back as a short ranked list of ideas, each with its cost, its risk and what has to come first.", "Get your ranked ideas");
   }
   if (!assessment.signedOff) {
+    if (assessment.items === 0) {
+      return step("describe", "no_ideas", "No idea fits your answers yet", "The fixed rules found nothing to suggest for what you described. Add the problems you want solved, confirm the new version, and make a new assessment.", "Update your description");
+    }
     if (assessment.decided < assessment.items) {
       const left = assessment.items - assessment.decided;
       return step("diagnose", "decide", `Decide on ${plural(left, "idea", "ideas")}`, `You have decided on ${assessment.decided} of ${assessment.items}. For each one say yes, not yet or no. Only the ideas you say yes to go on to the next stage.`, "Continue deciding");
@@ -112,38 +145,61 @@ export function nextStep(facts: Facts, now: Date): NextStep {
     return step("diagnose", "sign_off", "Sign off your decisions", "You have decided on every idea. Signing off says these decisions are yours and lets you go on to say what you need.", "Sign off");
   }
 
-  if (engagements.some((g) => g.milestones.includes("delivered"))) {
+  // The starting number can only be recorded before the first milestone is accepted. If a delivery is already waiting and the number is not
+  // written down, say so first: following the next rule's button and accepting would lose it for good.
+  if (engagements.some((g) => hasDelivery(g) && canRecordBaseline(g))) {
+    return step("run", "record_baseline", "Write down your starting number first", "A delivery is waiting, but your starting number is not written down. It can only be recorded before the first milestone is accepted, so record it before you accept anything.", "Record the number");
+  }
+  if (engagements.some(hasDelivery)) {
     return step("deliver", "judge_delivery", "A delivery is waiting for your decision", "The provider says a milestone is done. Check it against the test you wrote before work started, then accept or reject it.", "Check the work done");
   }
-  const due = engagements.flatMap((g) => reviewSlots({ firstAcceptedAt: g.firstAcceptedAt, now, recorded: g.reviewsRecorded })).filter((r) => r.state === "due");
+  const due = engagements.flatMap((g) => slotsOf(g, now)).filter((r) => r.state === "due");
   if (due.length > 0) {
     return step("run", "review_due", due.length === 1 ? `Review ${due[0].no} is open` : `${due.length} reviews are open`, "Measure the same thing you measured before the work, and say whether it did what was expected.", "Record a review");
   }
   if (engagements.some((g) => !g.planAgreed && !g.closed)) {
     return step("deliver", "agree_plan", "Agree a plan with your provider", "Break the work into milestones. For each one write what is delivered, how you will check it, a date and a price.", "Plan the work");
   }
-  if (engagements.some((g) => g.planAgreed && !g.baselineRecorded && g.firstAcceptedAt === null)) {
+  if (engagements.some(canRecordBaseline)) {
     return step("run", "record_baseline", "Write down your starting number", "Record today's number before anything is accepted, so that later you can see what changed. It can only be recorded once, and only before the first milestone is accepted.", "Record the number");
   }
-  if (facts.requirementsWithoutProvider > 0) {
+  if (facts.requirementsToChoose > 0) {
     return step("procure", "choose_provider", "Choose a provider", "You have said what you need. Pick which of the listed providers you want to work with.", "Choose a provider");
   }
   if (facts.requirements === 0 && engagements.length === 0) {
-    return step("procure", "make_requirement", "Say what you need", "Pick an idea you said yes to and say what you need. You will see which listed providers could do it.", "Make a request");
+    if (facts.ideasToAsk > 0) {
+      return step("procure", "make_requirement", "Say what you need", "Pick an idea you said yes to and say what you need. You will see which listed providers could do it.", "Make a request");
+    }
+    return step("describe", "new_assessment", "No idea is left to ask for", "Every idea you said yes to has been asked for or taken back, or you said yes to none. To look again, update your description, confirm it, and make a new assessment.", "Update your description");
+  }
+  if (engagements.some(allAccepted)) {
+    return step("deliver", "close_engagement", "Every milestone is accepted", "When you have nothing more to record on this work, close it. Everything stays on record, and your reviews carry on.", "Close the work");
   }
 
-  const openStates = engagements.filter((g) => !g.closed && statusOf({ planAgreed: g.planAgreed, closed: g.closed, states: g.milestones }) === "in_progress");
-  if (openStates.length > 0) {
+  const underWay = engagements.filter((g) => !g.closed && statusOf({ planAgreed: g.planAgreed, closed: g.closed, states: g.milestones }) === "in_progress");
+  if (underWay.length > 0) {
     const next = engagements
-      .flatMap((g) => reviewSlots({ firstAcceptedAt: g.firstAcceptedAt, now, recorded: g.reviewsRecorded }))
+      .flatMap((g) => slotsOf(g, now))
       .filter((r) => r.state === "not_due" && r.dueAt)
       .sort((a, b) => (a.dueAt! < b.dueAt! ? -1 : 1))[0];
+    const accepting = engagements.some((g) => readable(g.firstAcceptedAt) !== null);
+    const second = next
+      ? `The next review opens on ${next.dueAt!.slice(0, 10)}.`
+      : accepting
+        ? "Every review you can record so far is recorded."
+        : "Accept each milestone as it is delivered; the review dates start from the first one you accept.";
+    return step("deliver", "keep_going", "Work is under way", `Nothing needs you today. ${second}`, "Check on the work");
+  }
+  if (facts.requirementsWithoutProvider > 0) {
+    return step("procure", "waiting_for_listing", "Waiting for a provider to be listed", "You have said what you need. No provider is listed for it yet, so there is nothing for you to do. When one is listed you can choose it.", "See your requests");
+  }
+  if (facts.ideasToAsk > 0) {
     return step(
-      "run",
-      "keep_going",
-      "Work is under way",
-      next ? `Nothing needs you today. The next review opens on ${next.dueAt!.slice(0, 10)}.` : "Nothing needs you today. Accept each milestone as it is delivered; the review dates start from the first one you accept.",
-      "Check on the work",
+      "procure",
+      "ask_for_more",
+      facts.ideasToAsk === 1 ? "One more idea is ready to ask for" : `${facts.ideasToAsk} more ideas are ready to ask for`,
+      "You said yes to these and have not asked for them yet. Ask for the ones you want now, or leave them for later.",
+      "Make a request",
     );
   }
   return step("run", "caught_up", "You are up to date", "Nothing needs you today. You can go back over any stage.", "Look back at the numbers");
@@ -153,15 +209,21 @@ export function nextStep(facts: Facts, now: Date): NextStep {
 export function stageStatuses(facts: Facts, now: Date): Record<StageId, StageStatus> {
   const turn = nextStep(facts, now);
   const { factory, assessment, engagements } = facts;
-  const done: Record<StageId, boolean> = {
-    describe: factory.anyConfirmed,
+  const reviewed = (g: EngagementFacts) => [1, 2, 3].every((n) => g.reviewsRecorded.includes(n)) || (g.closed && g.firstAcceptedAt === null);
+  const own: Record<StageId, boolean> = {
+    describe: factory.confirmedRevision !== null,
     diagnose: assessment?.signedOff === true,
-    procure: engagements.length > 0,
-    deliver: engagements.some((g) => statusOf({ planAgreed: g.planAgreed, closed: g.closed, states: g.milestones }) === "complete"),
-    run: engagements.some((g) => [1, 2, 3].every((n) => g.reviewsRecorded.includes(n))),
+    procure: assessment?.signedOff === true && engagements.length > 0 && facts.requirementsWithoutProvider === 0,
+    deliver: engagements.length > 0 && engagements.every((g) => g.closed),
+    run: engagements.length > 0 && engagements.every(reviewed),
   };
+  // A stage is done only when every stage before it is, so the strip never shows a finished step after one that is not.
+  const done = {} as Record<StageId, boolean>;
+  STAGE_IDS.forEach((id, i) => {
+    done[id] = own[id] && (i === 0 || done[STAGE_IDS[i - 1]!]);
+  });
   const result = {} as Record<StageId, StageStatus>;
-  for (const s of STAGE_IDS) result[s] = turn.key !== "caught_up" && turn.stage === s ? "current" : done[s] ? "done" : "todo";
+  for (const s of STAGE_IDS) result[s] = isOwnersTurn(turn) && turn.stage === s ? "current" : done[s] ? "done" : "todo";
   return result;
 }
 
@@ -171,11 +233,13 @@ export function stageLine(stage: StageId, facts: Facts, now: Date): string {
   switch (stage) {
     case "describe":
       if (factory.latestRevision === null) return "Not started";
-      return factory.anyConfirmed ? `Confirmed. Newest version is ${factory.latestRevision}.` : `A draft is saved (version ${factory.latestRevision}). Not confirmed yet.`;
+      if (factory.confirmedRevision === null) return `A draft is saved (version ${factory.latestRevision}). Not confirmed yet.`;
+      return factory.confirmedRevision === factory.latestRevision ? `Confirmed. Newest version is ${factory.latestRevision}.` : `Version ${factory.confirmedRevision} is confirmed. Version ${factory.latestRevision} is a newer draft.`;
     case "diagnose":
-      if (!factory.anyConfirmed) return "Waits for a confirmed description";
+      if (factory.confirmedRevision === null) return "Waits for a confirmed description";
       if (assessment === null) return "Not started";
-      return assessment.signedOff ? `Signed off. You decided on ${assessment.decided} of ${assessment.items} ideas.` : `Decided on ${assessment.decided} of ${assessment.items} ideas. Not signed off.`;
+      if (assessment.items === 0) return "No idea fits your answers yet.";
+      return assessment.signedOff ? `Signed off. You decided on ${assessment.decided} of ${plural(assessment.items, "idea", "ideas")}.` : `Decided on ${assessment.decided} of ${plural(assessment.items, "idea", "ideas")}. Not signed off.`;
     case "procure":
       if (assessment?.signedOff !== true) return "Waits for your signed-off decisions";
       if (facts.requirements === 0) return "Nothing asked for yet";
@@ -184,16 +248,23 @@ export function stageLine(stage: StageId, facts: Facts, now: Date): string {
       if (engagements.length === 0) return "Waits for a chosen provider";
       const accepted = engagements.reduce((n, g) => n + g.milestones.filter((m) => m === "accepted" || m === "paid").length, 0);
       const total = engagements.reduce((n, g) => n + g.milestones.length, 0);
-      if (!engagements.some((g) => g.planAgreed)) return "Plan not agreed yet";
+      if (!engagements.some((g) => g.planAgreed)) return engagements.every((g) => g.closed) ? "Closed before a plan was agreed." : "Plan not agreed yet";
       return `${accepted} of ${plural(total, "milestone", "milestones")} accepted.`;
     }
     case "run": {
       if (engagements.length === 0) return "Waits for work to start";
       const recorded = engagements.reduce((n, g) => n + g.reviewsRecorded.length, 0);
-      const open = engagements.flatMap((g) => reviewSlots({ firstAcceptedAt: g.firstAcceptedAt, now, recorded: g.reviewsRecorded })).filter((r) => r.state === "due").length;
+      const open = engagements.flatMap((g) => slotsOf(g, now)).filter((r) => r.state === "due").length;
       if (open > 0) return `${plural(open, "review is", "reviews are")} open.`;
-      const baseline = engagements.some((g) => g.baselineRecorded);
-      return `${baseline ? "Starting number recorded" : "No starting number yet"}. ${plural(recorded, "review", "reviews")} recorded.`;
+      const withBaseline = engagements.filter((g) => g.baselineRecorded).length;
+      let baseline: string;
+      if (engagements.length === 1) {
+        const g = engagements[0]!;
+        baseline = g.baselineRecorded ? "Starting number recorded" : g.firstAcceptedAt !== null || g.closed ? "No starting number was recorded" : "No starting number yet";
+      } else {
+        baseline = `${withBaseline} of ${engagements.length} starting numbers recorded`;
+      }
+      return `${baseline}. ${plural(recorded, "review", "reviews")} recorded.`;
     }
   }
 }

@@ -57,7 +57,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           <dt>Owner</dt>
           <dd>Describes a factory and works through the five steps. Sees that company and no other.</dd>
           <dt>Operator</dt>
-          <dd>Keeps the list of providers and the listing fee. Never sees a company&rsquo;s record.</dd>
+          <dd>Keeps the list of providers. Never sees a company&rsquo;s record.</dd>
         </dl>
       </section>
     </div>

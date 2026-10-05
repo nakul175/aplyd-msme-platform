@@ -130,7 +130,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
   const identity = await resolveIdentityFromCookieHeader((await headers()).get("cookie"), e);
 
   if (!identity) return <SignedOut title="Describe your factory" reason="to describe your factory." />;
-  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Describe your factory" />;
+  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Describe your factory" hasCompany={identity.companyId !== null} />;
 
   const db = e.DB;
   const companyId = identity.companyId;

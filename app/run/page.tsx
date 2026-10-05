@@ -40,7 +40,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
   const identity = await resolveIdentityFromCookieHeader((await headers()).get("cookie"), e);
 
   if (!identity) return <SignedOut title="Results" reason="to see what your engagements did." />;
-  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Results" />;
+  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Results" hasCompany={identity.companyId !== null} />;
 
   const companyId = identity.companyId;
   const now = new Date();

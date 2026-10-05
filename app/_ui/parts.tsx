@@ -3,7 +3,7 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { env } from "cloudflare:workers";
 import { loadFacts } from "../../modules/journey/src/facts.ts";
-import { STAGES, STAGE_IDS, nextStep, stageById, stageStatuses } from "../../modules/journey/src/progress.ts";
+import { STAGES, STAGE_IDS, isOwnersTurn, nextStep, stageById, stageStatuses } from "../../modules/journey/src/progress.ts";
 import type { Facts, StageId, StageStatus } from "../../modules/journey/src/progress.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import type { Identity } from "../../modules/platform/src/identity/scope.ts";
@@ -74,12 +74,12 @@ export function SignedOut({ title, reason }: { title: string; reason: string }) 
 }
 
 /** What a signed-in person who is not an owner of a company sees on an owner's page. */
-export function NotOwner({ title }: { title: string }) {
+export function NotOwner({ title, hasCompany = false }: { title: string; hasCompany?: boolean }) {
   return (
     <>
       <PageHead title={title} />
       <div className="card">
-        <p className="muted">This page is for the owner of a company. Your account is not linked to one.</p>
+        <p className="muted">{hasCompany ? "This page is for the owner of your company. You can see your company's record on the home page." : "This page is for the owner of a company. Your account is not linked to one."}</p>
         <p>
           <a href="/">Back</a>
         </p>
@@ -91,7 +91,7 @@ export function NotOwner({ title }: { title: string }) {
 /** One line at the foot of an owner's page: what is the owner's turn, when it is not this page's own stage. */
 function NextUp({ facts, stage }: { facts: Facts; stage: StageId }) {
   const next = nextStep(facts, new Date());
-  if (next.stage === stage || next.key === "caught_up") return null;
+  if (next.stage === stage || !isOwnersTurn(next)) return null;
   return (
     <aside className="card tint" aria-label="What is next" data-testid="next-up">
       <p className="eyebrow">Your next step</p>
@@ -136,7 +136,15 @@ export function Strip({ status, current }: { status: Record<StageId, StageStatus
  */
 export async function Page({ stage, identity, title, lede, hideNext, children }: { stage: StageId; identity: Identity | null; title: string; lede?: ReactNode; /** The page already points to the next step itself. */ hideNext?: boolean; children: ReactNode }) {
   const e = env as unknown as AppEnv;
-  const facts = identity?.companyId && identity.role === "owner" && e.DB ? await loadFacts(e.DB, identity.companyId) : null;
+  // The steps and the next step are an aid. If reading them fails, the page itself still opens.
+  let facts: Facts | null = null;
+  if (identity?.companyId && identity.role === "owner" && e.DB) {
+    try {
+      facts = await loadFacts(e.DB, identity.companyId);
+    } catch (err) {
+      console.error("journey.facts_failed", err instanceof Error ? err.message : String(err));
+    }
+  }
   return (
     <>
       {facts ? <Strip status={stageStatuses(facts, new Date())} current={stage} /> : null}

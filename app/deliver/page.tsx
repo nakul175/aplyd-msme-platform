@@ -49,7 +49,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
   const identity = await resolveIdentityFromCookieHeader((await headers()).get("cookie"), e);
 
   if (!identity) return <SignedOut title="Delivery" reason="to see your engagements." />;
-  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Delivery" />;
+  if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Delivery" hasCompany={identity.companyId !== null} />;
 
   const companyId = identity.companyId;
   const engagements = await presentEngagements(e.DB, companyId);

@@ -1,10 +1,10 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "slice 10: progress logic, its facts reader and the colour contrast check",
+  "reason": "slice 10: next-step rules after the independent reviews (closed work, nothing to ask for, withdrawn requests, no provider listed)",
   "suites": {
     "browser/journey": 1,
-    "integration/facts": 3,
+    "integration/facts": 7,
     "unit/contrast": 8,
-    "unit/progress": 22
+    "unit/progress": 36
   }
 }

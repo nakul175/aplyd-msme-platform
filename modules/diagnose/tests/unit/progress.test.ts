@@ -62,7 +62,7 @@ test("the score line shows the engine's own parts and they add up to the score, 
 });
 
 const NOW = new Date("2026-10-05T00:00:00Z");
-const signedOffFacts = { ...NO_FACTS, factory: { latestRevision: 1, anyConfirmed: true }, assessment: { items: 5, decided: 5, signedOff: true } };
+const signedOffFacts = { ...NO_FACTS, factory: { latestRevision: 1, confirmedRevision: 1 }, assessment: { items: 5, decided: 5, signedOff: true }, ideasToAsk: 5 };
 
 test("a signed-off assessment points at the step the journey names, with the journey's own words, and at nothing else", () => {
   const turn = nextStep(signedOffFacts, NOW);
