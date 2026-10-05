@@ -1,0 +1,50 @@
+[
+ {
+  "name": "trigger 0015: a baseline on a closed engagement let through",
+  "path": "drizzle/0015_run_corrections.sql",
+  "old": " AND EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'closed')\nBEGIN",
+  "new": " AND 0\nBEGIN",
+  "layers": ["integration"],
+  "only": ["run/integration/run-api"]
+ },
+ {
+  "name": "trigger 0015: a baseline before the plan is agreed let through",
+  "path": "drizzle/0015_run_corrections.sql",
+  "old": " AND NOT EXISTS (SELECT 1 FROM engagement_events WHERE engagement_id = NEW.engagement_id AND kind = 'plan_agreed')\nBEGIN",
+  "new": " AND 0\nBEGIN",
+  "layers": ["integration"],
+  "only": ["run/integration/run-api"]
+ },
+ {
+  "name": "presenter: the form offered as before slice 11b (closed and unagreed ignored)",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "    canRecordBaseline: blocked === null,",
+  "new": "    canRecordBaseline: baselineRow === null && firstAcceptedAt === null,",
+  "layers": ["integration"],
+  "only": ["run/integration/run-api"]
+ },
+ {
+  "name": "presenter: the first correction read as the current value, not the latest",
+  "path": "modules/run/src/api/outcomes.ts",
+  "old": "own.length ? own[own.length - 1].value : row.value",
+  "new": "own.length ? own[0].value : row.value",
+  "layers": ["integration"],
+  "only": ["run/integration/run-api"]
+ },
+ {
+  "name": "data layer: a correction's insert not bound to the company",
+  "path": "modules/run/src/db/outcomes.ts",
+  "old": "WHERE EXISTS (SELECT 1 FROM outcome_events WHERE id = ? AND engagement_id = ? AND company_id = ?)`",
+  "new": "WHERE EXISTS (SELECT 1 FROM outcome_events WHERE id = ? AND engagement_id = ? AND ? IS NOT NULL)`",
+  "layers": ["integration"],
+  "only": ["run/integration/run-api"]
+ },
+ {
+  "name": "trigger 0015: a correction of another engagement's number let through",
+  "path": "drizzle/0015_run_corrections.sql",
+  "old": " AND NOT EXISTS (SELECT 1 FROM outcome_events WHERE id = NEW.outcome_id AND engagement_id = NEW.engagement_id AND company_id = NEW.company_id)",
+  "new": " AND 0",
+  "layers": ["integration"],
+  "only": ["run/integration/run-api"]
+ }
+]
