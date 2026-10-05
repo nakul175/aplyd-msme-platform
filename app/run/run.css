@@ -98,3 +98,7 @@
 @media (max-width: 30rem) {
   .ru-form .actions > button.primary { flex: 1 1 100%; width: 100%; }
 }
+/* BR-RUN-09: corrections of a recorded number, and the collapsed form to make one. */
+.ru-corrections { list-style: none; margin: var(--s-1) 0 0; padding: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
+.ru-correct { margin-top: var(--s-2); }
+.ru-correct summary { cursor: pointer; font-weight: 700; }
