@@ -1,0 +1,11 @@
+{
+  "updatedAt": "2026-10-05",
+  "reason": "new module quality: slow-connection, detection and offender-list suites",
+  "suites": {
+    "browser/accessibility": 5,
+    "browser/phone": 5,
+    "browser/slow-connection": 3,
+    "browser/survey-detects": 8,
+    "unit/offenders": 6
+  }
+}
