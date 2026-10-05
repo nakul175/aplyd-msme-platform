@@ -366,6 +366,8 @@ The Worker reaches 15 of the 17 files in `modules/platform/src/`: not `modules/p
 | One module's handlers use a text check that lives in another module's questionnaire file | `modules/diagnose/src/api/diagnose.ts`, `modules/procure/src/api/requirements.ts`, `modules/procure/src/api/providers.ts`, `modules/deliver/src/api/engagements.ts` and `modules/run/src/api/outcomes.ts` import `hasControlCharacters` from `modules/factory/src/questionnaire.ts` | The check is general (it refuses control and direction-changing characters in a note), but it is defined in the factory module, so its owner's change reaches four other modules |
 | A module edits a file of another module's claim | See the last column of the table in 2.2: procure in `modules/platform/src/api/authorize.ts`, run in `modules/platform/tests/support/worker.ts`, deliver in `app/procure/page.tsx` and `modules/procure/` | Recorded in the STATUS pages |
 
+**Layers inside a module** (AS BUILT, from the scan above and a second scan of the imports of every file in the `src/` directory of each module). Each stage module (factory, diagnose, procure, deliver, run) has the same shape. A route file under `app/api/` calls a handler in the module's `src/api/`. A handler calls the module's `src/db/` and its rules. The rules are the `.ts` files directly in `src/` (for example `state.ts`, `engine.ts`, `digest.ts`, `pool.ts`, `view.ts`, `progress.ts`, `questionnaire.ts`, `clusters.ts`, `summary.ts`): they take plain values and use no database or request. No file in a `db/` directory imports from an `api/` directory, and no rules file imports from `api/` or `db/`, with one exception: `modules/journey/src/facts.ts` imports data functions of five other modules (9.9). A page in `app/` imports a handler's presenters and constants as well as the data layer (for example `app/procure/page.tsx` imports `presentRequirements`, `MAX_NOTE_LENGTH` and `loadAssessment`), so that the page and the endpoint show the same thing (5.1). The `db/schema.ts` files declare the tables for Drizzle's tools; the SQL that runs is in the other `db/` files (6.3).
+
 #### Found while writing
 
 7 items, listed in [section 9.1](#91-from-section-23-imports-between-modules).
@@ -602,6 +604,7 @@ A text id is not a secret and gives no access: every read is bound to the person
 - The Worker's clock is the only clock. Every timestamp is `new Date().toISOString()`, made in TypeScript and passed to SQL as a bound parameter. No migration uses `datetime('now')`, `CURRENT_TIMESTAMP` or `strftime`; a search of `drizzle/` for them found none.
 - A session's `iat` is not stored. `exp` is `Math.floor(Date.now() / 1000) + SESSION_SECONDS`, in whole seconds (`handleSessionWrite`, `signSession`), and is compared with the same expression at each request (`resolveIdentityFromCookieHeader`).
 - Only the run module's handlers take a clock as a parameter: `handleOutcomeRead` and `handleOutcomeRecord` in `modules/run/src/api/outcomes.ts` take `now: () => Date`, defaulting to `new Date()`. The pages call `new Date()` themselves.
+- In tests, a date is reached in one of three ways. An integration test of the run module passes a clock to `handleOutcomeRecord` or `handleOutcomeRead` (`now: () => Date`), so it can stand on either side of a review date. The pure functions `nextStep`, `stageStatuses`, `stageLine` (`modules/journey/src/progress.ts`) and `reviewSlots` (`modules/run/src/state.ts`) take `now` as an argument, and `dueAt` takes the acceptance time, so a unit test fixes the instant. A smoke or browser test runs the built application with the real clock and adds past-dated delivered and accepted rows to the Worker's own throwaway database with `exec` of `startBuiltApp` (`modules/run/tests/browser/run.test.ts`); the triggers still apply. `seedDemo` takes an optional `now` for the milestone dates (`modules/demo/src/seed.ts`). A data layer that stamps with `new Date().toISOString()` has no argument for a clock.
 - The database compares times in one place: the trigger `outcome_events_review_is_due` (`drizzle/0013_run_guards.sql`) uses `julianday`, while `reviewSlots` in `modules/run/src/state.ts` uses milliseconds (already recorded in FSD 12.1, item 20).
 
 **Times and dates in text.** A timestamp is an ISO 8601 string in UTC, for example `2026-10-04T00:00:00.000Z`, as the seed writes it. A page shows a date as the first ten characters (`createdAt.slice(0, 10)` in `app/page.tsx`). A milestone's due date is a calendar date, `YYYY-MM-DD`, in `milestones.due_on`: the data layer checks it with `isCalendarDate` in `modules/deliver/src/state.ts` and the trigger `milestones_due_is_a_date` checks it again. A review is due 30, 90 and 180 days after the first acceptance (`REVIEW_DAYS` in `modules/run/src/state.ts`).
@@ -616,6 +619,26 @@ A text id is not a secret and gives no access: every read is bound to the person
 | `engagement_events.amount_inr` | The owner's own record of a payment made outside the platform | The trigger `engagement_events_amount_is_whole` |
 
 APLYD's earnings never depend on the provider an owner chooses (D-03). The two fee columns are the only ones that can carry an earning, and the fee is copied by the database from the terms in force, not supplied by a caller (section 4.4). A page writes an amount as `₹${n.toLocaleString("en-IN")}` (`app/operator/page.tsx`, `app/procure/page.tsx`, `app/deliver/page.tsx`, `app/diagnose/page.tsx`).
+
+**Limits and versions that are constants** (AS BUILT, values read in the files named). The three limits on money are sanity bounds, and none is a price or a proposal. They are also held in the database in different ways: `milestones_agreed` (`drizzle/0010_deliver_tables.sql`) and the shape check of `engagement_events` hold an amount to 1 to 100000000; `listing_terms_fee_positive` holds the fee above zero and nothing holds it below `MAX_FEE_INR`, so the handler `handleTermsSet` alone enforces that upper limit; `outcome_events_value` holds a measured value to 0 to 1000000000.
+
+| Constant | Value | Defined in |
+| --- | --- | --- |
+| `MAX_BODY_CHARACTERS` | 65536 (`64 * 1024`) | `modules/platform/src/api/body.ts`, and a copy in `modules/factory/src/api/factory.ts` |
+| `SESSION_SECONDS` | 28800 (eight hours) | `modules/platform/src/identity/session.ts` |
+| `MIN_SECRET_BYTES` | 32 | `modules/platform/src/env.ts`, and a copy in `modules/hosting/src/gate.ts` |
+| `MAX_PROXY_BODY_BYTES` | 262144 | `modules/hosting/src/gate.ts` |
+| `MIN_PASSWORD_CHARACTERS` | 12 | `modules/hosting/src/gate.ts` |
+| `MAX_AMOUNT_INR` | 100000000 (`readAmount` takes a JSON number or 1 to 9 digits) | `modules/deliver/src/state.ts` |
+| `MAX_FEE_INR` | 10000000 (`handleTermsSet` takes a JSON number or 1 to 8 digits) | `modules/procure/src/api/providers.ts` |
+| `MAX_VALUE` | 1000000000 (a JSON number or 1 to 10 digits) | `modules/run/src/state.ts` |
+| `MAX_NOTE_LENGTH` | 500 | Six files, one for each of the factory, diagnose, procure (two files), deliver and run modules (9.4) |
+| `MAX_SERVICES` | 20 | `modules/procure/src/api/providers.ts` |
+| `MAX_MILESTONES`, `MAX_DELIVERIES` | 12, 14 | `modules/deliver/src/state.ts` |
+| `MAX_REVISIONS_PER_COMPANY` | 500 | `modules/factory/src/db/revisions.ts` |
+| `MAX_ITEMS` | 8 | `modules/diagnose/src/engine.ts` |
+| `QUESTIONNAIRE_VERSION`, `ENGINE_VERSION`, `LIBRARY_VERSION` | 1, 1, 1 | `modules/factory/src/questionnaire.ts`, `modules/diagnose/src/engine.ts`, `modules/diagnose/src/library.ts` |
+| `AGGREGATE_FLOOR` | 5 | `modules/procure/src/pool.ts` |
 
 **JSON in text columns.** Four columns hold JSON text: `audit_events.detail` (an object, written by `JSON.stringify`), `factory_revisions.answers` (an object; the trigger `factory_revisions_answers_are_an_object` refuses anything else), `assessments.result` and `requirements.spec` (each held to valid JSON by a CHECK constraint in `drizzle/0005_diagnose_assessments.sql` and `drizzle/0008_procure_tables.sql`). The code writes with `JSON.stringify` and reads with `JSON.parse(...) as T`, a cast with no run-time check of the shape (`modules/factory/src/db/revisions.ts`, `modules/diagnose/src/db/assessments.ts`, `modules/procure/src/db/requirements.ts`). The SQL JSON functions are used in four places: `json_valid` in the two CHECK constraints above, `json_each`, `json_extract` and `json_valid` inside triggers (`drizzle/0006_diagnose_guards.sql`, `drizzle/0007_diagnose_review_fixes.sql`, `drizzle/0014_review_fixes.sql`), and `json_array_length` in one read, the assessment list in `modules/diagnose/src/db/assessments.ts`.
 
@@ -2900,6 +2923,7 @@ Rules that every page follows, each checked in the code:
 - No page writes to the database. The only SQL in `app/` is the `SELECT` of `app/sign-in/page.tsx` on `users`; every other read goes through a module function.
 - A value read from the address is never shown as typed, except the version number on `/factory` (5.3). A message comes from a fixed table, and a key from the address is looked up with `Object.hasOwn`.
 - The name of a record in the address is read through a company-scoped loader, so another company's id finds nothing. The two cases are `?a=` on `/diagnose` (`loadAssessment(db, companyId, id)`) and `?rev=` on `/factory` (`loadRevision(db, companyId, number)`).
+- There is no `error.tsx` and no custom not-found file under `app/`. The only `catch` in `app/` is in `Page` (`app/_ui/parts.tsx`), around `loadFacts`: when that read fails it writes one console line (`journey.facts_failed`) and the page opens with no strip and no next-step card. Any other error inside a page is answered as vinext answers an uncaught error (not read for this document). `/demo` calls `notFound()` when `APLYD_DEMO` is not `true`, and the framework's not-found page answers.
 - Pages import the pure `present*` functions of the handler files (`presentAssessment`, `presentRequirements`, `presentEngagements`, `presentOutcomes`, `presentPools`) so that a page and the JSON read operation show the same data.
 
 The one file of this subsection:
@@ -3217,6 +3241,28 @@ Other build-time facts:
 - `pnpm typecheck` is `tsc --noEmit`. The runner also runs it as the command suite `static/typecheck` (7.2). Because `tsconfig.json` includes every `.ts` file, a type error in a test or a script fails the type check.
 - Node runs the TypeScript of `modules/` and `scripts/` directly (no compile step) for the tests, `scripts/serve.mjs`, `scripts/check-traceability.mjs` and `scripts/check-test-docs.mjs`. This is why the engine floor is 22.18.0 and why `tsconfig.json` has `erasableSyntaxOnly`: a file may not use a TypeScript feature that needs a transform (enums, parameter properties, namespaces). `docs/DEVELOPMENT.md` says the tests are TypeScript run directly by Node.
 - `pnpm install --frozen-lockfile` follows `pnpm-lock.yaml` exactly. The `Dockerfile` and the workflow `.github/workflows/ci.yml` both use it.
+
+**Pinned versions** (AS BUILT, from `package.json` and `tsconfig.json`; every version is exact, with no range). Four packages are runtime dependencies: `drizzle-orm`, `next`, `react` and `react-dom`. Every other package, `miniflare` and `vinext` included, is a development dependency.
+
+| Part | Version | What the code uses it for |
+| --- | --- | --- |
+| Node | 22.18.0 or later (`engines`) | Runs the tests (the TypeScript files directly), the launcher and the documentation checks |
+| pnpm | 11.25.0 (`packageManager`) | Installs, under the policy of `pnpm-workspace.yaml` |
+| TypeScript | 5.9.3 | The type check only (`tsc --noEmit`), with `strict`, `erasableSyntaxOnly`, `verbatimModuleSyntax`, `isolatedModules` and `allowImportingTsExtensions` |
+| next, react, react-dom | 16.3.6, 19.2.6, 19.2.6 | The code imports `next/headers` and `next/navigation` and the types of `next` |
+| vinext | 1.0.0-beta.5 | The build, the development server and the fetch handler that the Worker calls |
+| vite, @cloudflare/vite-plugin | 8.0.13, 1.37.1 | The bundler, and the plugin that builds for the Workers runtime |
+| wrangler, miniflare | 4.92.0, 4.20260515.0 | The local Worker and D1 for the tests and the launcher |
+| drizzle-orm, drizzle-kit | 0.45.2, 0.31.10 | Table declarations and migration generation. The SQL that runs is written by hand (3.7) |
+| playwright-core | 1.56.1 | The browser layer. It drives a browser that is already installed |
+
+Two details of `tsconfig.json` that are not used: it has a `paths` alias `@/*`, and no source file under `app/`, `modules/`, `worker/` or `scripts/` imports through it; and its `include` list names `next-env.d.ts`, a file that the repository does not have.
+
+**Continuous integration** (AS BUILT, `.github/workflows/`). Two workflows run on GitHub, with no secret, no hosted database and no deployment.
+
+- `docs.yml` (`documentation-checks`, 5-minute limit) runs on every pull request and by hand. It uses Node 22, installs nothing, and runs `scripts/check-documentation.mjs`, `scripts/check-traceability.mjs` and `scripts/check-test-docs.mjs`.
+- `ci.yml` (`engineering-checks`, 20-minute limit) runs on a pull request and on a push to `main`, unless every changed file is Markdown or under `docs/` (`paths-ignore`), and by hand. In order: `node scripts/test.mjs --check-catalogue`, `corepack enable` and `pnpm install --frozen-lockfile`, `pnpm build`, `google-chrome --version` (the browser layer uses the Chrome that the runner image has, and the step fails if it is missing), `node scripts/test.mjs pr --guard`, and last an upload of `reports/summary.json`, also when an earlier step failed. A new run for the same pull request or branch cancels the one before it.
+- The sync tests of the documentation module are suites of the static layer, so only `ci.yml` runs them. A pull request that changes only documents runs `docs.yml` and not the sync tests (9.11).
 
 ### 6.2 The worker and bindings
 
