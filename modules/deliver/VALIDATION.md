@@ -99,3 +99,37 @@ The review's M2 (the tables did not hold whole-number amounts, real dates, non-b
 - **Chromium only**, against a local Worker with a synthetic sign-in.
 - **Nothing here is evidence that an owner would use it.** The plan, the test and the price are the owner's own words about a provider the operator entered by hand. The ten-owner worksheet ([docs/ten-owner-test.md](../../docs/ten-owner-test.md)) exists because this slice was built before that test was run.
 - **The pull request's CI result** was not read when this page was written.
+
+## Slice 10c: the page rebuilt on the shared interface (5 October 2026)
+
+`/deliver` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner has used the page.
+
+### What was run (real results, on the branch `slice-10c-deliver-run`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | clean |
+| `deliver/unit/summary` (new: the words under the bar, the sentence at the top, the main button, the first delivery waiting) | 8 passed |
+| `deliver/unit/state`, `deliver/unit/reads` | 7 passed, 3 passed |
+| `deliver/static/rules` (no fee in any statement or column, the data layer is the only reader) | 9 passed |
+| `platform/static/page-lookups` (every message looked up with `Object.hasOwn`), `platform/static/source-rules` | 2 passed, 8 passed |
+| `journey/unit/contrast`, `journey/unit/progress` | 8 passed, 22 passed |
+| `deliver/browser/deliver` | 3 passed (29.3 s) |
+| `deliver/smoke/deliver` | 8 passed. One run of the three smoke suites together reported this suite failed; its output was not kept. It passed on the next six runs, alone and with the others, so the cause is not known; the machine is shared with other agents' runs, which may be the reason, but that was not shown |
+| Other suites that walk this page: `run/browser/run`, `demo/browser/walk`, `journey/browser/journey`, `platform/smoke/built-app`, `demo/smoke/demo` | 4, 2, 1, 12 and 10 passed |
+| The whole static layer | 21 of 23 suites passed; the two failures are not from this slice: `docs/static/api-sync` ("section 5 lists page /, which posts no form", the home page of the foundation commit; the check of the forms on this page passes) and `static/documentation` (links to documents not written yet) |
+| `node scripts/test.mjs --check-catalogue` | clean, 83 suites |
+
+No existing test was changed: every assertion of the three browser tests and eight smoke tests passes as it was written. The integration suite (`deliver/integration/deliver-api`, 32 tests) was not run, because nothing it covers was touched.
+
+### What was looked at
+
+The page was opened in Chromium at 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners C (the finished example: one milestone paid, one delivered and waiting), D (a plan agreed, nothing delivered), E (a provider chosen, no plan) and A (no engagement), as a visitor and as the operator; and, in a throwaway Worker started by the browser-test harness, in each state a form can reach: planning with no milestone, with one and with two, `?problem=invalid`, the plan agreed, a milestone rejected and delivered again, accepted with the payment form, every milestone paid, and closed (Complete). The script that took them reported no horizontal scroll on any page. Things found by looking and fixed: the line down the left of the plan took about 45 pixels of a phone's width (now a card per milestone with a short line between cards); the totals sat in the header panel (now one line under the plan); the second button of the decision was not as wide as the first on a phone; a global rule put a large gap between the questions of a form (reset on this page); the price label wrapped to two lines and put the two fields of a row out of line (the limit moved to the help line); two lines drawn one above the other over the close form; two main buttons at once in one engagement (the `primaryAction` rule); and the decision that waits was a screen and a half below the top of a phone's page (the "Go to milestone N" link). A date in a history line broke at its hyphen on a phone (now kept together).
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk.** The forms are plain HTML with real labels, and the browser tests click and fill them; nobody tabbed through the page or listened to it.
+- **Chromium only**, with the synthetic sign-in. No other browser, no real phone, no slow connection.
+- **Not independent**, and **no mutation checks** were run for this slice: the page's wording is pinned by the existing tests and by the unit test of `src/summary.ts`, which is a small set. Whether the browser tests would notice the main button on the wrong form is not tested.
+- **The wording is unproven with owners.** Nobody who owns a factory has read the sentences (the ten-owner test is where that is checked). The sentences added are listed in the status page.
+- **The collapsed-section choice was tested only one way.** The SYNTHETIC and no-money sentences stay visible because a browser test reads the visible text; whether they would be missed at the foot of a long page is not known.

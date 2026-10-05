@@ -1,11 +1,12 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
+  "reason": "slice 10c: the Delivery and Results pages redesigned on the interface foundation; pure functions for the words each page says about where things stand, the main button, and the link to the owner's turn (unit suites)",
   "suites": {
     "browser/run": 4,
     "integration/run-api": 29,
     "smoke/run": 7,
     "static/rules": 8,
-    "unit/state": 6
+    "unit/state": 6,
+    "unit/view": 9
   }
 }
