@@ -8,6 +8,11 @@ import { OTHER_COMPANY, OWN_COMPANY, getFromPage, signInAsOwner, watchPage } fro
 
 const SEEDED_PRODUCTS = "SYNTHETIC school uniforms and cotton shirts";
 
+/** The earlier versions sit in a card that is closed until the person opens it (it is open already on a page that shows an old version). */
+async function openHistory(page: Page): Promise<void> {
+  await page.locator("summary", { hasText: "Earlier versions" }).click();
+}
+
 /** Clicks a button and waits for the page the form post redirects to. */
 async function submit(page: Page, name: string): Promise<void> {
   await Promise.all([page.waitForURL((url) => url.pathname === "/factory" && url.search !== "" && !url.search.startsWith("?rev=")), page.getByRole("button", { name }).click()]);
@@ -27,6 +32,7 @@ test("an owner opens Describe from the home page and sees their saved descriptio
     assert.ok(await page.getByRole("radio", { name: "10 to 49" }).isChecked());
     assert.ok(await page.getByRole("checkbox", { name: "Cutting" }).isChecked());
     assert.ok(!(await page.getByRole("checkbox", { name: "Machining" }).isChecked()));
+    await openHistory(page);
     assert.equal(await page.getByTestId("history").getByRole("listitem").count(), 1);
     assert.deepEqual(problems, [], "no page errors, console errors or failed requests");
     assert.deepEqual(h.blockedRequests, [], "the page asked nothing of any other website");
@@ -48,6 +54,7 @@ test("saving a draft adds version 2 and keeps version 1; the old version opens r
     assert.match(await page.getByTestId("status").innerText(), /Newest version: 2, a draft/);
     assert.equal(await page.getByLabel("What do you make?").inputValue(), "SYNTHETIC school uniforms, shirts and aprons");
     assert.ok(await page.getByRole("radio", { name: "Two", exact: true }).isChecked());
+    await openHistory(page);
     const history = page.getByTestId("history");
     assert.equal(await history.getByRole("listitem").count(), 2);
     assert.match(await history.innerText(), /second shift started/);
@@ -133,6 +140,7 @@ test("a save from a page that is out of date is not written, and the person is t
     assert.equal(new URL(second.url()).search, "?stale=1");
     assert.match(await second.getByTestId("stale").innerText(), /not saved/);
     assert.equal(await second.getByLabel("What do you make?").inputValue(), "SYNTHETIC first tab's text", "the newest saved version is shown");
+    await openHistory(second);
     assert.equal(await second.getByTestId("history").getByRole("listitem").count(), 2, "no third version appeared");
   });
 });

@@ -1,0 +1,55 @@
+/* Describe your factory: the few rules only this page needs. Every class here starts with fc- so nothing collides with another page. */
+
+/* The state of the description, at the top: tags, one sentence, a meter. */
+.card.fc-state { display: grid; gap: var(--s-3); }
+.card.fc-state > * + * { margin-top: 0; }
+.fc-tags { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.fc-status { font-size: 1.0625rem; }
+.fc-date { white-space: nowrap; }
+.fc-tick { width: 0.95em; height: 0.95em; flex: none; }
+
+/* The form: each section a card, numbered by a counter so the number is not part of the title's text. */
+.fc-form { display: grid; gap: var(--s-4); }
+.fc-sections { display: grid; gap: var(--s-4); counter-reset: fcs; }
+.fc-sections > fieldset.card > legend { display: flex; align-items: center; gap: var(--s-3); }
+.fc-sections > fieldset.card > legend::before {
+  counter-increment: fcs;
+  content: counter(fcs);
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 50%;
+  background: var(--brand-tint);
+  color: var(--brand);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* A group of choices is a fieldset with a legend; it looks like any other question. */
+.fc-form fieldset.question { min-width: 0; }
+.fc-form fieldset.question > legend { padding: 0; margin: 0 0 var(--s-1); }
+.fc-form .field-row { align-items: start; }
+.fc-form .field-row > .question + .question { margin-top: 0; }
+.fc-form .field-row + .question, .fc-form .question + .field-row, .fc-form .field-row + .field-row { margin-top: var(--s-5); }
+.fc-narrow { max-width: 11rem; }
+/* The help line: the tag that says a question is needed to confirm, then the help itself; on a narrow screen the help moves under the tag as a block. */
+.fc-help { display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem var(--s-2); }
+
+/* The note and the explanation of what confirming means, just above the bar that is stuck to the bottom of the screen. */
+.card.fc-save { display: grid; gap: var(--s-3); }
+.card.fc-save > * + * { margin-top: 0; }
+.fc-save .help { margin: 0; }
+/* On a phone the two buttons share the bar: the draft button as wide as its words, the confirm button taking the rest. */
+@media (max-width: 40rem) { .fc-form .sticky-actions .actions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-2); } .fc-form .sticky-actions button { padding-inline: 0.75rem; } }
+/* On a short screen (a phone turned sideways, or with the keyboard open) the bar would hide the questions, so it stays where it is. */
+@media (max-height: 34rem) { .fc-form .sticky-actions { position: static; } }
+
+/* Earlier versions. */
+.fc-versions { list-style: none; padding: 0; display: grid; gap: 0; }
+.fc-versions li { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
+.fc-versions li:first-child { border-top: 0; padding-top: 0; }
+.fc-versions li + li { margin-top: 0; }
+.fc-versions a { font-weight: 650; }
+.fc-note { flex-basis: 100%; }

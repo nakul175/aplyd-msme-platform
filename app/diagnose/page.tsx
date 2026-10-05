@@ -4,9 +4,15 @@ import { presentAssessment, DECISIONS, MAX_NOTE_LENGTH, notOwnerMessage } from "
 import { listAssessments, loadAssessment, loadLatestAssessmentId } from "../../modules/diagnose/src/db/assessments.ts";
 import type { Item } from "../../modules/diagnose/src/engine.ts";
 import { MAX_ITEMS, POINTS } from "../../modules/diagnose/src/engine.ts";
+import { afterSignOff, decisionWord, firstUndecided, hasAssessmentFrom, relationToConfirmed, scoreLine, signOffState, signOffWords } from "../../modules/diagnose/src/progress.ts";
 import { loadLatest } from "../../modules/factory/src/db/revisions.ts";
+import { loadFacts } from "../../modules/journey/src/facts.ts";
+import { nextStep } from "../../modules/journey/src/progress.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
+import { Arrow, Check } from "../_ui/icons.tsx";
+import { Meter, Notice, Page, PageHead, SignedOut, Tag } from "../_ui/parts.tsx";
+import "./diagnose.css";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +30,7 @@ const FIT: Record<string, string> = {
 };
 const RISK: Record<string, string> = { low: "Low risk", medium: "Medium risk", high: "High risk" };
 const DECISION_LABEL: Record<string, string> = { accept: "Accept: I want to do this", defer: "Later: not now", reject: "No: not for me" };
+const SIGN_OFF_MEANS = "Signing off says you have read every idea and the decisions are yours. After that nothing on it can be changed. To change your mind, confirm a newer description and make a new assessment.";
 const PROBLEMS: Record<string, string> = {
   decision: "That decision could not be saved. Choose one of the three answers; keep the note short.",
   signed: "This assessment is already signed off, so it cannot be changed.",
@@ -38,18 +45,18 @@ const PROBLEMS: Record<string, string> = {
 function Money({ item }: { item: Item }) {
   const { costs, benefit, affordability } = item;
   return (
-    <dl className="facts">
+    <dl className="facts dg-facts">
       <dt>What it could do</dt>
       <dd>
-        {benefit.measure}: {benefit.low} to {benefit.high} {UNIT[benefit.unit]} <span className="muted">(SYNTHETIC placeholder, not an estimate)</span>
+        {benefit.measure}: <span className="num">{benefit.low} to {benefit.high}</span> {UNIT[benefit.unit]} <span className="muted">(SYNTHETIC placeholder, not an estimate)</span>
       </dd>
       <dt>One-time cost</dt>
-      <dd>{range(costs.oneTime)}</dd>
+      <dd className="num">{range(costs.oneTime)}</dd>
       <dt>Every year after</dt>
-      <dd>{range(costs.recurringPerYear)}</dd>
+      <dd className="num">{range(costs.recurringPerYear)}</dd>
       <dt>First year in all</dt>
       <dd>
-        {range(affordability.firstYear)}. {FIT[affordability.state]}
+        <span className="num">{range(affordability.firstYear)}</span>. {FIT[affordability.state]}
       </dd>
     </dl>
   );
@@ -60,24 +67,17 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
   const q = await searchParams;
   const identity = await resolveIdentityFromCookieHeader((await headers()).get("cookie"), e);
 
-  if (!identity) {
-    return (
-      <>
-        <h1>What to do about it</h1>
-        <p>
-          <a href="/sign-in">Sign in</a> to see your assessment.
-        </p>
-      </>
-    );
-  }
+  if (!identity) return <SignedOut title="What to do about it" reason="to see your assessment." />;
   if (!identity.companyId || identity.role !== "owner" || !e.DB) {
     return (
       <>
-        <h1>What to do about it</h1>
-        <p className="muted">{notOwnerMessage(identity.companyId !== null)}</p>
-        <p>
-          <a href="/">Back</a>
-        </p>
+        <PageHead title="What to do about it" />
+        <div className="card">
+          <p className="muted">{notOwnerMessage(identity.companyId !== null)}</p>
+          <p>
+            <a href="/">Back</a>
+          </p>
+        </div>
       </>
     );
   }
@@ -92,122 +92,262 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
   const signed = view?.signoff ?? null;
   const decided = view ? view.result.items.filter((i) => decisionOf.has(i.opportunityId)).length : 0;
   const total = view?.result.items.length ?? 0;
+  const state = signOffState(decided, total, signed !== null);
+  const ready = state === "ready";
+  const nextIdea = view && !signed ? firstUndecided(view.result.items, new Set(decisionOf.keys())) : null;
+  // After a sign-off the owner's turn is somewhere else: the same step the strip and the foot of the page name, with its own words on the button.
+  const onward = signed ? afterSignOff(nextStep(await loadFacts(db, companyId), new Date())) : null;
+  // The make button is the page's main action until an assessment exists for the confirmed description; after that it is a quiet way to make it again.
+  const madeFromConfirmed = confirmed ? hasAssessmentFrom(all, confirmed.revision) : false;
+
+  const MakeForm = ({ primary }: { primary: boolean }) =>
+    confirmed ? (
+      <form method="post" action={`/api/companies/${companyId}/assessments`} data-testid="make-form" className={primary ? "card tint dg-make-card" : "dg-make"}>
+        {primary ? <h2>See what is worth doing</h2> : null}
+        <p>
+          Your confirmed description is version {confirmed.revision}, saved <span className="dg-date">{confirmed.createdAt.slice(0, 10)}</span>.
+        </p>
+        {primary ? <p className="muted">Your answers go through a fixed set of rules and come back as a short ranked list of ideas, each with its cost, its risk and what has to come first.</p> : null}
+        <div className="actions">
+          <button type="submit" className={primary ? "primary big" : undefined}>
+            Make an assessment from version {confirmed.revision}
+            {primary ? <Arrow className="icon" /> : null}
+          </button>
+        </div>
+        <p className="help">Making it again from the same version gives the same assessment. Confirm a newer version of your description to get a new one.</p>
+      </form>
+    ) : null;
 
   return (
-    <>
-      <h1>What to do about it</h1>
-      <p className="muted">
-        <span className="tag">SYNTHETIC</span> The ideas and every figure on this page are placeholders written to test the service. They are not advice and not estimates.
-      </p>
-
+    <Page stage="diagnose" identity={identity} title="What to do about it" lede="Here is a short, ranked list of ideas for your factory: for each one you say yes, not yet or no, and then sign off.">
       {q.saved ? (
-        <p role="status" className="notice" data-testid="saved">
+        <Notice role="status" tone="success" data-testid="saved">
           Your decision was saved.
-        </p>
+        </Notice>
       ) : null}
       {q.signed === "1" ? (
-        <p role="status" className="notice" data-testid="signed">
+        <Notice role="status" tone="success" data-testid="signed">
           Signed off. This assessment is now fixed and cannot be changed.
-        </p>
+        </Notice>
       ) : null}
       {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
-        <p role="alert" className="notice" data-testid="problem">
+        <Notice role="alert" tone="danger" data-testid="problem">
           {PROBLEMS[q.problem]}
-        </p>
+        </Notice>
       ) : null}
       {q.needs === "confirm" ? (
-        <p role="alert" className="notice" data-testid="needs-confirm">
+        <Notice role="alert" tone="warn" data-testid="needs-confirm">
           There is no confirmed description yet.
-        </p>
+        </Notice>
       ) : null}
 
+      <p className="help dg-synthetic">
+        <Tag>SYNTHETIC</Tag> The ideas and every figure on this page are placeholders written to test the service. They are not advice and not estimates.
+      </p>
+
       {!confirmed ? (
-        <section className="card" data-testid="no-description">
+        <section className="card tint" data-testid="no-description">
           <p>An assessment is made from a description of your factory that you have confirmed as accurate. You have not confirmed one yet.</p>
           <p>
-            <a href="/factory">Describe your factory</a>
+            <a className="btn primary big" href="/factory">
+              Describe your factory
+              <Arrow className="icon" />
+            </a>
           </p>
         </section>
-      ) : (
-        <form method="post" action={`/api/companies/${companyId}/assessments`} data-testid="make-form">
-          <p>
-            Your confirmed description is version {confirmed.revision}, saved {confirmed.createdAt.slice(0, 10)}.
-          </p>
-          <button type="submit">Make an assessment from version {confirmed.revision}</button>
-          <p className="muted help">Making it again from the same version gives the same assessment. Confirm a newer version of your description to get a new one.</p>
-        </form>
+      ) : madeFromConfirmed ? null : (
+        <MakeForm primary />
       )}
 
       {view ? (
-        <section aria-label="Assessment" data-testid="assessment">
-          <h2>Assessment from version {view.factoryRevisionNo} of your description</h2>
-          <p className="muted" data-testid="drafted-by">
-            Drafted by a set of rules on {view.createdAt.slice(0, 10)}, not by an AI model. You check it: decide on each idea below, then sign it off. Library version {view.libraryVersion}, engine version {view.engineVersion}.
-          </p>
-          {view.result.inputs.problems.length ? <p>Problems you named: {view.result.inputs.problems.join("; ")}.</p> : <p>You named no problems, so there is nothing to match.</p>}
+        <section className="dg-assessment" aria-label="Assessment" data-testid="assessment">
+          <div className="dg-head">
+            <h2>Assessment from version {view.factoryRevisionNo} of your description</h2>
+            {confirmed && relationToConfirmed(view.factoryRevisionNo, confirmed.revision) === "older" ? (
+              <p>
+                <Tag tone="turn">Older version</Tag> Your newest confirmed description is version {confirmed.revision}.
+              </p>
+            ) : null}
+            <p className="muted" data-testid="drafted-by">
+              Drafted by a set of rules on {view.createdAt.slice(0, 10)}, not by an AI model. You check it: decide on each idea below, then sign it off. Library version {view.libraryVersion}, engine version {view.engineVersion}.
+            </p>
+            {view.result.inputs.problems.length ? <p className="dg-problems">Problems you named: {view.result.inputs.problems.join("; ")}.</p> : <p className="dg-problems">You named no problems, so there is nothing to match.</p>}
+          </div>
+
+          <section className={signed || ready ? "card tint dg-signoff-card" : "card dg-signoff-card"} aria-label="Sign-off" data-testid="signoff">
+            {signed ? (
+              <>
+                <h3 className="dg-signed">
+                  <Check className="dg-tick" />
+                  Signed off
+                </h3>
+                <p>
+                  Signed off on <span className="dg-date">{signed.at.slice(0, 10)}</span>. {signed.note ? `Your note: ${signed.note}` : ""}
+                </p>
+                <Meter data-testid="progress" done={decided} of={total} label={`${decided} of ${total} ideas decided.`} />
+                {onward ? (
+                  <div className="dg-onward">
+                    <p>
+                      <strong>Next:</strong> {onward.title}.
+                    </p>
+                    <div className="actions">
+                      <a className="btn primary big" href={onward.href}>
+                        {onward.cta}
+                        <Arrow className="icon" />
+                      </a>
+                    </div>
+                    <p className="help">{onward.body}</p>
+                  </div>
+                ) : null}
+                <p className="muted help">
+                  Fingerprint of what was signed: <code>{signed.digest.slice(0, 16)}</code> {signed.digestMatches ? "(checked just now: it matches)" : "(checked just now: IT DOES NOT MATCH what is stored)"}
+                </p>
+              </>
+            ) : (
+              <>
+                <h3>Sign off</h3>
+                <Meter data-testid="progress" done={decided} of={total} label={`${decided} of ${total} ideas decided.`} />
+                <p>{signOffWords(state, decided, total)}</p>
+                {nextIdea ? (
+                  <p>
+                    {decided > 0 ? (
+                      <>
+                        <a href={`#idea-${nextIdea}`}>Go to the next idea to decide</a>.{" "}
+                      </>
+                    ) : null}
+                    You can change a decision until you sign off.
+                  </p>
+                ) : null}
+                <form method="post" action={`/api/companies/${companyId}/assessments/${view.id}/signoff`} className="dg-signoff-form">
+                  {ready ? (
+                    <div className="question">
+                      <label htmlFor="signoff-note" className="label">
+                        A note (optional)
+                      </label>
+                      <input id="signoff-note" name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
+                    </div>
+                  ) : null}
+                  <div className="actions">
+                    <button type="submit" className={ready ? "primary big" : undefined} disabled={!ready}>
+                      Sign off this assessment
+                      {ready ? <Arrow className="icon" /> : null}
+                    </button>
+                  </div>
+                  {ready ? (
+                    <p className="muted help">{SIGN_OFF_MEANS}</p>
+                  ) : (
+                    <details className="dg-more">
+                      <summary>What signing off means</summary>
+                      <p className="muted help">{SIGN_OFF_MEANS}</p>
+                    </details>
+                  )}
+                </form>
+              </>
+            )}
+          </section>
 
           {view.result.items.length === 0 ? (
-            <p className="notice" data-testid="no-items">
+            <Notice tone="warn" data-testid="no-items">
               Nothing in the library matches the problems you named. Naming "something else" cannot be matched.
-            </p>
-          ) : null}
+            </Notice>
+          ) : (
+            <h2 className="dg-ideas-title">The ideas, ranked</h2>
+          )}
 
           <ol className="items">
             {view.result.items.map((item) => {
               const d = decisionOf.get(item.opportunityId);
               return (
-                <li key={item.opportunityId} className="card item" data-testid={`item-${item.opportunityId}`}>
-                  <h3>
-                    {item.rank}. {item.title}
-                  </h3>
-                  <p>
-                    <span className="tag">{item.kind === "ai" ? "Uses AI" : "No AI needed"}</span> <span className="tag">{RISK[item.risk.level]}</span> <span className="tag">{READINESS[item.readiness.state]}</span>
-                  </p>
-                  <p>{item.summary}</p>
-                  <p className="muted">Why it is here: {item.why.join(" ")}</p>
-                  <Money item={item} />
-                  <p>
-                    <strong>Hidden costs to expect:</strong> {item.costs.hidden.join("; ")}.
-                  </p>
-                  {item.readiness.needsFirst.length ? (
-                    <p>
-                      <strong>Do first:</strong> {item.readiness.needsFirst.join("; ")}.
+                <li key={item.opportunityId} id={`idea-${item.opportunityId}`} className={signed ? "card item dg-idea dg-fixed" : "card item dg-idea"} data-testid={`item-${item.opportunityId}`}>
+                  <div className="dg-body">
+                    <h3>
+                      <span className="dg-rank">
+                        {item.rank}
+                        <span className="dg-stop">.</span>
+                      </span>{" "}
+                      {item.title}
+                    </h3>
+                    <p className="dg-tags">
+                      {d ? (
+                        <Tag tone={d.decision === "accept" ? "ok" : undefined}>
+                          {d.decision === "accept" ? <Check className="dg-tagtick" /> : null}
+                          Your decision: {decisionWord(d.decision)}
+                        </Tag>
+                      ) : (
+                        <Tag tone={signed ? undefined : "turn"}>{signed ? "No decision" : "Not decided yet"}</Tag>
+                      )}
+                      {" "}
+                      <Tag>{item.kind === "ai" ? "Uses AI" : "No AI needed"}</Tag>{" "}
+                      <Tag tone={item.readiness.state === "ready" ? "ok" : undefined}>{READINESS[item.readiness.state]}</Tag>{" "}
+                      <Tag tone={item.risk.level === "high" ? "danger" : undefined}>{RISK[item.risk.level]}</Tag>
                     </p>
-                  ) : null}
-                  {item.readiness.toCheck.length ? (
-                    <p>
-                      <strong>Check:</strong> {item.readiness.toCheck.join("; ")}. You did not answer a question needed to judge this.
-                    </p>
-                  ) : null}
-                  <p>
-                    <strong>The risk:</strong> {item.risk.note}
-                  </p>
-                  <p className="muted help">Source: {item.source === "assumption" ? "an assumption (SYNTHETIC)" : item.source}.</p>
+                    <p className="dg-summary">{item.summary}</p>
+                    {item.addresses.length ? (
+                      <p className="dg-answers">
+                        <strong>Answers:</strong> {item.addresses.join("; ")}.
+                      </p>
+                    ) : null}
+                    <Money item={item} />
+                    {item.readiness.needsFirst.length || item.readiness.toCheck.length ? (
+                      <div className="dg-first">
+                        {item.readiness.needsFirst.length ? (
+                          <p>
+                            <strong>Do first:</strong> {item.readiness.needsFirst.join("; ")}.
+                          </p>
+                        ) : null}
+                        {item.readiness.toCheck.length ? (
+                          <p>
+                            <strong>Check:</strong> {item.readiness.toCheck.join("; ")}. You did not answer a question needed to judge this.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="dg-notes">
+                      <p>
+                        <strong>Hidden costs to expect:</strong> {item.costs.hidden.join("; ")}.
+                      </p>
+                      <p>
+                        <strong>The risk:</strong> {item.risk.note}
+                      </p>
+                      <p className="muted">Why it is here: {item.why.join(" ")}</p>
+                    </div>
+                    <details className="dg-more">
+                      <summary>Source and score</summary>
+                      <p className="muted help">Source: {item.source === "assumption" ? "an assumption (SYNTHETIC)" : item.source}.</p>
+                      <p className="muted help">How it scored: {scoreLine(item.scoreParts, item.score)}</p>
+                    </details>
+                  </div>
 
                   {signed ? (
-                    <p data-testid={`decision-${item.opportunityId}`}>
+                    <p className="dg-decision" data-testid={`decision-${item.opportunityId}`}>
                       <strong>Your decision:</strong> {d ? DECISION_LABEL[d.decision] : "none"}
                       {d?.note ? ` (${d.note})` : ""}
                     </p>
                   ) : (
-                    <form method="post" action={`/api/companies/${companyId}/assessments/${view.id}/decisions`}>
+                    <form method="post" action={`/api/companies/${companyId}/assessments/${view.id}/decisions`} className="dg-decide">
                       <input type="hidden" name="opportunity" value={item.opportunityId} />
-                      <fieldset className="options">
-                        <legend>Your decision on this idea{d ? `: ${DECISION_LABEL[d.decision]}` : ""}</legend>
-                        {DECISIONS.map((value) => (
-                          <label key={value} className="option">
-                            <input type="radio" name="decision" value={value} defaultChecked={d?.decision === value} required />
-                            {DECISION_LABEL[value]}
-                          </label>
-                        ))}
+                      <fieldset>
+                        <legend>Your decision on this idea</legend>
+                        <div className="options dg-three">
+                          {DECISIONS.map((value) => (
+                            <label key={value} className="option">
+                              <input type="radio" name="decision" value={value} defaultChecked={d?.decision === value} required />
+                              {DECISION_LABEL[value]}
+                            </label>
+                          ))}
+                        </div>
                       </fieldset>
-                      <p>
+                      <div className="question">
                         <label htmlFor={`note-${item.opportunityId}`} className="label">
                           A note for yourself (optional)
                         </label>
                         <input id={`note-${item.opportunityId}`} name="note" type="text" maxLength={MAX_NOTE_LENGTH} defaultValue={d?.note ?? ""} />
-                      </p>
-                      <button type="submit">Save decision on {item.title}</button>
+                      </div>
+                      <div className="actions">
+                        <button type="submit" className={item.opportunityId === nextIdea ? "primary" : undefined}>
+                          Save decision on {item.title}
+                        </button>
+                      </div>
                     </form>
                   )}
                 </li>
@@ -236,57 +376,35 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
               </ul>
             </details>
           ) : null}
-
-          <section className="card" aria-label="Sign-off" data-testid="signoff">
-            {signed ? (
-              <>
-                <h3>Signed off</h3>
-                <p>
-                  Signed off on {signed.at.slice(0, 10)}. {signed.note ? `Your note: ${signed.note}` : ""}
-                </p>
-                <p className="muted help">
-                  Fingerprint of what was signed: <code>{signed.digest.slice(0, 16)}</code> {signed.digestMatches ? "(checked just now: it matches)" : "(checked just now: IT DOES NOT MATCH what is stored)"}
-                </p>
-              </>
-            ) : (
-              <>
-                <h3>Sign off</h3>
-                <p data-testid="progress">
-                  {decided} of {total} ideas decided.
-                </p>
-                <form method="post" action={`/api/companies/${companyId}/assessments/${view.id}/signoff`}>
-                  <p>
-                    <label htmlFor="signoff-note" className="label">
-                      A note (optional)
-                    </label>
-                    <input id="signoff-note" name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
-                  </p>
-                  <button type="submit" disabled={total === 0 || decided < total}>
-                    Sign off this assessment
-                  </button>
-                  <p className="muted help">Signing off says you have read every idea and the decisions are yours. After that nothing on it can be changed. To change your mind, confirm a newer description and make a new assessment.</p>
-                </form>
-              </>
-            )}
-          </section>
         </section>
       ) : null}
 
-      <h2>Your assessments</h2>
-      {all.length ? (
-        <ul data-testid="assessments">
-          {all.map((a) => (
-            <li key={a.id}>
-              <a href={`/diagnose?a=${encodeURIComponent(a.id)}`}>From version {a.factoryRevisionNo}</a> · {a.createdAt.slice(0, 10)} · {a.signedOffAt ? "signed off" : `${a.decided} of ${a.items} decided`}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted">None yet.</p>
-      )}
-      <p>
-        <a href="/">Back</a>
-      </p>
-    </>
+      {confirmed || all.length ? (
+        <section className="card dg-list-card" aria-label="Your assessments">
+          <h2>Your assessments</h2>
+          {all.length ? (
+            <ul className="dg-list" data-testid="assessments">
+              {all.map((a) => (
+                <li key={a.id}>
+                  <a href={`/diagnose?a=${encodeURIComponent(a.id)}`} aria-current={view?.id === a.id ? "page" : undefined}>
+                    From version {a.factoryRevisionNo}
+                  </a>{" "}
+                  · <span className="dg-date">{a.createdAt.slice(0, 10)}</span> · {a.signedOffAt ? "signed off" : `${a.decided} of ${a.items} decided`}
+                  {view?.id === a.id ? (
+                    <>
+                      {" "}
+                      <Tag tone="brand">Shown above</Tag>
+                    </>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">None yet.</p>
+          )}
+          {confirmed && madeFromConfirmed ? <MakeForm primary={false} /> : null}
+        </section>
+      ) : null}
+    </Page>
   );
 }

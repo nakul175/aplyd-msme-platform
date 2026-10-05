@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
+  "reason": "slice 10a: the Diagnose page redesigned on the shared design system; unit/progress added (sign-off state, next idea, score line, where a sign-off points next)",
   "suites": {
     "browser/diagnose": 8,
     "integration/diagnose-api": 34,
@@ -10,6 +10,7 @@
     "unit/engine": 20,
     "static/problems": 1,
     "unit/not-owner": 1,
-    "unit/pins": 3
+    "unit/pins": 3,
+    "unit/progress": 7
   }
 }

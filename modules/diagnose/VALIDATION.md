@@ -100,3 +100,38 @@ A decision with no decision in it (a NULL passed the table's shape check) and a 
 - The fingerprint detects a change made to the stored rows outside the application. It does not prevent one, and the fingerprint is stored in the same database as the rows it covers.
 - The page was run in Chromium only, against a local Worker over plain HTTP, with a synthetic sign-in. Accessibility was not checked beyond the browser tests finding fields by their labels.
 - The assessment has not been shown to an owner.
+
+## Slice 10a: the page rebuilt on the shared interface (5 October 2026)
+
+`/diagnose` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner has used the page.
+
+### What was run (real results, on the branch `slice-10a-describe-diagnose`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `static/typecheck` (`tsc --noEmit`) | passed |
+| `diagnose/unit/progress` (new: the state of the sign-off and its sentence, the next idea to decide, an older description, the words for a decision, the score line adding up to the score for every idea of a real result, and where a signed-off assessment points next, using the journey's own `nextStep`) | 7 passed |
+| `diagnose/unit/engine`, `unit/digest`, `unit/pins`, `unit/not-owner` | 20, 3, 3 and 1 passed |
+| `diagnose/static/problems` (every `?problem=` key has a message and every message is sent), `diagnose/static/scope-rules` | 1 passed, 4 passed |
+| `diagnose/browser/diagnose` | 8 passed (48.9 s) |
+| `diagnose/smoke/diagnose` | 8 passed (7.0 s) |
+| `diagnose/integration/diagnose-api` (nothing it covers was touched) | 34 passed (72.7 s) |
+| `platform/static/page-lookups`, `platform/static/source-rules`, `platform/static/conflict-markers` | 2, 8 and 2 passed |
+| `journey/unit/contrast`, `journey/unit/progress` | 8 passed, 22 passed |
+| Suites that walk this page from elsewhere: `journey/browser/journey`, `demo/browser/walk`, `platform/smoke/built-app`, `demo/smoke/demo`, `platform/browser/pages`, `demo/static/script-labels` | 1, 2, 12, 10, 3 and 3 passed |
+| `docs/static/api-sync` | 20 passed, 1 failed: "section 5 lists page /, which posts no form", the home page of the foundation commit; not from this slice |
+| `node scripts/test.mjs --check-catalogue` | clean, 83 suites |
+
+No existing test was changed: every assertion of the eight browser tests and eight smoke tests passes as it was written, including the one that reads the raw HTML of the disabled sign-off button.
+
+### What was looked at
+
+The page was opened in Chromium at 360, 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners A (a confirmed description and nothing made; then an assessment with nothing decided, with two ideas decided, with every idea decided, signed off; then a newer description confirmed, so the assessment is an older one), B (no confirmed description) and C (the finished example, where the owner's turn is a delivery waiting), and with `?problem=undecided`. The script that took them reported no horizontal scroll on any of them. Things found by looking and fixed: the sign-off card, with its three-sentence explanation, was a full screen before the first idea (the explanation is now one tap away until every idea is decided); the four facts took a screen each on a phone with the label above the figure (the label is now beside it, and the first fact, which is long, has the full width); once signed off, the wide layout kept a column for a one-line decision (now one column); the decision was said three times (a tag, the legend and the checked choice; the legend now only asks the question); the arrow on a full-width button was left at the far edge when the label wrapped (a phone gets the words alone). The demonstration's walk failed once for a reason found by looking at the text, not the picture: the tags of an idea had no space between them, so "Uses AI" ran into "Needs something else first" for anything that reads the text, including a screen reader; a space is now between them.
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk.** The forms are plain HTML with real labels; nobody tabbed through the page or listened to it.
+- **Chromium only**, with the synthetic sign-in. No other browser, no real phone, no slow connection.
+- **Not independent**, and **no mutation checks** were run for this slice. The sign-off state, the pointer to the next step and the score line are pinned by their unit test; the wording is pinned only where an existing test names it.
+- **The pointer after a sign-off repeats the next step**: the page's frame already ends with the same card when the owner's turn is on another page, so an owner who has signed off sees the same step twice, once under the sign-off and once at the foot of the page. A shared option to leave the foot out would remove it.
+- **Sentences were added**: "Next:" with the step and its button, "What signing off means" (the old explanation, kept in full, behind a tap until every idea is decided), the heading "The ideas, ranked", the line "How it scored" (the engine's own points for the idea, which the page did not show before; they add up to the score, and a test checks it), "Answers:", "Shown above", "Older version". The ten-owner test is where the wording is checked, and it has not been run.

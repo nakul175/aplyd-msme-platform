@@ -61,3 +61,36 @@ On the review-fixes branch (pull request #8) the factory module has a bounded bo
 - The page was run in Chromium only, against a local Worker over plain HTTP, with a synthetic sign-in.
 - Accessibility was not checked beyond the browser tests finding fields by their labels. No screen reader was used.
 - The questionnaire has not been shown to an owner.
+
+## Slice 10a: the page rebuilt on the shared interface (5 October 2026)
+
+`/factory` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner has used the page.
+
+### What was run (real results, on the branch `slice-10a-describe-diagnose`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `static/typecheck` (`tsc --noEmit`) | passed |
+| `factory/unit/progress` (new: what counts as an answer, the count for nothing saved, for the five needed questions, for the two follow-up questions, for names such as `__proto__`, and the words) | 7 passed |
+| `factory/unit/questionnaire`, `factory/static/scope-rules` | 12 passed, 3 passed |
+| `factory/browser/describe` | 9 passed (63.8 s) |
+| `factory/smoke/describe` | 11 passed (8.0 s) |
+| `factory/integration/factory-api` (nothing it covers was touched) | 34 passed (63.4 s) |
+| `platform/static/page-lookups` (every message looked up with `Object.hasOwn`), `platform/static/source-rules`, `platform/static/conflict-markers` | 2, 8 and 2 passed |
+| `journey/unit/contrast`, `journey/unit/progress` (the colour pairs and step wording the page is built from) | 8 passed, 22 passed |
+| Suites that walk this page from elsewhere: `journey/browser/journey`, `demo/browser/walk`, `platform/smoke/built-app`, `demo/smoke/demo`, `platform/browser/pages`, `demo/static/script-labels` | 1, 2, 12, 10, 3 and 3 passed |
+| `node scripts/test.mjs --check-catalogue` | clean, 83 suites |
+
+One test was changed, and only in layout: in `tests/browser/describe.test.ts` three tests now open the "Earlier versions" section (`openHistory`) before counting or reading the list, because that list is intentionally collapsed now. Their titles and every assertion are as they were. A past version's own page opens it by itself and the tests that follow the "Version 1" link do so after opening it.
+
+### What was looked at
+
+The page was opened in Chromium at 360, 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners A (a confirmed description; then with a draft saved on top, so an old version could be opened read-only; then a confirmed second version), B (nothing saved: the first visit; then a draft saved with the five needed questions unanswered) and C, and with `?problem=invalid&fields=...`, `?stale=1`, `?missing=...`, `?saved=...&confirmed=1` and `?rev=1`. The script that took them reported no horizontal scroll on any of them. Things found by looking and fixed: the state card said the version, the date and whether it was confirmed twice (as tags and as a sentence); the "Needed to confirm" tag left the help text wrapping under it, so the help is now one block beside the tag or under it; the version being looked at was not marked in the list of versions. The demonstration's walk then failed on a different page for a reason that applies here too: tags placed side by side had no space between them in the text, so a reader of the text saw "DraftSYNTHETIC"; a space is now there on this page and on Diagnose.
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk.** The question groups are real fieldsets with legends and the help lines are tied to their controls, and the browser tests find every control by its label; nobody tabbed through the page or listened to it.
+- **Chromium only**, with the synthetic sign-in. No other browser, no real phone, no slow connection. The bar stuck to the bottom of the screen was looked at in screenshots of a scrolled page, not with a phone's on-screen keyboard open.
+- **Not independent**, and **no mutation checks** were run for this slice. The count is pinned by its unit test; the wording is pinned only where an existing test names it.
+- **The count is a choice.** It leaves out the two follow-up questions until the answer that asks for them is given. Nothing in the questionnaire says to; a different reader could count all 25.
+- **Sentences were added**: "A draft can be saved after answering just one question." (from the status above: a draft needs one answer), the line about the questions needed to confirm, "in the newest saved version", and the tag "Shown above". The ten-owner test is where the wording is checked, and it has not been run.
