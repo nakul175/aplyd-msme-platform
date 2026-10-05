@@ -151,6 +151,7 @@ What changed is in [the status page](STATUS.md), "Slice 11b". The author is an a
 | `deliver/integration/deliver-api`, `platform/integration/append-only-keys` (the new table's only unique key, the id, is looked at by its no_replace trigger) | 32 and 2 passed |
 | `pnpm build`, then `run/smoke/run`, `run/browser/run` (new browser steps: a starting number corrected from the page, the corrected number shown, the first one struck through with the reason) | 7 and 4 passed |
 | `journey/integration/facts`, `journey/browser/journey`, `journey/unit/progress`, `journey/unit/contrast` | 7, 1, 36 and 8 passed |
+| Other suites that walk the two pages: `demo/browser/walk`, `demo/smoke/demo`, `platform/smoke/built-app` | 2, 10 and 12 passed |
 | `docs/static/dictionary-sync`, `docs/static/api-sync`, `docs/static/lld-sync` after this slice's rows were written | 30 of 31, 21 and 6 passed (the one failure is below) |
 | `platform/unit/migrations` (new test, added to the platform's migration tests as the brief asks: 0015 is in the journal, is read as at least eight statements, and drops, alters and rebuilds nothing, with one CREATE TABLE and seven triggers) | 3 passed. The platform's baseline (2) was not changed: it is not this module's |
 | `platform/unit/guards` | **fails, 2 of 3**: the guard list in `modules/platform/src/db/guards.ts` does not name the seven triggers of 0015. That file is the platform module's; this slice did not change it. The exact entries are in the slice's report |
