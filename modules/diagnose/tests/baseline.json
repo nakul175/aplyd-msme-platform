@@ -1,9 +1,9 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "slice 6 run",
+  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
   "suites": {
     "browser/diagnose": 8,
-    "integration/diagnose-api": 32,
+    "integration/diagnose-api": 34,
     "smoke/diagnose": 8,
     "static/scope-rules": 4,
     "unit/digest": 3,
