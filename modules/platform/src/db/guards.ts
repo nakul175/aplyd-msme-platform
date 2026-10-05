@@ -7,6 +7,12 @@ export const APPEND_ONLY_TABLES: Record<string, string[]> = {
   factory_revisions: ["factory_revisions_no_update", "factory_revisions_no_delete", "factory_revisions_no_replace"],
   assessments: ["assessments_no_update", "assessments_no_delete", "assessments_no_replace"],
   assessment_events: ["assessment_events_no_update", "assessment_events_no_delete", "assessment_events_no_replace"],
+  requirements: ["requirements_no_update", "requirements_no_delete", "requirements_no_replace"],
+  requirement_events: ["requirement_events_no_update", "requirement_events_no_delete", "requirement_events_no_replace"],
+  providers: ["providers_no_update", "providers_no_delete", "providers_no_replace"],
+  provider_services: ["provider_services_no_update", "provider_services_no_delete", "provider_services_no_replace"],
+  provider_events: ["provider_events_no_update", "provider_events_no_delete", "provider_events_no_replace"],
+  listing_terms: ["listing_terms_no_update", "listing_terms_no_delete", "listing_terms_no_replace"],
 };
 
 /** Triggers that enforce a rule about what may be inserted, by table. */
@@ -20,6 +26,8 @@ export const RULE_TRIGGERS: Record<string, string[]> = {
     "assessment_events_decision_limit",
     "assessment_events_signoff_needs_an_item",
   ],
+  requirements: ["requirements_needs_signed_off_assessment", "requirements_needs_accepted_item"],
+  provider_events: ["provider_events_list_carries_the_fee_in_force", "provider_events_list_needs_a_service", "provider_events_alternate"],
 };
 
 export const ALL_APPEND_ONLY_TRIGGERS: string[] = Object.values(APPEND_ONLY_TABLES).flat();

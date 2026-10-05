@@ -50,6 +50,16 @@ export default async function Home() {
           <a href="/diagnose">What to do about it</a>
         </p>
       ) : null}
+      {identity.companyId && identity.role === "owner" ? (
+        <p>
+          <a href="/procure">What you need</a>
+        </p>
+      ) : null}
+      {identity.role === "operator" && identity.companyId === null ? (
+        <p>
+          <a href="/operator">Providers and the listing fee</a>
+        </p>
+      ) : null}
       <form method="post" action="/api/session">
         <input type="hidden" name="intent" value="sign-out" />
         <button type="submit">Sign out</button>

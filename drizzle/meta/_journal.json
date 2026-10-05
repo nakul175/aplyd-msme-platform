@@ -57,6 +57,20 @@
       "when": 1791142266072,
       "tag": "0007_diagnose_review_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791143947049,
+      "tag": "0008_procure_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791143947668,
+      "tag": "0009_procure_guards",
+      "breakpoints": true
     }
   ]
 }

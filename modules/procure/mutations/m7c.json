@@ -1,0 +1,168 @@
+[
+ {
+  "name": "pool: shows the exact count again",
+  "path": "modules/procure/src/pool.ts",
+  "old": "atLeast: Math.floor(companies / AGGREGATE_FLOOR) * AGGREGATE_FLOOR",
+  "new": "atLeast: companies",
+  "layers": [
+   "unit",
+   "static"
+  ]
+ },
+ {
+  "name": "pool: steps of two",
+  "path": "modules/procure/src/pool.ts",
+  "old": "Math.floor(companies / AGGREGATE_FLOOR) * AGGREGATE_FLOOR",
+  "new": "Math.floor(companies / 2) * 2",
+  "layers": [
+   "unit"
+  ]
+ },
+ {
+  "name": "pool: floor lowered to four",
+  "path": "modules/procure/src/pool.ts",
+  "old": "export const AGGREGATE_FLOOR = 5;",
+  "new": "export const AGGREGATE_FLOOR = 4;",
+  "layers": [
+   "unit"
+  ]
+ },
+ {
+  "name": "pool: page prints the exact count",
+  "path": "app/procure/page.tsx",
+  "old": "`At least ${r.pool.atLeast} companies",
+  "new": "`${r.pool.atLeast} companies",
+  "layers": [
+   "static"
+  ]
+ },
+ {
+  "name": "requirement: withdrawn one is returned as made",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": "  if (existing.withdrawn) return { ok: false, reason: \"previously_withdrawn\" };\n",
+  "new": "",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "requirement: echoes the cluster asked for",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": "return { ok: true, id: existing.id, created: false, cluster: existing.cluster };",
+  "new": "return { ok: true, id: existing.id, created: false, cluster };",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "requirement: withdrawn lookup ignores the company",
+  "path": "modules/procure/src/db/requirements.ts",
+  "old": "WHERE e.requirement_id = r.id AND e.company_id = r.company_id AND e.kind = 'withdraw') AS withdrawn",
+  "new": "WHERE e.requirement_id = r.id AND e.kind = 'withdraw') AS withdrawn",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "api: form says made when it was already made",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "made.created ? back(`made=${encodeURIComponent(made.id)}`) : back(\"problem=already_made\")",
+  "new": "back(`made=${encodeURIComponent(made.id)}`)",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "api: JSON says 201 for an existing one",
+  "path": "modules/procure/src/api/requirements.ts",
+  "old": "json(made.created ? 201 : 200,",
+  "new": "json(201,",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "text: direction overrides allowed",
+  "path": "modules/factory/src/questionnaire.ts",
+  "old": "\\u202A-\\u202E",
+  "new": "",
+  "layers": [
+   "unit"
+  ]
+ },
+ {
+  "name": "text: isolates allowed",
+  "path": "modules/factory/src/questionnaire.ts",
+  "old": "\\u2066-\\u2069",
+  "new": "",
+  "layers": [
+   "unit"
+  ]
+ },
+ {
+  "name": "text: zero-width space allowed",
+  "path": "modules/factory/src/questionnaire.ts",
+  "old": "\\u200B",
+  "new": "",
+  "layers": [
+   "unit"
+  ]
+ },
+ {
+  "name": "text: byte order mark allowed",
+  "path": "modules/factory/src/questionnaire.ts",
+  "old": "\\uFEFF]",
+  "new": "]",
+  "layers": [
+   "unit"
+  ]
+ },
+ {
+  "name": "text: joiners refused (Indian scripts break)",
+  "path": "modules/factory/src/questionnaire.ts",
+  "old": "\\u200E\\u200F",
+  "new": "\\u200C\\u200D",
+  "layers": [
+   "unit"
+  ]
+ },
+ {
+  "name": "fee: a listing's reported fee read from the wrong row",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "WHERE id = ?\").bind(inserted.meta.last_row_id).first<{ fee_inr: number }>();",
+  "new": "WHERE id = ?\").bind(1).first<{ fee_inr: number }>();",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ },
+ {
+  "name": "fee: a new version reported from the wrong row",
+  "path": "modules/procure/src/db/providers.ts",
+  "old": "WHERE version = ?\").bind(inserted.meta.last_row_id).first<TermsRow>();",
+  "new": "WHERE version = ?\").bind(1).first<TermsRow>();",
+  "layers": [
+   "integration"
+  ],
+  "only": [
+   "procure/integration/procure-api"
+  ]
+ }
+]
