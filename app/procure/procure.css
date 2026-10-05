@@ -1,0 +1,66 @@
+/* Only what the page "What you need" needs beyond app/globals.css. Every class starts with pr- so nothing here can touch another page. Colours are tokens, in pairs the contrast test measures. */
+
+.pr-section { display: grid; gap: var(--s-3); min-width: 0; }
+.pr-section > p { max-width: var(--measure); }
+.pr-note { max-width: var(--measure); }
+
+/* The state of the page, at the top. */
+.pr-summary { display: grid; gap: var(--s-3); }
+.pr-sentence { font-size: 1.125rem; font-weight: 650; line-height: 1.4; max-width: 52ch; }
+
+.pr-tags { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
+.pr-tags .tag { white-space: normal; }
+
+/* The head of a card: the idea, and where it stands. */
+.pr-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--s-2) var(--s-3); }
+.pr-top h3 { flex: 1 1 14rem; min-width: 0; }
+
+.pr-done { display: flex; align-items: flex-start; gap: var(--s-2); }
+.pr-done svg { width: 1.1rem; height: 1.1rem; flex: none; margin-top: 0.2rem; color: var(--ok); }
+
+/* One sentence: what is the owner's next action on this requirement, or why there is none. */
+.pr-next { padding: var(--s-2) var(--s-3); border-radius: var(--r-sm); border-left: 4px solid var(--line-strong); background: var(--surface-2); color: var(--fg); font-weight: 600; max-width: none; }
+.pr-next[data-tone="turn"] { background: var(--turn-tint); color: var(--turn-text); border-left-color: var(--turn-edge); }
+.pr-next[data-tone="ok"] { background: var(--ok-tint); color: var(--ok); border-left-color: var(--ok); }
+
+.pr-block { display: grid; gap: var(--s-2); min-width: 0; }
+.pr-block > * { margin: 0; }
+.pr-block h4 { font-size: 1rem; }
+.pr-block .help { margin: 0; }
+
+/* The providers listed for a requirement: information only; the choice is made with the form under them. */
+.pr-prov { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-2); }
+.pr-prov li { margin: 0; display: block; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); color: var(--fg); }
+.pr-prov li + li { margin-top: 0; }
+.pr-prov strong { font-weight: 700; }
+.pr-nw { white-space: nowrap; }
+.pr-serves { display: block; margin-top: 0.125rem; font-size: 0.9375rem; color: var(--muted); }
+
+/* The pool: a calm note, not an alert. */
+.pr-pool { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-3); align-items: start; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.pr-pool svg { width: 1.25rem; height: 1.25rem; margin-top: 0.15rem; color: var(--muted); }
+.pr-pool-title { font-weight: 650; max-width: none; }
+.pr-pool p + p { margin-top: 0.125rem; }
+
+.pr-choose { display: grid; gap: var(--s-3); }
+.pr-choose .help, .pr-ask .help { margin: 0; }
+.pr-ask { display: grid; gap: var(--s-3); }
+.pr-ask select, .pr-choose select { max-width: 30rem; }
+
+/* Withdrawing is always possible until a provider is chosen, and always the quiet option. */
+.card > .pr-withdraw { display: grid; gap: var(--s-3); margin-top: var(--s-4); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+.pr-withdraw .help { margin: 0; }
+.pr-withdraw input[type="text"] { max-width: 30rem; }
+
+.pr-more > summary { cursor: pointer; font-weight: 650; min-height: 2.75rem; display: flex; align-items: center; gap: var(--s-2); list-style: none; color: var(--brand); }
+.pr-more > summary::-webkit-details-marker { display: none; }
+.pr-more > summary::before { content: ""; width: 0.5rem; height: 0.5rem; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform 120ms ease; flex: none; }
+.pr-more[open] > summary::before { transform: rotate(45deg); }
+.pr-more > :not(summary) { margin-top: var(--s-3); }
+
+.pr-end { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
+.pr-end > p { max-width: none; }
+
+@media (max-width: 40rem) {
+  .pr-wide .actions > button, .pr-wide .actions > .btn { width: 100%; }
+}

@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
+  "reason": "slice 10b: the pages \"What you need\" and \"Providers and the listing fee\" rebuilt on the shared interface; their state and wording now come from pure functions in src/view.ts",
   "suites": {
     "browser/procure": 3,
     "integration/procure-api": 34,
@@ -8,6 +8,7 @@
     "static/problems": 2,
     "static/rules": 10,
     "unit/clusters": 2,
-    "unit/pool": 5
+    "unit/pool": 5,
+    "unit/view": 15
   }
 }
