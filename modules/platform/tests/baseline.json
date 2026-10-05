@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-10-04",
-  "reason": "the documentation check refuses a merge-conflict marker (one reached slice 5's HANDOVER.md)",
+  "updatedAt": "2026-10-05",
+  "reason": "slice 6 run",
   "suites": {
     "integration/platform-api": 26,
     "smoke/built-app": 11,

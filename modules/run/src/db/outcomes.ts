@@ -1,0 +1,54 @@
+// Reads and appends the owner's measurements of an engagement. Every function takes the company id from the caller's identity,
+// never from a URL, and every query is bound to it (a static test checks that). Nothing here edits or deletes a row.
+import { auditIfChanged } from "../../../platform/src/db/audit.ts";
+import type { InUse, ReviewNo, Verdict } from "../state.ts";
+
+export type OutcomeRow = { id: number; at: string; userId: string; kind: "baseline" | "review"; reviewNo: ReviewNo | null; value: number; verdict: Verdict | null; inUse: InUse | null; note: string };
+type DbRow = { id: number; at: string; user_id: string; kind: "baseline" | "review"; review_no: ReviewNo | null; value: number; verdict: Verdict | null; in_use: InUse | null; note: string };
+
+/** Every measurement recorded for one engagement of the company, in the order they were made. */
+export async function listOutcomes(db: D1Database, companyId: string, engagementId: string): Promise<OutcomeRow[]> {
+  const { results } = await db
+    .prepare("SELECT id, at, user_id, kind, review_no, value, verdict, in_use, note FROM outcome_events WHERE company_id = ? AND engagement_id = ? ORDER BY id")
+    .bind(companyId, engagementId)
+    .all<DbRow>();
+  return results.map((r) => ({ id: r.id, at: r.at, userId: r.user_id, kind: r.kind, reviewNo: r.review_no, value: r.value, verdict: r.verdict, inUse: r.in_use, note: r.note }));
+}
+
+export type RecordResult = { ok: true } | { ok: false; reason: "not_found" | "baseline_exists" | "baseline_too_late" | "review_exists" | "nothing_accepted" | "not_due" };
+
+type Common = { companyId: string; userId: string; engagementId: string; value: number; note: string; at: Date };
+
+/** The state of things before the work. Once, and only before anything is accepted (a trigger). */
+export async function recordBaseline(db: D1Database, input: Common): Promise<RecordResult> {
+  return append(db, input, { kind: "baseline", reviewNo: null, verdict: null, inUse: null });
+}
+
+/** A review of review number 1, 2 or 3. Once each, and only from the day it falls due (a trigger). */
+export async function recordReview(db: D1Database, input: Common & { reviewNo: ReviewNo; verdict: Verdict; inUse: InUse }): Promise<RecordResult> {
+  return append(db, input, { kind: "review", reviewNo: input.reviewNo, verdict: input.verdict, inUse: input.inUse });
+}
+
+async function append(db: D1Database, input: Common, shape: { kind: "baseline" | "review"; reviewNo: ReviewNo | null; verdict: Verdict | null; inUse: InUse | null }): Promise<RecordResult> {
+  const { companyId, userId, engagementId, value, note, at } = input;
+  const insert = db
+    .prepare(
+      `INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, review_no, value, verdict, in_use, note)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+       WHERE EXISTS (SELECT 1 FROM engagements WHERE id = ? AND company_id = ?)`,
+    )
+    .bind(engagementId, companyId, at.toISOString(), userId, shape.kind, shape.reviewNo, value, shape.verdict, shape.inUse, note, engagementId, companyId);
+  const audit = auditIfChanged(db, `outcome.${shape.kind}`, { userId, companyId, detail: { engagement: engagementId, review: shape.reviewNo ?? 0 } });
+  try {
+    const [inserted] = await db.batch([insert, audit]);
+    return inserted.meta.changes === 1 ? { ok: true } : { ok: false, reason: "not_found" };
+  } catch (error) {
+    const text = String(error);
+    if (/baseline is recorded once/.test(text)) return { ok: false, reason: "baseline_exists" };
+    if (/before anything is accepted/.test(text)) return { ok: false, reason: "baseline_too_late" };
+    if (/review is recorded once/.test(text)) return { ok: false, reason: "review_exists" };
+    if (/needs an accepted milestone/.test(text)) return { ok: false, reason: "nothing_accepted" };
+    if (/not due yet/.test(text)) return { ok: false, reason: "not_due" };
+    throw error;
+  }
+}
