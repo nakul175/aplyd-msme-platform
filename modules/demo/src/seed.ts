@@ -10,6 +10,19 @@ import type { DemoCompany, Stage } from "./cast.ts";
 import { Session } from "./client.ts";
 import { identityStatements } from "./identities.ts";
 
+/** Throws unless the diagnosis ranks the two ideas the script is built on first and second, as the cast's answers are meant to make it. */
+export function checkRanking(companyName: string, ideas: readonly string[]): void {
+  if (ideas[0] !== FIRST_IDEA || ideas[1] !== SECOND_IDEA) throw new Error(`${companyName}: the diagnosis ranked ${ideas.slice(0, 2).join(", ")} first, not ${FIRST_IDEA}, ${SECOND_IDEA}. The cast's answers or the library changed.`);
+}
+
+/** Throws unless the operator's pool list is as the script says: the first idea's pool in the first cluster shown (it has reached five), the second idea's pool in the second cluster not shown. */
+export function checkPools(pools: readonly { cluster: string; opportunityId: string }[]): { firstPoolShown: boolean; secondPoolHidden: boolean } {
+  const firstPoolShown = pools.some((p) => p.cluster === FIRST_CLUSTER && p.opportunityId === FIRST_IDEA);
+  const secondPoolHidden = !pools.some((p) => p.cluster === SECOND_CLUSTER && p.opportunityId === SECOND_IDEA);
+  if (!firstPoolShown || !secondPoolHidden) throw new Error(`the pools are not as the script says: first pool shown ${firstPoolShown}, second pool hidden ${secondPoolHidden}`);
+  return { firstPoolShown, secondPoolHidden };
+}
+
 export type DemoReport = {
   companies: number;
   providers: number;
@@ -53,7 +66,7 @@ async function companyPart(base: string, company: DemoCompany, providerIds: Reco
   const made = await post<{ id: string }>("/assessments", {});
   const assessment = await owner.get<{ result: { items: { opportunityId: string }[] } }>(`${root}/assessments/${encodeURIComponent(made.id)}`);
   const ideas = assessment.result.items.map((i) => i.opportunityId);
-  if (ideas[0] !== FIRST_IDEA || ideas[1] !== SECOND_IDEA) throw new Error(`${company.name}: the diagnosis ranked ${ideas.slice(0, 2).join(", ")} first, not ${FIRST_IDEA}, ${SECOND_IDEA}. The cast's answers or the library changed.`);
+  checkRanking(company.name, ideas);
   for (const id of ideas) await post(`/assessments/${encodeURIComponent(made.id)}/decisions`, { opportunityId: id, decision: "accept", note: "" });
   await post(`/assessments/${encodeURIComponent(made.id)}/signoff`, { note: "SYNTHETIC demonstration sign-off" });
 
@@ -96,8 +109,6 @@ export async function seedDemo(options: { db: D1Database; baseUrl: string; now?:
   // A self-check: the demonstration is only worth showing if the floor behaves as the script says it does.
   const operator = await Session.signIn(options.baseUrl, "operator@synthetic.invalid");
   const { pools } = await operator.get<{ pools: { cluster: string; opportunityId: string }[] }>("/api/operator/pools");
-  const firstPoolShown = pools.some((p) => p.cluster === FIRST_CLUSTER && p.opportunityId === FIRST_IDEA);
-  const secondPoolHidden = !pools.some((p) => p.cluster === SECOND_CLUSTER && p.opportunityId === SECOND_IDEA);
-  if (!firstPoolShown || !secondPoolHidden) throw new Error(`the pools are not as the script says: first pool shown ${firstPoolShown}, second pool hidden ${secondPoolHidden}`);
+  const { firstPoolShown, secondPoolHidden } = checkPools(pools);
   return { companies: DEMO_COMPANIES.length, providers: DEMO_PROVIDERS.length, requests: count.n, firstPoolShown, secondPoolHidden };
 }
