@@ -144,9 +144,8 @@ Totality and the documented key set, stage and page; determinism, with the input
 | --- | --- |
 | `node scripts/test.mjs unit --only journey/unit/progress,journey/unit/contrast,journey/unit/properties,journey/unit/properties-exhaustive --guard` | 4 of 4 suites passed: 36, 8, 27 and 5 tests. About 4 and 9 seconds for the two new suites on this machine |
 | `TZ=Asia/Kolkata`, `TZ=America/Los_Angeles` and `TZ=Pacific/Kiritimati` with `node --test` on the two new files | 32 passed each |
-| `node scripts/test.mjs static --only <every static suite except static/typecheck and static/migrations>` | 26 of 26 passed |
-| `node scripts/test.mjs static --only static/migrations` | passed |
-| `/home/claude/bin/heavy node node_modules/typescript/bin/tsc --noEmit` | exit 0, no output (a first run found one implicit `any` in `tests/support/model.ts`, fixed) |
+| `node scripts/test.mjs static --only <every static suite except static/typecheck>` (run again after the last change) | 27 of 27 passed, `static/migrations` among them |
+| `/home/claude/bin/heavy node node_modules/typescript/bin/tsc --noEmit` | exit 0, no output, on the tree with the last test change (a first run found one implicit `any` in `tests/support/model.ts`, fixed) |
 | `node scripts/test.mjs --check-catalogue` | clean, 97 suites |
 | `node scripts/check-documentation.mjs` | passed (49 Markdown files) |
 
