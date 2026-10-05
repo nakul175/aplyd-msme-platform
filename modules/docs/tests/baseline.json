@@ -1,8 +1,16 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "Documentation set: the BRD reader (unit) and the checks on the real BRD (static)",
+  "reason": "Documentation set: readers and sync checks for the BRD, FSD, data dictionary, API reference and test documents",
   "suites": {
+    "static/api-sync": 21,
     "static/brd": 5,
-    "unit/brd": 7
+    "static/dictionary-sync": 31,
+    "static/fsd": 3,
+    "static/testdocs": 14,
+    "unit/api": 18,
+    "unit/brd": 7,
+    "unit/dictionary": 26,
+    "unit/fsd": 4,
+    "unit/testdocs": 21
   }
 }

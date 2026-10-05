@@ -30,6 +30,8 @@ const COMMAND_SUITES = [
   { id: "static/documentation", layer: "static", cmd: process.execPath, args: ["scripts/check-documentation.mjs"] },
   // The business requirements document is read as data: well formed, its counts current, every requirement a document mentions exists.
   { id: "static/traceability", layer: "static", cmd: process.execPath, args: ["scripts/check-traceability.mjs"] },
+  // The test documents: every case names real requirements, every automated case names a test file and a test title that exist.
+  { id: "static/test-docs", layer: "static", cmd: process.execPath, args: ["scripts/check-test-docs.mjs"] },
   // The migrations, their journal and their snapshots agree with the schema (drizzle-kit check).
   { id: "static/migrations", layer: "static", cmd: process.execPath, args: ["node_modules/drizzle-kit/bin.cjs", "check"] },
 ];
