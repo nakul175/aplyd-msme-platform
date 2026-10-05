@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { headers } from "next/headers";
+import { presentEngagements } from "../../modules/deliver/src/api/engagements.ts";
 import { presentAssessment } from "../../modules/diagnose/src/api/diagnose.ts";
 import { listAssessments, loadAssessment } from "../../modules/diagnose/src/db/assessments.ts";
 import { CLUSTERS, clusterLabel } from "../../modules/procure/src/clusters.ts";
@@ -20,6 +21,10 @@ const PROBLEMS: Record<string, string> = {
   note: "Keep the note under 500 characters.",
   withdrawn: "That requirement was already withdrawn.",
   missing: "That requirement could not be found.",
+  engaged: "You have chosen a provider for that requirement, so it cannot be withdrawn. Close the engagement on the delivery page instead.",
+  engage: "Choose a provider from the list.",
+  provider_unavailable: "That provider is no longer listed for this requirement. Choose another from the list.",
+  already_engaged: "You have already chosen a provider for this requirement.",
 };
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const range = (r: { low: number; high: number }) => (r.low === r.high ? rupees(r.low) : `${rupees(r.low)} to ${rupees(r.high)}`);
@@ -53,7 +58,8 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
 
   const db = e.DB;
   const companyId = identity.companyId;
-  const [assessments, requirements] = await Promise.all([listAssessments(db, companyId), presentRequirements(db, companyId)]);
+  const [assessments, requirements, engagements] = await Promise.all([listAssessments(db, companyId), presentRequirements(db, companyId), presentEngagements(db, companyId)]);
+  const engagedWith = new Map(engagements.map((g) => [g.requirementId, g]));
   const latestSigned = assessments.find((a) => a.signedOffAt !== null) ?? null;
   const record = latestSigned ? await loadAssessment(db, companyId, latestSigned.id) : null;
   const view = record ? await presentAssessment(record) : null;
@@ -179,15 +185,44 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                       </ul>
                     )}
                   </div>
-                  <form method="post" action={`/api/companies/${companyId}/requirements/${r.id}/withdraw`}>
-                    <p>
-                      <label htmlFor={`withdraw-note-${r.id}`} className="label">
-                        A note for yourself (optional)
-                      </label>
-                      <input id={`withdraw-note-${r.id}`} name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
+                  {engagedWith.get(r.id) ? (
+                    <p data-testid="engaged">
+                      <strong>You chose {engagedWith.get(r.id)?.providerName}.</strong> <a href="/deliver">Go to delivery</a>. A requirement with a provider chosen stays; close the engagement there if it ends.
                     </p>
-                    <button type="submit">Withdraw {r.title}</button>
-                  </form>
+                  ) : (
+                    <>
+                      {r.providers.length > 0 ? (
+                        <form method="post" action={`/api/companies/${companyId}/requirements/${r.id}/engagement`} data-testid="choose-provider">
+                          <p>
+                            <label htmlFor={`provider-${r.id}`} className="label">
+                              Which provider do you want to work with?
+                            </label>
+                            <select id={`provider-${r.id}`} name="provider" required defaultValue="">
+                              <option value="" disabled>
+                                Choose a provider
+                              </option>
+                              {r.providers.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </p>
+                          <p className="muted">This records your choice and opens a plan you write with them. It does not contact the provider, agree a price or move any money.</p>
+                          <button type="submit">Choose a provider for {r.title}</button>
+                        </form>
+                      ) : null}
+                      <form method="post" action={`/api/companies/${companyId}/requirements/${r.id}/withdraw`}>
+                        <p>
+                          <label htmlFor={`withdraw-note-${r.id}`} className="label">
+                            A note for yourself (optional)
+                          </label>
+                          <input id={`withdraw-note-${r.id}`} name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
+                        </p>
+                        <button type="submit">Withdraw {r.title}</button>
+                      </form>
+                    </>
+                  )}
                 </>
               )}
             </li>

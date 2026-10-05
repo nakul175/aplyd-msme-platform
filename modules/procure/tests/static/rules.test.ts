@@ -26,12 +26,23 @@ test("no query anywhere changes, deletes or replaces a row of any procure table:
   }
 });
 
-test("every read of a company's requirements is bound to one company, except the two counting queries in pool.ts", () => {
+// The deliver module joins an engagement to its requirement and to the provider's public name. It may do that and nothing else
+// with these tables: the fragment below is the whole of it, its join names the company, and its own static test requires every
+// use of it to add the company to the WHERE.
+const DELIVER_FILE = "modules/deliver/src/db/engagements.ts";
+const isDeliverJoin = (f: string, sql: string) => f === DELIVER_FILE && /^SELECT g\.id, g\.requirement_id/.test(sql.trim());
+
+test("every read of a company's requirements is bound to one company, except the two counting queries in pool.ts and the deliver module's join, which is bound through the engagement", () => {
   const all = applicationFiles();
   for (const table of COMPANY_TABLES) {
-    const unbound = all.filter((f) => f !== POOL_FILE).flatMap((f) => problemsWith(f, read(f), table));
+    const unbound = all
+      .filter((f) => f !== POOL_FILE)
+      .flatMap((f) => problemsWith(f, read(f), table).filter((p) => !(f === DELIVER_FILE && queries(f, table).some((m) => p.endsWith(`:${m.line} reads ${table} without "company_id = ?"`) && isDeliverJoin(f, m.sql)))));
     assert.deepEqual(unbound, [], table);
   }
+  const join = queries(DELIVER_FILE, "requirements").find((m) => isDeliverJoin(DELIVER_FILE, m.sql))!;
+  assert.ok(join, "the deliver join exists");
+  assert.match(join.sql.replace(/\s+/g, " "), /JOIN requirements r ON r\.id = g\.requirement_id AND r\.company_id = g\.company_id/, "the join names the requirement and its company");
   assert.equal(queries(POOL_FILE, "requirements").length, 2, "pool.ts holds exactly the two counting queries");
 });
 
@@ -79,10 +90,24 @@ test("a pool's size reaches a caller only through presentPool, and only the API 
   }
 });
 
-test("pages and routes do not query the procure tables themselves, and only the procure data layer does", () => {
+test("pages and routes do not query the procure tables themselves, and only the procure data layer does, apart from the deliver module's join and its checks that a requirement is the company's", () => {
   for (const f of applicationFiles()) {
     if (f.startsWith("modules/procure/src/db/")) continue;
-    for (const table of ALL_TABLES) assert.deepEqual(queries(f, table), [], `${f} ${table}`);
+    for (const table of ALL_TABLES) {
+      const found = queries(f, table);
+      if (f !== DELIVER_FILE) {
+        assert.deepEqual(found, [], `${f} ${table}`);
+        continue;
+      }
+      // Of the registry only the provider's name and summary are read, by the join; of the requirements the join and the
+      // existence check inside the engagement insert, which names the company. Nothing here reads a fee, a listing or a term.
+      assert.ok(!["provider_services", "provider_events", "listing_terms"].includes(table) || found.length === 0, `${f} reads ${table}`);
+      for (const m of found) {
+        const sql = m.sql.replace(/\s+/g, " ");
+        const ok = isDeliverJoin(f, m.sql) || (/^INSERT INTO (engagements|milestones|engagement_events) /.test(sql) && /EXISTS \(SELECT 1 FROM requirements WHERE id = \? AND company_id = \?\)/.test(sql)) || /^SELECT (id, provider_id|1 AS present) FROM engagements /.test(sql);
+        assert.ok(ok || !/\b(requirements|providers)\b/.test(sql.replace(/engagements|requirement_id|provider_id/g, "")), `${f}:${m.line} reads ${table} in a way the deliver module is not allowed to`);
+      }
+    }
   }
 });
 
@@ -105,11 +130,13 @@ function columnsInMigrations(): Column[] {
 const MONEY_WORDS = new Set(["fee", "fees", "price", "amount", "cost", "costs", "paise", "rupee", "rupees", "inr", "payment", "commission", "percent", "percentage", "pct", "rate", "margin", "revenue", "rebate", "referral", "incentive", "discount", "take", "markup", "royalty", "payout"]);
 const isMoneyColumn = (name: string) => name.split("_").some((w) => MONEY_WORDS.has(w));
 
-test("the only money columns in the database are the listing fee in the terms and the copy of it on a listing", () => {
+test("the money columns that carry APLYD's earnings are the listing fee in the terms and the copy of it on a listing; the deliver module adds only the owner's own figures (see its static test)", () => {
   const columns = columnsInMigrations();
   assert.ok(columns.length > 40 && columns.some((c) => c.table === "listing_terms" && c.column === "fee_inr"), "the migrations were read");
   const money = columns.filter((c) => isMoneyColumn(c.column)).map((c) => `${c.table}.${c.column}`).sort();
-  assert.deepEqual(money, ["listing_terms.fee_inr", "provider_events.fee_inr"]);
+  // Every other money column is the owner's own record of a price or a payment, in a table of the deliver module that never names the listing.
+  const others = money.filter((m) => m !== "listing_terms.fee_inr" && m !== "provider_events.fee_inr");
+  assert.deepEqual(others, ["engagement_events.amount_inr", "milestones.agreed_inr"]);
 });
 
 test("the listing terms hold one fee and nothing that could make it differ: no provider, requirement, company, offer, deal or percentage", () => {

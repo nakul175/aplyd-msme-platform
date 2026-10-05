@@ -113,5 +113,6 @@ export async function handleRequirementWithdraw(request: Request, env: AppEnv, r
   const result = await withdrawRequirement(allowed.db, { companyId: allowed.companyId, userId: allowed.identity.userId, requirementId, note });
   if (result.ok) return form ? redirect("/procure?withdrawn=1") : json(201, { ok: true });
   if (result.reason === "already_withdrawn") return form ? redirect("/procure?problem=withdrawn") : json(409, { error: "already_withdrawn" });
+  if (result.reason === "engaged") return form ? redirect("/procure?problem=engaged") : json(409, { error: "engaged" });
   return form ? redirect("/procure?problem=missing") : json(404, { error: "not_found" });
 }

@@ -78,7 +78,7 @@ export async function createRequirement(
   return { ok: true, id: existing.id, created: false, cluster: existing.cluster };
 }
 
-export type WithdrawResult = { ok: true } | { ok: false; reason: "not_found" | "already_withdrawn" };
+export type WithdrawResult = { ok: true } | { ok: false; reason: "not_found" | "already_withdrawn" | "engaged" };
 
 /** Appends the withdrawal. A second one changes nothing. The requirement stays, marked as withdrawn, and leaves its pool. */
 export async function withdrawRequirement(db: D1Database, input: { companyId: string; userId: string; requirementId: string; note: string }): Promise<WithdrawResult> {
@@ -92,8 +92,16 @@ export async function withdrawRequirement(db: D1Database, input: { companyId: st
     )
     .bind(requirementId, companyId, new Date().toISOString(), userId, note, requirementId, companyId, requirementId, companyId);
   const audit = auditIfChanged(db, "requirement.withdrawn", { userId, companyId, detail: { requirement: requirementId } });
-  const [inserted] = await db.batch([insert, audit]);
-  if (inserted.meta.changes === 1) return { ok: true };
+  let changed = 0;
+  try {
+    const [inserted] = await db.batch([insert, audit]);
+    changed = inserted.meta.changes;
+  } catch (error) {
+    // Once the owner has chosen a provider the requirement stays; the engagement is closed instead (a trigger in the database).
+    if (/engaged requirement cannot be withdrawn/.test(String(error))) return { ok: false, reason: "engaged" };
+    throw error;
+  }
+  if (changed === 1) return { ok: true };
   const exists = await db.prepare("SELECT 1 AS present FROM requirements WHERE id = ? AND company_id = ?").bind(requirementId, companyId).first();
   return exists ? { ok: false, reason: "already_withdrawn" } : { ok: false, reason: "not_found" };
 }
