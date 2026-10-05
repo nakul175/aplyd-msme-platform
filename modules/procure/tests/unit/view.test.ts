@@ -1,7 +1,7 @@
 // What the two pages say about where things stand. Each sentence is pinned, because a person reads the page's state from it.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { distinctListedFees, operatorSummary, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState, serviceGroups } from "../../src/view.ts";
+import { askedLabel, distinctListedFees, nothingLeftToAsk, operatorSummary, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState, serviceGroups } from "../../src/view.ts";
 
 test("a requirement is withdrawn, has a provider chosen, needs one chosen, or waits for one to be listed, in that order of precedence", () => {
   assert.equal(requirementState({ withdrawn: true, engaged: true, providersListed: 2 }).key, "withdrawn");
@@ -46,15 +46,41 @@ test("the counts split the requirements by state, and ideas ready are the accept
       { withdrawn: true, engaged: false, providersListed: 0 },
     ],
   });
-  assert.deepEqual(c, { accepted: 5, asked: 3, ready: 2, needsChoice: 1, waiting: 1, chosen: 1, withdrawn: 1 });
+  assert.deepEqual(c, { accepted: 5, asked: 3, withdrawnAsked: 0, ready: 2, needsChoice: 1, waiting: 1, chosen: 1, withdrawn: 1 });
+});
+
+test("a withdrawn requirement is not counted as asked for, and its idea is not offered again (FND-255)", () => {
+  const c = procureCounts({ accepted: 5, asked: 3, withdrawnAsked: 1, requirements: [{ withdrawn: false, engaged: false, providersListed: 2 }, { withdrawn: false, engaged: true, providersListed: 1 }, { withdrawn: true, engaged: false, providersListed: 0 }] });
+  assert.deepEqual(c, { accepted: 5, asked: 2, withdrawnAsked: 1, ready: 2, needsChoice: 1, waiting: 0, chosen: 1, withdrawn: 1 });
+  assert.equal(c.asked + c.withdrawnAsked + c.ready, c.accepted, "every accepted idea is asked for, taken back or still to ask for, once");
+  assert.equal(askedLabel(c), "2 of 5 accepted ideas asked for. 1 withdrawn, which is not made again.");
+  // Every idea asked for and then withdrawn: nothing counts as asked for.
+  const all = procureCounts({ accepted: 2, asked: 2, withdrawnAsked: 2, requirements: [{ withdrawn: true, engaged: false, providersListed: 0 }, { withdrawn: true, engaged: false, providersListed: 0 }] });
+  assert.equal(all.asked, 0);
+  assert.equal(askedLabel(all), "0 of 2 accepted ideas asked for. 2 withdrawn, which is not made again.");
+  // Nothing withdrawn: the words are as they were.
+  assert.equal(askedLabel(procureCounts({ accepted: 1, asked: 1, requirements: [] })), "1 of 1 accepted idea asked for");
+  assert.equal(askedLabel(procureCounts({ accepted: 5, asked: 3, requirements: [] })), "3 of 5 accepted ideas asked for");
+  // The withdrawn number is held to the number asked, and a negative is held to nothing.
+  assert.equal(procureCounts({ accepted: 3, asked: 1, withdrawnAsked: 9, requirements: [] }).withdrawnAsked, 1);
+  assert.equal(procureCounts({ accepted: 3, asked: 1, withdrawnAsked: -4, requirements: [] }).withdrawnAsked, 0);
+});
+
+test("the sentence for no idea left to ask for does not say that a withdrawn idea was asked for", () => {
+  const some = { ...none, accepted: 3, asked: 2, withdrawnAsked: 1, ready: 0 };
+  assert.equal(nothingLeftToAsk({ ...none, accepted: 2, asked: 2 }), "You have asked for every idea you accepted. Your requirements are below.");
+  assert.equal(nothingLeftToAsk(some), "You have asked for every other idea you accepted, and withdrew 1. A withdrawn requirement is not made again. Your requirements are below.");
+  assert.equal(nothingLeftToAsk({ ...none, accepted: 1, withdrawnAsked: 1 }), "You withdrew the requirement you made, and a withdrawn requirement is not made again. To ask again, make a new assessment.");
+  assert.equal(nothingLeftToAsk({ ...none, accepted: 2, withdrawnAsked: 2 }), "You withdrew every requirement you made, and a withdrawn requirement is not made again. To ask again, make a new assessment.");
+  for (const c of [some, { ...none, accepted: 1, withdrawnAsked: 1 }]) assert.ok(!/asked for every idea you accepted/.test(nothingLeftToAsk(c)), "no false claim");
 });
 
 test("more asked than accepted is held to the accepted number, and a negative is held to nothing", () => {
   assert.deepEqual(procureCounts({ accepted: 2, asked: 9, requirements: [] }).ready, 0);
-  assert.deepEqual(procureCounts({ accepted: -1, asked: -1, requirements: [] }), { accepted: 0, asked: 0, ready: 0, needsChoice: 0, waiting: 0, chosen: 0, withdrawn: 0 });
+  assert.deepEqual(procureCounts({ accepted: -1, asked: -1, requirements: [] }), { accepted: 0, asked: 0, withdrawnAsked: 0, ready: 0, needsChoice: 0, waiting: 0, chosen: 0, withdrawn: 0 });
 });
 
-const none = { accepted: 0, asked: 0, ready: 0, needsChoice: 0, waiting: 0, chosen: 0, withdrawn: 0 };
+const none = { accepted: 0, asked: 0, withdrawnAsked: 0, ready: 0, needsChoice: 0, waiting: 0, chosen: 0, withdrawn: 0 };
 
 test("the sentence puts a provider to choose before a new idea to ask for", () => {
   assert.equal(procureSentence({ ...none, accepted: 5, asked: 1, ready: 4, needsChoice: 1 }), "Next: choose a provider for the requirement below that has none yet. You can also ask for 4 more ideas.");

@@ -1,6 +1,7 @@
 /* Only what the page "What you need" needs beyond app/globals.css. Every class starts with pr- so nothing here can touch another page. Colours are tokens, in pairs the contrast test measures. */
 
 .pr-section { display: grid; gap: var(--s-3); min-width: 0; }
+.pr-group { display: grid; gap: var(--s-3); min-width: 0; }
 .pr-section > p { max-width: var(--measure); }
 .pr-note { max-width: var(--measure); }
 

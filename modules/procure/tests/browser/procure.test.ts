@@ -71,6 +71,14 @@ test("an owner follows the link from the home page, makes a requirement in a clu
     const gone = page.getByTestId("requirement-digital_job_log");
     assert.ok(await gone.getByText("Withdrawn", { exact: true }).isVisible());
     assert.equal(await gone.getByRole("button", { name: /^Withdraw/ }).count(), 0);
+    // FND-255: the bar and the words beside it do not count a withdrawn requirement as asked for, and the idea is listed apart, as withdrawn.
+    const accepted = await page.locator("[data-testid^='accepted-']").count();
+    assert.ok(accepted >= 2, `the other ideas are still on the page (${accepted})`);
+    const bar = await page.getByTestId("procure-state").innerText();
+    assert.match(bar, new RegExp(`0 of ${accepted} accepted ideas asked for\\. 1 withdrawn, which is not made again\\.`));
+    assert.ok(!/1 of \d+ accepted ideas? asked for/.test(bar), "the withdrawn requirement is not counted");
+    assert.match(await page.getByTestId("accepted").innerText(), /withdrawn\s+Keep every job[\s\S]*Requirement recorded for SYNTHETIC cluster 2, then withdrawn/i);
+    assert.equal(await page.getByTestId("accepted").getByText("Already asked for", { exact: true }).count(), 0, "nothing is open, so there is no list of open ones");
     assert.deepEqual(problems, [], "no page errors, console errors or failed requests");
     assert.deepEqual(h.blockedRequests, []);
   });
