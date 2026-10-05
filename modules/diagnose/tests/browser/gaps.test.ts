@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Page } from "playwright-core";
 import { TEST_TIMEOUT_MS, withBrowserHarness } from "../../../platform/tests/support/browser.ts";
+import { LIBRARY } from "../../src/library.ts";
 import { OWN_COMPANY, signInAsOwner, watchPage } from "../../../platform/tests/support/ui.ts";
 
 /** Clicks "Make an assessment" for a version and waits for the page it redirects to to load; returns the assessment's id. */
@@ -89,6 +90,19 @@ test("one assessment: the five parts are readable in plain words without the ide
     assert.match(await page.getByTestId("area-money").innerText(), /The first year costs ₹1,90,000 to ₹10,00,000\. Your yearly budget is up to ₹5,00,000, so it could stretch your yearly budget\./);
     assert.match(await page.getByTestId("area-people").innerText(), /skills and staffing are not assessed/);
     assert.match(await page.getByTestId("area-people").innerText(), /Nothing in the way/);
+
+    // On every idea the page says where its figures come from, and whether anything has to come first. It never shows a source the library does not name.
+    const figures = page.locator("[data-testid^='figures-']");
+    assert.equal(await figures.count(), 5);
+    for (const node of await figures.all()) {
+      const id = (await node.getAttribute("data-testid"))!.slice("figures-".length);
+      const source = LIBRARY.find((o) => o.id === id)!.source;
+      const said = (await node.innerText()).replace(/\s+/g, " ").trim();
+      assert.equal(said, source === "assumption" ? "Where these figures come from: an assumption (SYNTHETIC placeholder). No study, quotation or measurement stands behind them." : `Where these figures come from: the source register, ${source}.`);
+    }
+    assert.match(await page.getByTestId("first-digital_job_log").innerText(), /^Nothing the library asks for first is missing\.$/);
+    assert.equal(await page.getByTestId("first-camera_inspection_ai").count(), 0, "an idea with something to do first does not say nothing is missing");
+    assert.match(await page.getByTestId("item-camera_inspection_ai").innerText(), /Do first:/);
 
     // The owner's own answers are one tap away, under each part.
     assert.ok(!(await page.getByTestId("area-systems").innerText()).includes("On paper or a register"), "the answers are folded until asked for");

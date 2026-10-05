@@ -606,6 +606,9 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
                       </p>
                     ) : null}
                     <Money item={item} />
+                    <p className="muted help" data-testid={`figures-${item.opportunityId}`}>
+                      Where these figures come from: {item.source === "assumption" ? "an assumption (SYNTHETIC placeholder). No study, quotation or measurement stands behind them." : `the source register, ${item.source}.`}
+                    </p>
                     {item.readiness.needsFirst.length || item.readiness.toCheck.length ? (
                       <div className="dg-first">
                         {item.readiness.needsFirst.length ? (
@@ -619,7 +622,11 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
                           </p>
                         ) : null}
                       </div>
-                    ) : null}
+                    ) : (
+                      <p className="muted" data-testid={`first-${item.opportunityId}`}>
+                        Nothing the library asks for first is missing.
+                      </p>
+                    )}
                     <div className="dg-notes">
                       <p>
                         <strong>Hidden costs to expect:</strong> {item.costs.hidden.join("; ")}.
