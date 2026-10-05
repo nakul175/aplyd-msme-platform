@@ -5,8 +5,10 @@ import type { AppEnv } from "../modules/platform/src/env.ts";
 import { AppBar } from "./_ui/appbar.tsx";
 import "./globals.css";
 
+// The home page is titled with the app's name. Every other page exports its own `metadata = { title: "<page>" }`, which the template turns
+// into "<page>: APLYD", so a tab, a history entry and a screen reader's page announcement all say which page it is.
 export const metadata: Metadata = {
-  title: "APLYD MSME platform",
+  title: { default: "APLYD MSME platform", template: "%s: APLYD" },
   description: "Describe, diagnose, procure, deploy and run technology for a small manufacturer.",
 };
 

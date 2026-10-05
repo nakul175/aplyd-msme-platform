@@ -5,6 +5,7 @@ import { Arrow } from "../_ui/icons.tsx";
 import { Notice, PageHead } from "../_ui/parts.tsx";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Sign in" };
 
 export default async function SignIn({ searchParams }: { searchParams: Promise<{ refused?: string; expired?: string }> }) {
   const e = env as unknown as AppEnv;

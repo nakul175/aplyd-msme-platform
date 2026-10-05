@@ -11,6 +11,7 @@ import { Meter, NotOwner, Notice, Page, SignedOut, Tag } from "../_ui/parts.tsx"
 import "./factory.css";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Describe" };
 
 type Search = { saved?: string; confirmed?: string; missing?: string; stale?: string; rev?: string; problem?: string; fields?: string };
 

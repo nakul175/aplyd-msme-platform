@@ -11,6 +11,7 @@ import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/iden
 import { Notice, PageHead, SignedOut, Tag } from "../_ui/parts.tsx";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Providers" };
 
 type Search = { made?: string; listed?: string; unlisted?: string; fee?: string; problem?: string };
 
