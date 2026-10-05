@@ -108,3 +108,88 @@ What was run in this correction. Same container as above (Linux, 2 cores, Node v
 Who owns those failures. The two documents named in the last row, `docs/DOCUMENTATION-INDEX.md` and `docs/FINDINGS.md`, are written by another agent and were not edited. The two broken links in `FINDINGS.md` point at headings that the author of these documents renamed in commit `6b32db9` (the wireframes were restructured so that the built screens are section 2, and the heading of the module's limits was lengthened); the repair is to change the two links in `FINDINGS.md`, or to give the headings their old names. The five links to `LLD.md` are intended and resolve when that file is added.
 
 The documents changed by this correction (the functional specification, the wireframes and their page, the interface guide, the regression pack, the traceability document and these two files) were read against the code of commit `f35b835` and the four reviews, not run. The wireframes page was regenerated from a script kept outside the repository; the author looked at no page on a screen.
+
+## Property tests of the next-step rules (6 October 2026)
+
+Status of this section: draft, 6 October 2026. Not reviewed by a person. Written and run by one agent (S2 in a ten-agent push) in a Linux container with 2 cores shared with nine other agents, Node v22.22.0, on branch `journey-11-properties` from commit `b741f59`. It changes no source file and no other document.
+
+### What was added
+
+| File | What it is | Tests |
+| --- | --- | --- |
+| `tests/support/model.ts` | Not a test. The 19 rules of `nextStep` as data in their documented order (`RULES`), the own test of each stage, three seeded generators of facts, the small world for exhaustive checks, and a model of the platform that can only add progress (`WORLD_EVENTS`) | none |
+| `tests/unit/properties.test.ts` | Properties on generated facts, on walks and on an owner who follows each step | 26 |
+| `tests/unit/properties-exhaustive.test.ts` | The same checks on every combination of a short list of values for each field | 5 |
+
+The recorded counts are in `tests/baseline.json` (`unit/properties` 26, `unit/properties-exhaustive` 5), set with `node scripts/test.mjs unit --only journey/unit/properties,journey/unit/properties-exhaustive --update-baseline --reason ...`. The 36 tests of `progress.test.ts` and the other three suites are unchanged.
+
+How the reference was written: `RULES` and the own tests of the stages are copied from the table in `docs/design/LLD.md` section 4.7, not from `progress.ts`, so that a reordering or a changed condition in the source is a difference between the two. The table was itself written by reading the code (the LLD says so), so a mistake that the code and the table share is not found by these tests. They check the code against the documented rules. They do not check that the documented rules are right for an owner.
+
+### The cases
+
+- Three seeded tiers, 40,000 cases in all: `coherent` (facts the records could produce: counts add up, an engagement needs a signed-off assessment, a milestone is accepted only after a plan, a requirement with an engagement is not withdrawn), seed 20261005, 20,000 cases; `odd` (any combination of the fields, including ones the records cannot make), seed 20261006, 15,000; `wild` (negative and very large counts, up to 40 engagements, readable times from year -271821 to year 9999), seed 20261007, 5,000. A failing property prints the tier, the seed, the index, the time and the facts.
+- The generator puts first-acceptance times on the 30, 90 and 180 day edges and one millisecond either side, and moves the clock in 30 per cent of cases.
+- The small world: 360 prefixes (4 version states, 5 assessments, 3 values of ideas to ask for, 6 sets of counts) with no engagement and with two kinds, and 18 prefixes with a signed-off assessment tried with each of 1,080 single engagements, each ordered pair of 24 chosen ones and each ordered triple of 8: 40,122 states, all compared with the reference.
+- Walks: 1,500 walks of 70 events each (106,500 states). An event is one of 17 things that add progress (save, confirm, make an assessment, decide, sign off, make a request, list a provider, choose one, agree a plan, write down the number, record a delivery, accept, reject, record a payment, record a review, close, let days pass). The model was written from reading the deliver, run and procure modules' rules, not from their pages.
+- Button-following: 400 runs in which the owner does what each step asks, providers deliver, the operator lists, and days pass, until the step is `caught_up` with every review recorded, or `new_assessment` or `no_ideas`.
+- One canonical chain of 19 facts from nothing to a closed engagement, with the expected key at each step.
+
+### The properties
+
+Totality and the documented key set, stage and page; determinism, with the input frozen so a change of it throws; time enters only through reviews, and a review that is open stays open; the rule that fires is the first whose own condition holds (every rule is reached at least 25 times, and every pair of rules that can hold together is reached, except 20 pairs that no facts can make hold together, listed in the test); `isOwnersTurn` is false for exactly three keys; a closed engagement is never offered a delivery, a plan, closing or "work under way"; a provider is offered only when one is listed; the quiet steps and `caught_up` only when nothing above applies; counts and plurals in titles and lines; the date in "work under way" is the earliest review still to come (a day either way is allowed); all five stages in order, at most one current, current only when it is the owner's turn, never a finished stage after one not started, and the statuses equal to the documented own tests; no raw key, stage id, `undefined`, `null` or `NaN` in any words; the stage never goes back except by the steps the test names; every step that asks something asks for what the platform lets the owner do; following the steps always ends, and never goes round in a circle.
+
+### What was run
+
+| Command | Result |
+| --- | --- |
+| `node scripts/test.mjs unit --only journey/unit/progress,journey/unit/contrast,journey/unit/properties,journey/unit/properties-exhaustive --guard` | 4 of 4 suites passed: 36, 8, 26 and 5 tests. About 3 and 9 seconds for the two new suites on this machine |
+| `TZ=Asia/Kolkata`, `TZ=America/Los_Angeles` and `TZ=Pacific/Kiritimati` with `node --test` on the two new files | 31 passed each |
+| `node scripts/test.mjs static --only <every static suite except static/typecheck and static/migrations>` | 26 of 26 passed |
+| `node scripts/test.mjs static --only static/migrations` | passed |
+| `/home/claude/bin/heavy node node_modules/typescript/bin/tsc --noEmit` | exit 0, no output (a first run found one implicit `any` in `tests/support/model.ts`, fixed) |
+| `node scripts/test.mjs --check-catalogue` | clean, 97 suites |
+| `node scripts/check-documentation.mjs` | passed (49 Markdown files) |
+
+Not run: the integration and browser suites of this module (not touched), a build, the whole guard (the integrator runs it).
+
+### The mutation check
+
+A script kept outside the repository (`mutate.mjs` in the scratch area of the agent, not committed) copies `progress.ts` to a scratch tree, applies one hand-written mutant at a time (swap two rules, drop or flip a guard, `some` for `every`, a comparison turned round, a plural, a status test, a slice length, the wall clock for the given time), and runs the three unit files.
+
+| | Mutants | Killed by the new properties | Killed by the 36 example tests |
+| --- | --- | --- | --- |
+| Real changes of behaviour | 46 | 46 | 32 |
+| Expected to be equivalent | 3 | 0 (survived, as expected) | 0 |
+
+The 14 real mutants that the 36 example tests let through and the properties caught: swapping rules 9 and 10, 10 and 11, 11 and 12 (as the STATUS file said), 12 and the block of rules 13 and 14; `allAccepted` accepting an engagement with no milestone; the own test of Choose forgetting requests without a provider; the own test of Measure wanting two reviews, or counting a closed engagement as reviewed whatever was accepted; the own test of Deliver satisfied by one closed engagement; the line under Deliver counting only `accepted` and not `paid`; "work under way" judging a first acceptance on the raw time; the clock read from the wall and not from the argument; `judge_delivery` needing every engagement and not some; the own test of Describe asking for a saved version and not a confirmed one.
+
+The three that survive are equivalent: for an open engagement `statusOf` is `in_progress` exactly when it is not `planning`; a closed engagement is never `in_progress`, so the `!g.closed` filter before it changes nothing; and the list of due reviews is never empty where its length is compared with 1.
+
+Limits of this check: the mutants were chosen by the same agent that wrote the properties, so the rate is not an independent measure. Only `progress.ts` was changed, not `run/src/state.ts` or `deliver/src/state.ts`. The swap of rules 12 and 13 is caught only by facts that records cannot produce (a request with a listed provider and no request at all), by the `odd` tier; on facts `loadFacts` can build, those two rules never hold together.
+
+### Open findings
+
+1. A first-acceptance time that can be read but lies within 180 days of the last moment a JavaScript date can hold makes `nextStep`, `stageStatuses` and `stageLine("run", ...)` throw `RangeError: Invalid time value`. `readable` in `progress.ts` accepts the time; `reviewSlots` in `modules/run/src/state.ts` (line 35) then calls `toISOString()` on the invalid date. The comment on `readable` says one bad value cannot stop every page. Reproduction, run on 6 October 2026:
+
+   ```
+   const g = { planAgreed: true, closed: false, milestones: ["accepted"], baselineRecorded: true, firstAcceptedAt: "+275760-09-12T00:00:00.000Z", reviewsRecorded: [] };
+   const facts = { ...NO_FACTS, factory: { latestRevision: 1, confirmedRevision: 1 }, assessment: { items: 1, decided: 1, signedOff: true }, engagements: [g] };
+   nextStep(facts, new Date("2026-10-05T10:00:00Z")); // RangeError: Invalid time value
+   ```
+
+   Times up to `9999-12-31T23:59:59.999Z`, and as early as `-271821-04-20T00:00:00.000Z`, do not throw. The engagement events are written by the server with `new Date().toISOString()` (`modules/deliver/src/db/engagements.ts`), so a time like this can only come from a changed row. Not fixed, and not in the suite: the `wild` generator uses extreme times that work, and says why in `tests/support/model.ts`. When it is fixed, the extreme time can move into that list. [Likely low severity.]
+
+### Observations that are not failures
+
+- The wording "no `done` stage follows a not-done stage" holds when "not done" means `todo`, which is what the suite asserts. It does not hold when `current` counts as not done: in 3,006 of 20,000 `coherent` cases a finished stage stands after the stage that is the owner's turn, and all of them are `new_assessment` (2,842 cases: Describe current, Decide done) or `ask_for_more` (164 cases: Choose current, Deliver done). The LLD says the current test comes first, and the comment above `done` in `stageStatuses` ("the strip never shows a finished step after one that is not") reads more strongly than the code. The suite asserts exactly those two keys.
+- `keep_going` hides `ask_for_more` and `waiting_for_listing` hides it too (LLD 9.9, already recorded). In the 20,000 `coherent` cases, 130 of the 208 that end in `keep_going` have an accepted idea not yet asked for. The share is that of the generator, not a frequency in use.
+- Read, not run: the facts carry no count of deliveries, and `nextKinds` in `modules/deliver/src/state.ts` says a milestone rejected at `MAX_DELIVERIES` can only be followed by closing the engagement. `nextStep` has no way to offer that: such an engagement gets `keep_going`, "Nothing needs you today". [Likely, low.] The model of the platform in the tests has no cap, so no property sees it.
+- Rules 9 to 12 are now guarded: the swaps of 9 and 10, 10 and 11, 11 and 12 that STATUS.md reports as unguarded are killed by `unit/properties` and `unit/properties-exhaustive`.
+
+### What these results do not show
+
+- No property failed on the real code except the one in finding 1, which is kept out of the suite. A pass says the code agrees with the documented rules on these facts; it does not say the rules suit an owner, and it promotes no acceptance case of the BRD.
+- The generators and the model of the platform are the agent's, from reading code. Sampling can miss a combination; the small world is small (it fixes the version numbers, the assessment sizes and the counts to a few values).
+- The clock is fixed in 70 per cent of the cases. `reviewSlots` of the run module is used as it is; its edges are tested in the run module, and the generator only puts first acceptances on them.
+- No database, page or browser is involved, so nothing here tests `loadFacts` or what a page draws.
+- Everything is SYNTHETIC input.
