@@ -115,7 +115,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
               In force: <strong>{rupees(terms.feeInr)}</strong> (version {terms.version}, set <span className="op-nw">{formatDate(terms.at)}</span>).
             </p>
           ) : (
-            <p data-testid="fee-now">The fee has not been decided (OQ-11), so no provider can be listed.</p>
+            <p data-testid="fee-now">The fee has not been decided (OQ-11), so no provider can be listed. Set it below, and listing opens.</p>
           )}
         </div>
         <p className="help">Any fee set here is a SYNTHETIC placeholder, not a proposal: the real fee is an open question (OQ-11).</p>
@@ -271,7 +271,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
         <p className="help">These are the pools you can take to providers.</p>
         <p className="muted">Only pools of at least five companies are shown, and only as a count: no company is named (C-04).</p>
         {pools.length === 0 ? (
-          <p>No pool has reached five companies.</p>
+          <p>No pool has reached five companies yet. A pool shows here once five or more companies ask for the same idea in the same cluster.</p>
         ) : (
           <ul className="op-pools">
             {pools.map((p) => (
