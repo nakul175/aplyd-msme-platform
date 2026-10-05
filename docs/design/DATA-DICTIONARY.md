@@ -16,14 +16,14 @@ The test `modules/docs/tests/static/dictionary-sync.test.ts` builds that databas
 
 | Item | Count |
 | --- | --- |
-| Migrations | 15 |
-| Tables | 16 |
-| Columns | 117 |
-| Indexes made with CREATE INDEX | 30 |
-| Triggers | 91 |
-| Triggers that make a table append-only | 42 |
-| Triggers that enforce a rule | 49 |
-| Tables that are append-only | 14 |
+| Migrations | 16 |
+| Tables | 17 |
+| Columns | 125 |
+| Indexes made with CREATE INDEX | 31 |
+| Triggers | 98 |
+| Triggers that make a table append-only | 45 |
+| Triggers that enforce a rule | 53 |
+| Tables that are append-only | 15 |
 
 ### 1.2 Reading a table section
 
@@ -63,11 +63,11 @@ The platform has one database. Each module defines its own tables in `modules/<m
 | Diagnose | diagnose | `assessments`, `assessment_events` | 0005, guards in 0006 and 0007, rules in 0014 |
 | Procure | procure | `requirements`, `requirement_events`, `providers`, `provider_services`, `listing_terms`, `provider_events` | 0008, guards in 0009, rules in 0011 and 0014 |
 | Deploy | deliver | `engagements`, `milestones`, `engagement_events` | 0010, guards in 0011, rules in 0014 |
-| Run | run | `outcome_events` | 0012, guards in 0013 |
+| Run | run | `outcome_events`, `outcome_corrections` | 0012, guards in 0013; `outcome_corrections` and two baseline rules in 0015 |
 
 ### 1.5 The append-only principle
 
-14 of the 16 tables are append-only. Three triggers on each refuse an UPDATE, a DELETE, and an INSERT that would replace a row (the id or a unique key already exists, which is what `INSERT OR REPLACE` does). Only `companies` and `users` can change, and no endpoint changes either. A correction is a new row: a new revision, a new decision, a new event. What state a thing is in is worked out when it is read (section 6), never stored. This is BR-DATA-04. [Certain]
+15 of the 17 tables are append-only. Three triggers on each refuse an UPDATE, a DELETE, and an INSERT that would replace a row (the id or a unique key already exists, which is what `INSERT OR REPLACE` does). Only `companies` and `users` can change, and no endpoint changes either. A correction is a new row: a new revision, a new decision, a new event. What state a thing is in is worked out when it is read (section 6), never stored. This is BR-DATA-04. [Certain]
 
 What the triggers cannot stop is a person with write access to the database dropping a trigger, dropping a table or altering one: nothing inside SQLite can. The health check (API-01) reports `degraded` when a required trigger is missing, by name and by table; it does not read a trigger's body, so a trigger of the right name with a weaker body would pass. There is no hash chain over the audit log, so a change made outside the application would not be seen. [Certain]
 
@@ -98,6 +98,7 @@ erDiagram
   milestones |o--o{ engagement_events : "is the subject of"
   engagements ||--o{ engagement_events : "records"
   engagements ||--o{ outcome_events : "is measured by"
+  outcome_events ||--o{ outcome_corrections : "is corrected by"
 ```
 
 ### 2.2 Platform: companies, people and the audit log
@@ -264,6 +265,10 @@ erDiagram
   engagements ||--o{ outcome_events : "is measured by"
   users ||--o{ outcome_events : "records"
   companies ||--o{ outcome_events : "owns"
+  outcome_events ||--o{ outcome_corrections : "is corrected by"
+  engagements ||--o{ outcome_corrections : "has corrections"
+  users ||--o{ outcome_corrections : "records"
+  companies ||--o{ outcome_corrections : "owns"
   engagements {
     TEXT id PK
     TEXT company_id FK
@@ -307,6 +312,16 @@ erDiagram
     TEXT verdict
     TEXT in_use
     TEXT note
+  }
+  outcome_corrections {
+    INTEGER id PK
+    INTEGER outcome_id FK
+    TEXT engagement_id FK
+    TEXT company_id FK
+    TEXT at
+    TEXT user_id FK
+    INTEGER value
+    TEXT reason
   }
 ```
 
@@ -724,9 +739,37 @@ The primary key (`id`) also has an index that SQLite makes itself; it is not lis
 
 The primary key (`id`) also has an index that SQLite makes itself; it is not listed. Check constraints: `outcome_events_value`, `outcome_events_note`, `outcome_events_shape`.
 
+Since migration 0015 a baseline is also refused on a closed engagement and before the plan is agreed (triggers `outcome_events_baseline_not_after_close` and `outcome_events_baseline_needs_an_agreed_plan`). A wrong number is not changed here: a correction is a row of `outcome_corrections` that names it.
+
+### outcome_corrections
+
+- Purpose: A correction of a baseline or a review the owner recorded (BR-RUN-09): the number it should have been and why. The row it corrects is not changed; both stay visible, and the latest correction of a row is its current value.
+- Owner module: run
+- Scope: Company table. A composite foreign key ties it to the company's own engagement, and a trigger requires the corrected row to be of the same engagement and company.
+- Append-only: yes. Three triggers refuse UPDATE, DELETE and an INSERT that reuses an id.
+- Created in: migration 0015
+- Note: Only the number is corrected. A review's verdict and its answer on use are not. A later correction of the same row supersedes an earlier one, which stays.
+
+| Column | Type | Null | Default | Key | Meaning | Allowed values and limits | Written by | Enforced in |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `id` | INTEGER | no | none | PK | Position of the correction. | Assigned by SQLite (AUTOINCREMENT). | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | Primary key. `outcome_corrections_no_replace` refuses a reused id. |
+| `outcome_id` | INTEGER | no | none | FK outcome_events(id) | The baseline or review this corrects. | The id of a row of `outcome_events` of the same engagement and company. | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | Foreign key; trigger `outcome_corrections_names_an_outcome`; trigger `outcome_corrections_value_is_whole`; the `EXISTS` in the insert. |
+| `engagement_id` | TEXT | no | none | FK engagements(id, company_id) | The engagement whose number is corrected. | An engagement of the same company. | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | Composite foreign key; trigger `outcome_corrections_names_an_outcome`. |
+| `company_id` | TEXT | no | none | FK companies(id); FK engagements(id, company_id) | The company that owns the row. | The signed-in owner's company. | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | Foreign keys; the handler binds it from the identity. |
+| `at` | TEXT | no | none | none | When the correction was recorded. | UTC time in ISO 8601 with milliseconds, from the application's clock. | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | NOT NULL only. |
+| `user_id` | TEXT | no | none | FK users(id) | The person who recorded it. | The signed-in owner. | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | Foreign key. |
+| `value` | INTEGER | no | none | none | The number it should have been, in the same unit as the row it corrects. | A whole number from 0 to 1,000,000,000. | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | CHECK `outcome_corrections_value`; trigger `outcome_corrections_value_is_whole`; handler `readValue`. |
+| `reason` | TEXT | no | none | none | Why the first number was wrong, in the owner's words. | 1 to 500 characters and at most 2,000 bytes, no control characters. | `recordCorrection` (`modules/run/src/db/outcomes.ts`), from `handleOutcomeRecord` (API-21). | CHECK `outcome_corrections_reason`; the handler refuses an empty or blank reason and control characters. |
+
+| Index | Columns | Unique | Condition | Purpose |
+| --- | --- | --- | --- | --- |
+| `outcome_corrections_engagement` | `engagement_id` | no | none | Finds the corrections of an engagement. |
+
+The primary key (`id`) also has an index that SQLite makes itself; it is not listed. Check constraints: `outcome_corrections_value`, `outcome_corrections_reason`.
+
 ## 4. Trigger catalogue
 
-The database holds 91 triggers: 42 that make 14 tables append-only and 49 that enforce a rule about what may be inserted. All are BEFORE triggers that refuse with `RAISE(ABORT, ...)`; the Message column is the exact text. Every insert is written inside a D1 batch with its audit entry, so a refusal leaves neither. Handlers read the message to answer with a named code (the Rule column says which). [Certain]
+The database holds 98 triggers: 45 that make 15 tables append-only and 53 that enforce a rule about what may be inserted. All are BEFORE triggers that refuse with `RAISE(ABORT, ...)`; the Message column is the exact text. Every insert is written inside a D1 batch with its audit entry, so a refusal leaves neither. Handlers read the message to answer with a named code (the Rule column says which). [Certain]
 
 SQLite does not define the order in which several triggers on one table run. The review fixes of migration 0014 therefore gave each rule a condition that excludes the cases of its neighbours, so that a test can name the one trigger that refuses a row. This holds for the three revision rules, the delivery rules and the engagement rules. It does not hold for every note, number and date rule: a row that breaks several things at once is refused, and which message it gets is not defined (deliver STATUS, limit 16). [Certain]
 
@@ -749,6 +792,7 @@ The count by migration. Two triggers (`engagement_events_delivery_limit` and `en
 | 0012 | 0 | 0 |
 | 0013 | 9 | 0 |
 | 0014 | 19 | 2 |
+| 0015 | 7 | 0 |
 
 ### Triggers on audit_events
 
@@ -910,6 +954,18 @@ The count by migration. Two triggers (`engagement_events_delivery_limit` and `en
 | `outcome_events_review_is_due` | BEFORE INSERT | 0013 | run | A review's stamp must be at least 30, 90 or 180 days (for reviews 1, 2 and 3) after the first acceptance's stamp. The database trusts the application's clock. Surfaces as 409 `not_due`. | `this review is not due yet` |
 | `outcome_events_review_needs_an_acceptance` | BEFORE INSERT | 0013 | run | A review needs an accepted milestone on the engagement. Surfaces as 409 `nothing_accepted`. | `a review needs an accepted milestone` |
 | `outcome_events_value_is_whole` | BEFORE INSERT | 0013 | run | The figure and the review number are integers, not 1.5. | `a figure and a review number are whole numbers` |
+| `outcome_events_baseline_not_after_close` | BEFORE INSERT | 0015 | run | A first baseline is refused on a closed engagement where nothing was accepted. Surfaces as 409 `baseline_closed`. | `a baseline is not taken on a closed engagement` |
+| `outcome_events_baseline_needs_an_agreed_plan` | BEFORE INSERT | 0015 | run | A first baseline is refused on an open engagement whose plan is not agreed. Surfaces as 409 `baseline_no_plan`. | `a baseline needs an agreed plan` |
+
+### Triggers on outcome_corrections
+
+| Trigger | Event | Migration | Module | Rule | Message |
+| --- | --- | --- | --- | --- | --- |
+| `outcome_corrections_no_update` | BEFORE UPDATE | 0015 | run | Refuses every UPDATE. A row is never changed. | `outcome_corrections is append-only` |
+| `outcome_corrections_no_delete` | BEFORE DELETE | 0015 | run | Refuses every DELETE. A row is never removed. | `outcome_corrections is append-only` |
+| `outcome_corrections_no_replace` | BEFORE INSERT | 0015 | run | Refuses an INSERT that reuses the id, which is what INSERT OR REPLACE does. | `outcome_corrections is append-only` |
+| `outcome_corrections_value_is_whole` | BEFORE INSERT | 0015 | run | The figure and the id of the corrected row are integers, not 1.5. | `a corrected figure is a whole number` |
+| `outcome_corrections_names_an_outcome` | BEFORE INSERT | 0015 | run | The corrected row is a baseline or review of the same engagement and company. The handler answers 404 `not_found` before this is reached. | `a correction names a number recorded for the same engagement` |
 
 ## 5. Enumerations and reference data
 
@@ -1066,6 +1122,7 @@ A successful change writes its audit entry in the same D1 batch as the row, and 
 | `engagement.closed` | API-19 | The owner recorded closed. | engagement, milestone (empty text when the event is about no milestone) |
 | `outcome.baseline` | API-21 | A baseline was recorded. | engagement, review (0) |
 | `outcome.review` | API-21 | A review was recorded. | engagement, review |
+| `outcome.corrected` | API-21 | A correction of a baseline or a review was recorded. | engagement, outcome |
 | `company.read.denied` | API-04 | A signed-in person asked for a company that is not their own. | requested |
 | `factory.read.denied` | API-05 | The same, for the description. | requested |
 | `factory.write.denied` | API-06 | A refused attempt to save a revision: another company (404) or a member (403). | requested |

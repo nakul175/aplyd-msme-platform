@@ -60,11 +60,11 @@ function Corrections({ item, unit, testId }: { item: Fixed; unit: string; testId
 }
 
 /** A collapsed form to correct a number already recorded. It posts a new record; the one it corrects is not changed. */
-function CorrectForm({ action, outcomeId, idPrefix, unit, testId }: { action: string; outcomeId: number; idPrefix: string; unit: string; testId: string }) {
+function CorrectForm({ companyId, engagementId, outcomeId, idPrefix, unit, testId }: { companyId: string; engagementId: string; outcomeId: number; idPrefix: string; unit: string; testId: string }) {
   return (
     <details className="ru-correct">
       <summary>Correct this number</summary>
-      <form method="post" action={action} className="ru-form" data-testid={testId}>
+      <form method="post" action={`/api/companies/${companyId}/engagements/${engagementId}/outcomes`} className="ru-form" data-testid={testId}>
         <input type="hidden" name="kind" value="correction" />
         <input type="hidden" name="outcome" value={String(outcomeId)} />
         <div className="question">
@@ -197,7 +197,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                           Starting number: <strong>{num(o.baseline.value)}</strong> {unit}, recorded <span className="ru-nw">{o.baseline.at.slice(0, 10)}</span>.{o.baseline.note ? ` ${o.baseline.note}` : ""}
                         </p>
                         <Corrections item={o.baseline} unit={unit} testId="baseline-corrections" />
-                        <CorrectForm action={base(g.id)} outcomeId={o.baseline.id} idPrefix={`correct-bl-${g.id}`} unit={unit} testId="form-correct-baseline" />
+                        <CorrectForm companyId={companyId} engagementId={g.id} outcomeId={o.baseline.id} idPrefix={`correct-bl-${g.id}`} unit={unit} testId="form-correct-baseline" />
                       </>
                     ) : o.canRecordBaseline ? (
                       <form method="post" action={base(g.id)} className="ru-form" data-testid="form-baseline">
@@ -315,7 +315,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                                 Number: <strong>{num(r.record.value)}</strong> {unit}, recorded <span className="ru-nw">{r.record.at.slice(0, 10)}</span>.{r.record.note ? ` ${r.record.note}` : ""}
                               </p>
                               <Corrections item={r.record} unit={unit} testId={`review-${r.no}-corrections`} />
-                              <CorrectForm action={base(g.id)} outcomeId={r.record.id} idPrefix={`correct-${g.id}-${r.no}`} unit={unit} testId={`form-correct-review-${r.no}`} />
+                              <CorrectForm companyId={companyId} engagementId={g.id} outcomeId={r.record.id} idPrefix={`correct-${g.id}-${r.no}`} unit={unit} testId={`form-correct-review-${r.no}`} />
                             </>
                           ) : r.state === "waiting" ? (
                             <p className="muted">Starts when you accept your first milestone.</p>

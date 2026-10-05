@@ -1172,7 +1172,7 @@ Response 201.
 
 | Status | Code or body | When | Form post |
 | --- | --- | --- | --- |
-| 200 | Body with `engagementId`, `title`, `expected`, `baseline`, `firstAcceptedAt`, `canRecordBaseline`, `reviews`, `changeSinceBaseline`, `next` | `expected` is the range the assessment gave for the idea, a SYNTHETIC assumption, or null. `reviews` has three entries, each with `no`, `days`, `dueAt`, `state` (waiting, not_due, due or recorded) and `record` (null, or `at`, `value`, `verdict`, `inUse`, `note`). `changeSinceBaseline` is the latest review's figure less the baseline, or null unless both exist. All figures are typed by the owner; the platform measures nothing. | none |
+| 200 | Body with `engagementId`, `title`, `expected`, `baseline`, `firstAcceptedAt`, `canRecordBaseline`, `baselineBlocked`, `reviews`, `changeSinceBaseline`, `next` | `expected` is the range the assessment gave for the idea, a SYNTHETIC assumption, or null. `baseline` is null, or `id`, `value`, `at`, `note`, `recorded` and `corrections`. `baselineBlocked` says why a baseline cannot be taken now (`recorded`, `too_late`, `closed`, `no_plan`), or is null when `canRecordBaseline` is true. `reviews` has three entries, each with `no`, `days`, `dueAt`, `state` (waiting, not_due, due or recorded) and `record` (null, or `id`, `at`, `value`, `verdict`, `inUse`, `note`, `recorded`, `corrections`). In `baseline` and `record`, `value` is the current figure (the latest correction's, or the one recorded), `recorded` the figure first recorded, and `corrections` every correction in order (`at`, `value`, `reason`). `changeSinceBaseline` is the latest review's current figure less the baseline's, or null unless both exist. All figures are typed by the owner; the platform measures nothing. | none |
 | 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | none |
 | 404 | `not_found` | The company is not the caller's (audited), or no engagement of that id exists for it. | none |
 | 503 | `storage_unavailable` | The platform has no database bound. | none |
@@ -1191,12 +1191,16 @@ Response 200.
     "synthetic": true
   },
   "baseline": {
-    "value": 40,
+    "id": 1,
     "at": "2026-10-05T09:30:00.000Z",
-    "note": ""
+    "note": "",
+    "value": 40,
+    "recorded": 40,
+    "corrections": []
   },
   "firstAcceptedAt": "2026-10-05T09:42:10.000Z",
   "canRecordBaseline": false,
+  "baselineBlocked": "recorded",
   "reviews": [
     {
       "no": 1,
@@ -1229,38 +1233,42 @@ Response 200.
 
 | Item | Detail |
 | --- | --- |
-| Purpose | Records a baseline (once, before anything is accepted) or one review (once each, from the day it falls due): a number the owner typed, whether the work did what the assessment expected, and whether it is still in use. |
-| Serves | BR-RUN-01, BR-RUN-02 |
+| Purpose | Records a baseline (once, after the plan is agreed, while the engagement is open and before anything is accepted) or one review (once each, from the day it falls due): a number the owner typed, whether the work did what the assessment expected, and whether it is still in use. With `kind` `correction` it records a correction of a baseline or review already recorded: the right number and why; the corrected row is not changed. |
+| Serves | BR-RUN-01, BR-RUN-02, BR-RUN-09 |
 | Caller | The owner of the company in the URL: a signed-in person whose role is `owner` and whose company is that company. |
 | Everyone else | Another website's request: 403 `cross_site_refused`. Not signed in: 401 `not_signed_in`. Another company's person, or the operator: 404 `not_found` and an audit entry `outcome.write.denied`. A member who is not the owner: 403 `forbidden` and an audit entry `outcome.write.denied`. No database bound: 503 `storage_unavailable`. |
 | Content types | `application/json` (one JSON object) or `application/x-www-form-urlencoded`. The type is compared without regard to case and parameters such as `charset` are ignored. A request with no body and no content type is read as empty. Any other type, or a body with no type, gets 415. |
 | Body limit | 65536 characters (`MAX_BODY_CHARACTERS`). The body is read in pieces and abandoned at four bytes for each character allowed (262144 bytes); a declared `content-length` above that is refused unread. A body that decodes to more than 65536 characters is refused too. Both answer 413 `too_large`. |
-| Side effects | One `outcome_events` row and one `audit_events` row, `outcome.baseline` or `outcome.review`, in one batch. |
+| Side effects | One `outcome_events` row and one `audit_events` row, `outcome.baseline` or `outcome.review`, in one batch. A correction: one `outcome_corrections` row and one `audit_events` row, `outcome.corrected`, in one batch. |
 | Idempotency | Not idempotent, but each measurement can be recorded once: a repeated baseline gets 409 `baseline_exists`, a repeated review `review_exists`. |
-| Form post | yes. The page `/run` posts here, with `kind`, `value`, `review`, `verdict`, `in_use` and `note`. |
+| Form post | yes. The page `/run` posts here, with `kind`, `value`, `review`, `verdict`, `in_use` and `note`; a correction with `kind`, `outcome`, `value` and `reason`. |
 
 | Field | Form field | Type | Required | Limits and meaning |
 | --- | --- | --- | --- | --- |
 | `id` (in the path) | same | string | yes | The company id. Compared with the caller's own company; it is never used to look anything up. |
 | `eid` (in the path) | same | string | yes | The engagement id, 1 to 64 characters; a longer one answers 404. |
-| `kind` | `kind` | string | yes | `baseline` or `review`. |
+| `kind` | `kind` | string | yes | `baseline`, `review` or `correction`. |
 | `value` | `value` | integer, or digits in text | yes | Whole number from 0 to 1000000000; text of 1 to 10 digits is read as a number. In the unit of the idea's measure, which the platform does not check. |
 | `reviewNo` | `review` | integer | for review | 1, 2 or 3. In JSON it must be a number; the text `1` is refused. Refused for a baseline. |
 | `verdict` | `verdict` | string | for review | `met`, `partly` or `not_met`. Refused for a baseline. |
 | `inUse` | `in_use` | string | for review | `yes` or `no`. Refused for a baseline. |
-| `note` | `note` | string | no | up to 500 characters after trimming; control characters and invisible direction marks are refused. |
+| `note` | `note` | string | no | up to 500 characters after trimming; control characters and invisible direction marks are refused. Refused for a correction. |
+| `outcomeId` | `outcome` | integer | for correction | The id of the baseline or review being corrected, as the read (API-20) gives it in `baseline.id` or `record.id`. It must be a row of this engagement of this company; any other gives 404. Refused for a baseline or review. |
+| `reason` | `reason` | string | for correction | Why the first number was wrong: 1 to 500 characters after trimming; control characters are refused. |
 
 | Status | Code or body | When | Form post |
 | --- | --- | --- | --- |
-| 201 | Body with `ok` true | The measurement was recorded. | 303 to `/run?saved={kind}` |
-| 400 | `invalid` | A field is wrong, or one is given that a baseline does not take. The body holds `fields`. | 303 to `/run?problem=invalid` |
+| 201 | Body with `ok` true | The measurement or the correction was recorded. | 303 to `/run?saved={kind}` (`/run?saved=correction` for a correction) |
+| 400 | `invalid` | A field is wrong, or one is given that a baseline or a correction does not take. The body holds `fields`. | 303 to `/run?problem=invalid`; for a correction, 303 to `/run?problem=correction_invalid` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
 | 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `outcome.write.denied`. | JSON |
-| 404 | `not_found` | The company is not the caller's (audited), or the engagement does not exist for it, or the id is over 64 characters. | 303 to `/run?problem=missing` for the second case |
+| 404 | `not_found` | The company is not the caller's (audited), or the engagement does not exist for it, or the id is over 64 characters, or a correction names a row that is not a baseline or review of this engagement of this company. | 303 to `/run?problem=missing` for the second, third and fourth cases |
 | 409 | `baseline_exists` | A baseline was recorded already (trigger `outcome_events_one_baseline_only`). | 303 to `/run?problem=baseline_exists` |
 | 409 | `baseline_too_late` | Something is already accepted (trigger `outcome_events_baseline_before_acceptance`). | 303 to `/run?problem=baseline_too_late` |
+| 409 | `baseline_closed` | The engagement is closed and nothing on it was accepted (the handler; trigger `outcome_events_baseline_not_after_close`). | 303 to `/run?problem=baseline_closed` |
+| 409 | `baseline_no_plan` | The plan is not agreed yet (the handler; trigger `outcome_events_baseline_needs_an_agreed_plan`). | 303 to `/run?problem=baseline_no_plan` |
 | 409 | `review_exists` | That review was recorded already (trigger `outcome_events_one_review_each`). | 303 to `/run?problem=review_exists` |
 | 409 | `nothing_accepted` | A review needs an accepted milestone (trigger `outcome_events_review_needs_an_acceptance`). | 303 to `/run?problem=nothing_accepted` |
 | 409 | `not_due` | The review's day has not come: 30, 90 or 180 days after the first acceptance (trigger `outcome_events_review_is_due`). | 303 to `/run?problem=not_due` |
@@ -1692,7 +1700,9 @@ Every code an operation can answer with, as the `error` field of the body (`stat
 | `already_listed` | 409 | The provider is listed. | API-25 |
 | `already_signed_off` | 409 | A sign-off exists. | API-11 |
 | `already_withdrawn` | 409 | The requirement is already withdrawn. | API-14 |
+| `baseline_closed` | 409 | The engagement is closed, so a baseline is not taken. | API-21 |
 | `baseline_exists` | 409 | A baseline is recorded. | API-21 |
+| `baseline_no_plan` | 409 | The plan is not agreed, so a baseline is not taken yet. | API-21 |
 | `baseline_too_late` | 409 | Something is accepted, so a baseline can no longer be taken. | API-21 |
 | `changed` | 409 | A decision landed while the sign-off was made. The body holds `detail`. | API-11 |
 | `closed` | 409 | The engagement is closed. | API-18, API-19 |
