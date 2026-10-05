@@ -848,9 +848,9 @@ Context. Two tabs, or two people of one company, can save the description at onc
 
 Decision. A save names the revision it starts from (`basedOn`); if a later one exists, nothing is written and the answer is 409 with the latest. Revisions are numbered per company without gaps by a trigger.
 
-Consequences. A person at a form is told their copy is stale and keeps what they typed. There are no merges.
+Consequences. AS BUILT: a person at a form is told that a newer version was saved, that theirs was not saved and to make the changes again; the page shows the newest version, and the answers they typed are not kept (`handleRevisionCreate` redirects to `/factory?stale=1`; [FND-268](../FINDINGS.md)). TO BE: BR-DESC-03 asks that nothing typed is lost. There are no merges.
 
-Status. Built.
+Status. Built for the check that nothing is overwritten; partly built for the person's typed answers (FND-268).
 
 Source. [Factory status](../../modules/factory/STATUS.md); `modules/factory/src/db/revisions.ts`; commit 408352b.
 
