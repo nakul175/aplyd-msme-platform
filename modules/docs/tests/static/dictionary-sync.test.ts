@@ -417,11 +417,11 @@ const EVIDENCE: { file: string; line: number; has: RegExp }[] = [
   { file: "modules/platform/src/db/schema.ts", line: 17, has: /owner \| operator/ },
   { file: "modules/platform/src/db/schema.ts", line: 21, has: /refuses UPDATE and DELETE/ },
   { file: "modules/platform/src/db/schema.ts", line: 28, has: /Never personal data/ },
-  { file: "modules/deliver/STATUS.md", line: 46, has: /review-fixes branch/ },
-  { file: "modules/deliver/STATUS.md", line: 47, has: /review-fixes branch/ },
-  { file: "modules/diagnose/STATUS.md", line: 36, has: /review-fixes branch/ },
-  { file: "modules/diagnose/STATUS.md", line: 37, has: /review-fixes branch/ },
-  { file: "modules/procure/STATUS.md", line: 43, has: /review-fixes branch/ },
+  { file: "modules/deliver/STATUS.md", line: 60, has: /review-fixes branch/ },
+  { file: "modules/deliver/STATUS.md", line: 61, has: /review-fixes branch/ },
+  { file: "modules/diagnose/STATUS.md", line: 46, has: /review-fixes branch/ },
+  { file: "modules/diagnose/STATUS.md", line: 47, has: /review-fixes branch/ },
+  { file: "modules/procure/STATUS.md", line: 54, has: /review-fixes branch/ },
   { file: "modules/journey/STATUS.md", line: 5, has: /stacked on the review-fixes branch/ },
 ];
 
