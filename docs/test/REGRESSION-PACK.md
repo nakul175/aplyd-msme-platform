@@ -102,9 +102,10 @@ The rows below are [Likely] sound and are not enforced. When in doubt, run RP-01
 | `modules/factory` | the `factory/*` suites, `journey/browser/journey` |
 | `modules/diagnose` (engine, library, digest) | the `diagnose/*` suites, `demo/unit/cast` (it pins the ranking the demonstration relies on), `journey/browser/journey` |
 | `modules/procure` (pool, providers, fee, clusters) | the `procure/*` suites, `deliver/integration/deliver-api`, `demo/smoke/demo`, RP-02 |
-| `modules/deliver` | the `deliver/*` suites, `run/integration/run-api`, `journey/browser/journey`, RP-02 |
-| `modules/run` | the `run/*` suites, `journey/browser/journey` |
-| `app/` pages and `app/api/` routes | the owning module's smoke and browser suites, `platform/static/page-lookups`, `platform/static/source-rules`, `demo/static/script-labels` (it fails when a label on a page changes and the demonstration script does not), `journey/browser/journey` |
+| `modules/deliver` | the `deliver/*` suites, `run/integration/run-api`, `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey`, RP-02 |
+| `modules/run` | the `run/*` suites, `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey` |
+| `modules/journey` (which step is the owner's turn) | `journey/unit/progress`, `journey/integration/facts`, `journey/browser/journey` |
+| `app/` pages and `app/api/` routes | the owning module's smoke and browser suites, `platform/static/page-lookups`, `platform/static/source-rules`, `demo/static/script-labels` (it fails when a label on a page changes and the demonstration script does not), `journey/browser/journey`; for `app/globals.css`, `journey/unit/contrast` (it reads the colours from that file) |
 | `worker/` | `platform/smoke/built-app`, `platform/unit/security-headers`, `platform/static/source-rules` |
 | `modules/hosting`, `scripts/serve.mjs`, `Dockerfile`, `.do/app.yaml` | the `hosting/*` suites, `demo/smoke/demo` |
 | `modules/demo` | the `demo/*` suites, `platform/static/source-rules` (its import-following exemption), `hosting/smoke/serve` |

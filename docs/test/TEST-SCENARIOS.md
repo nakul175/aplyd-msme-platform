@@ -56,7 +56,7 @@ AS BUILT means the steps are those of the test named, read from the test file. T
 
 | Field | Content |
 | --- | --- |
-| Goal | Show that each stage's page hands over to the next: nothing a page writes is unreadable to the page after it, and no page is a dead end |
+| Goal | Show that each stage's page hands over to the next: nothing a page writes is unreadable to the page after it, and each stage's page can be reached from the home page |
 | Actors | Owner A; the operator (in a second browser context) |
 | Preconditions | The built application (`pnpm build`) in a local Worker with a fresh database and the synthetic seed; headless Chromium; no company has a provider listed |
 | Requirements | BR-DESC-01, BR-DIAG-01, BR-PROC-01, BR-DEPL-01, BR-DEPL-03, BR-RUN-01, BR-RUN-02 |
@@ -78,7 +78,7 @@ Steps:
 
 Expected outcome: every step above succeeds through the pages alone; the listing fee appears on no page Owner A read; no page error, console error or failed request occurred; no request left the application.
 
-What it does not show: one path, one browser, one synthetic company whose first description is already confirmed. It cannot record a review, because a review opens 30 days after the first acceptance and the pages cannot move the clock (SC-11 covers that elsewhere). It does not check that the home page shows the five stages in one view (BR-UX-02) or that anyone can understand the pages (SC-22). It was never shown able to fail by a break in a page ([journey VALIDATION.md](../../modules/journey/VALIDATION.md)).
+What it does not show: one path, one browser, one synthetic company whose first description is already confirmed. It cannot record a review, because a review opens 30 days after the first acceptance and the pages cannot move the clock (SC-11 covers that elsewhere). It goes back to the home page between stages and clicks the stage's link; it does not read the five steps, the next-step card or the first block of the home page (BR-UX-01, BR-UX-02), does not follow a page's own next-step button, and does not check that anyone can understand the pages (SC-22). It was never shown able to fail by a break in a page ([journey VALIDATION.md](../../modules/journey/VALIDATION.md)).
 
 ## SC-02 A second company sees none of it
 
@@ -559,7 +559,7 @@ Not shown: the ranking weights and every library figure are placeholders chosen 
 | --- | --- |
 | Goal | An owner can say what each page is for, what to do next, and what each term means, without help |
 | Actors | An owner; a person from APLYD who observes and records |
-| Preconditions | Pages that state their purpose and one next step (not built); a glossary shown in the interface; owners found through a route that satisfies C-05 |
+| Preconditions | Pages that state their purpose and one next step (built for the owner pages, never tried with an owner); a glossary shown in the interface (not built); owners found through a route that satisfies C-05 |
 | Requirements | BR-UX-01, BR-UX-02, BR-UX-03 |
 | Level run | manual |
 | Automated by | None |
@@ -572,7 +572,7 @@ Steps:
 3. Ask what a term means (assessment, requirement, engagement, listing, baseline); record whether they knew without help.
 4. Open the home page at each stage and ask which stage they are at.
 
-Expected outcome (TO BE): eight of ten owners can answer for each page (a [Guessing] bar from the BRD). This scenario cannot start until each page states its purpose and one next step. The record is kept outside the repository, under codes ([UAT plan](UAT-PLAN.md)).
+Expected outcome (TO BE): eight of ten owners can answer for each page (a [Guessing] bar from the BRD). Steps 1, 2 and 4 can be run now, on the owner pages. Step 3 can also be run, and would find that "assessment", "requirement" and "engagement" are used and explained only in part; "baseline" is now "starting number" on the owner pages. The record is kept outside the repository, under codes ([UAT plan](UAT-PLAN.md)).
 
 ## SC-23 Ten owners, in sessions
 
