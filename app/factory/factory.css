@@ -60,11 +60,10 @@
 .fc-form .question.fc-bad { border-inline-start: 4px solid var(--danger); padding-inline-start: var(--s-3); }
 .fc-error { color: var(--danger); margin: 0 0 var(--s-2); }
 
-/* A group that names a limit (up to three biggest problems): once three are ticked the others are dimmed and cannot be pressed. The page's own script
-   also switches them off, so the keyboard cannot tick a fourth; this rule is what a person sees if that script has not run. The server keeps the rule either way. */
-.fc-limit { display: none; margin-top: var(--s-2); }
-.fc-form fieldset.question:has(.options[data-max="3"] .option:has(:checked) ~ .option:has(:checked) ~ .option:has(:checked)) .fc-limit { display: block; }
-.fc-form .options[data-max="3"]:has(.option:has(:checked) ~ .option:has(:checked) ~ .option:has(:checked)) .option:not(:has(:checked)) { opacity: 0.7; pointer-events: none; }
+/* A group that names a limit (up to three biggest problems): the page draws the unticked boxes switched off once three are ticked, and its own small script
+   moves that as boxes are ticked and unticked. Without the script the page opens as the saved answers say, and the server keeps the rule either way. */
+.fc-limit { margin-top: var(--s-2); }
+.fc-limit[hidden] { display: none; }
 .fc-form .option:has(input:disabled:not(:checked)) { opacity: 0.7; cursor: not-allowed; }
 
 /* The next step, in the page head, when the newest version is confirmed. */

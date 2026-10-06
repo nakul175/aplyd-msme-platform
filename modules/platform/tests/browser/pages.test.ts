@@ -60,11 +60,13 @@ test("the sign-in page renders with the SYNTHETIC banner and offers only the syn
   const picker = page.getByLabel("Synthetic user");
   assert.ok(await picker.isVisible(), "the picker is reachable through its label");
   const options = await picker.locator("option").evaluateAll((nodes) => nodes.map((o) => ({ value: (o as HTMLOptionElement).value, label: o.textContent ?? "" })));
+  // The list starts on "Choose a person" (S5-21), which stands for nobody; the people follow.
   assert.deepEqual(
     options.map((o) => o.label),
-    ["SYNTHETIC Operator (operator)", "SYNTHETIC Owner A (owner)", "SYNTHETIC Owner B (owner)"],
+    ["Choose a person", "SYNTHETIC Operator (operator)", "SYNTHETIC Owner A (owner)", "SYNTHETIC Owner B (owner)"],
   );
-  for (const o of options) assert.match(o.value, /@synthetic\.invalid$/, `${o.value} is a reserved synthetic address`);
+  assert.equal(options[0]!.value, "", "the placeholder has no address");
+  for (const o of options.slice(1)) assert.match(o.value, /@synthetic\.invalid$/, `${o.value} is a reserved synthetic address`);
   assert.ok(await page.getByRole("button", { name: "Sign in" }).isEnabled());
   assert.equal(await page.getByRole("alert").count(), 0, "no refusal message before anyone has been refused");
   assert.deepEqual(problems, []);

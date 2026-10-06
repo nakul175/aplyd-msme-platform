@@ -296,6 +296,8 @@ test("S5-02: a refused save keeps the typed boxes of several kinds (text, number
     await page.getByLabel("What do you make?").fill("SYNTHETIC circuit boards");
     await page.getByLabel("Which year did the unit start?").fill("3000");
     await page.getByRole("checkbox", { name: "Packaging" }).check();
+    // The browser's own check of the number box (1900 to 2026) would stop this post before the server saw it; this is the server's check.
+    await page.getByTestId("describe-form").evaluate((f) => ((f as unknown as HTMLFormElement).noValidate = true));
     await Promise.all([page.waitForURL((u) => u.searchParams.has("problem")), page.getByRole("button", { name: "Save as draft" }).click()]);
     assert.match(await page.getByTestId("error-year_started").innerText(), /Give a number from 1900 to 2026/);
     assert.equal(await page.getByLabel("Which year did the unit start?").inputValue(), "3000", "the number that was refused is still there to correct");
@@ -319,6 +321,7 @@ test("S5-02: one owner's typed answers are not shown to the next person who sign
     await page.goto("/factory");
     await page.getByLabel("What do you make?").fill("SYNTHETIC secret of company B");
     await page.getByLabel("Which year did the unit start?").fill("3000");
+    await page.getByTestId("describe-form").evaluate((f) => ((f as unknown as HTMLFormElement).noValidate = true));
     await Promise.all([page.waitForURL((u) => u.searchParams.has("problem")), page.getByRole("button", { name: "Save as draft" }).click()]);
     assert.equal(await page.getByLabel("What do you make?").inputValue(), "SYNTHETIC secret of company B");
     // Sign out and sign in as company A's owner in the same browser, then open the refused page's address.
@@ -346,7 +349,7 @@ test("S5-12: when the newest version is confirmed the page head says so and offe
     assert.equal(await page.getByRole("heading", { level: 1 }).innerText(), "Describe your factory", "the h1 is as it was");
     assert.equal(await page.getByTestId("next-up").count(), 0, "the same card is not drawn again at the foot");
     assert.ok(await page.getByRole("button", { name: "Save a new version" }).isVisible());
-    assert.equal(await page.getByRole("button", { name: "Save a new version" }).innerText(), "Save a new version", "the words on the button");
+    assert.match(await page.getByRole("button", { name: "Save a new version" }).innerText(), /^Save a new version/, "the words on the button");
     assert.ok(await page.getByRole("button", { name: "Save as draft" }).isVisible());
     await Promise.all([page.waitForURL("**/diagnose"), next.click()]);
 

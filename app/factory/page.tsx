@@ -44,7 +44,7 @@ const NOTHING_ANSWERED = "Nothing was saved, because no question has been answer
 // The one sentence added when a refused save's answers could not be shown again (cookies off, too long to keep, or too late).
 const NOT_KEPT = " What you typed could not be kept, so please type it again.";
 // At most this many boxes may be ticked in a group that names a limit: the unticked ones are switched off at the limit.
-const LIMIT_SCRIPT = `document.addEventListener("change",function(e){var t=e.target;if(!t||t.type!=="checkbox")return;var g=t.closest("[data-max]");if(!g)return;var m=Number(g.getAttribute("data-max"));var b=g.querySelectorAll('input[type="checkbox"]');var n=0;b.forEach(function(x){if(x.checked)n++});b.forEach(function(x){x.disabled=!x.checked&&n>=m})});`;
+const LIMIT_SCRIPT = `document.addEventListener("change",function(e){var t=e.target;if(!t||t.type!=="checkbox")return;var g=t.closest("[data-max]");if(!g)return;var m=Number(g.getAttribute("data-max"));var b=g.querySelectorAll('input[type="checkbox"]');var n=0;b.forEach(function(x){if(x.checked)n++});b.forEach(function(x){x.disabled=!x.checked&&n>=m});var l=g.parentNode.querySelector(".fc-limit");if(l)l.hidden=n<m});`;
 
 function Input({ field, value, readOnly, describedBy, invalid }: { field: Field; value: unknown; readOnly: boolean; describedBy?: string; invalid?: boolean }) {
   const name = `a.${field.key}`;
@@ -108,7 +108,11 @@ function Question({ field, value, readOnly, error }: { field: Field; value: unkn
         {problem}
         {help}
         <Input field={field} value={value} readOnly={readOnly} />
-        {field.kind === "multi" && field.maxChoices ? <p className="help fc-limit">That is the most you can choose. Untick one to choose another.</p> : null}
+        {field.kind === "multi" && field.maxChoices ? (
+          <p className="help fc-limit" hidden={!(Array.isArray(value) && value.length >= field.maxChoices)}>
+            That is the most you can choose. Untick one to choose another.
+          </p>
+        ) : null}
       </fieldset>
     );
   }
