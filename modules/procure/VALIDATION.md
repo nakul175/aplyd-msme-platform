@@ -171,7 +171,9 @@ The author is an agent; no person has read this. Results are from the tree at th
 | `demo/smoke/interface`, `demo/smoke/demo` | 6 and 10 passed |
 | `demo/browser/phone`, `demo/browser/walk`, `journey/browser/journey` | 2, 2 and 1 passed |
 | `quality/browser/phone` | 4 passed, 1 failed, and the failure is the list of known offenders being out of date, not a fault of these pages: 19 known offenders are gone (listed under "Known offenders removed"), and two faults are new and are on pages this slice does not own (`/deliver` owner E, `summary "What a good test looks like"`; `/run` owner C, `summary "Correct this number"`) |
+| `static/typecheck` | passed, run again after the last edit to a test (6 October 2026, about 07:00 IST) |
 | `node scripts/check-documentation.mjs`, `check-traceability.mjs`, `check-test-docs.mjs`, `test.mjs --check-catalogue` | passed |
+| Whole static layer, once, before the last commits | 27 of 29 suites passed. The two that failed are not about these pages' behaviour: `docs/static/findings` (FND-271's evidence, `role="note"` in `app/demo/page.tsx`, is gone because it was fixed; the register row needs updating) and `docs/static/lld-sync` (`app/run/page.tsx exports metadata, which is not listed`, a file this branch did not touch) |
 
 **Known offenders removed** (`modules/quality/tests/support/known-offenders/phone.json`, not edited here): `/procure` "Back to your assessment" for owners A to G (7), "Home" for A to G (7), "Jump to your requirements" for D to G (4), and `/operator` "Home" for the operator (1). The file needs `QUALITY_UPDATE_BASELINE=1` run once by the integrator, after reading its diff.
 

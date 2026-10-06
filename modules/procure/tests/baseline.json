@@ -1,9 +1,9 @@
 {
   "updatedAt": "2026-10-06",
-  "reason": "Slice 12b (6 October 2026): askState and the tags for ideas with something first; the demo script's figures",
+  "reason": "Slice 12b (6 October 2026): the withdrawal note, redirects to the card that changed, a refused add keeps the name",
   "suites": {
     "browser/procure": 3,
-    "integration/procure-api": 34,
+    "integration/procure-api": 36,
     "smoke/procure": 6,
     "static/problems": 2,
     "static/rules": 10,
