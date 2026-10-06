@@ -70,7 +70,7 @@ export type Facts = {
 };
 
 /** The facts of a company that has not done anything yet. */
-export const NO_FACTS: Facts = { factory: { latestRevision: null, confirmedRevision: null }, assessment: null, ideasToAsk: 0, requirements: 0, requirementsWithoutProvider: 0, requirementsToChoose: 0, engagements: [] };
+export const NO_FACTS: Facts = { factory: { latestRevision: null, confirmedRevision: null }, assessment: null, ideasToAsk: 0, requirements: 0, requirementsWithdrawn: 0, requirementsWithoutProvider: 0, requirementsToChoose: 0, engagements: [] };
 
 /** An engagement's milestone states from the kinds of event recorded on each milestone. A convenience for the reader of the facts. */
 export function milestoneStatesOf(eventKindsByMilestone: readonly (readonly MilestoneKind[])[]): MilestoneState[] {
