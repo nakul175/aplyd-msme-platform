@@ -25,7 +25,17 @@ export type Config = {
   publicHosts: string[];
   /** Add the demonstration package (the demo module) after the application is up. The database is rebuilt from the migrations and the synthetic seed on every start, so a restart is a reset. */
   demo: boolean;
+  /** The git commit this build was made from (APLYD_COMMIT), lower-case hexadecimal, or null when it is not set or is not a commit id. Shown by /healthz so a live address can be matched to a commit. */
+  commit: string | null;
+  /** True when APLYD_COMMIT holds something that is not a commit id (it is ignored, and the launcher says so); never a reason to refuse to start. */
+  commitIgnored: boolean;
 };
+
+/** A git commit id as the platform or a build argument gives it: 7 to 64 hexadecimal characters (40 for SHA-1, 64 for SHA-256). Anything else is not one. */
+function parseCommit(value: string | undefined): string | null {
+  const v = (value ?? "").trim().toLowerCase();
+  return /^[0-9a-f]{7,64}$/.test(v) ? v : null;
+}
 
 export type ConfigResult = { ok: true; config: Config } | { ok: false; problems: string[] };
 
@@ -90,6 +100,8 @@ export function parseConfig(env: Environment): ConfigResult {
       access,
       publicHosts,
       demo: env.APLYD_DEMO === "true",
+      commit: parseCommit(env.APLYD_COMMIT),
+      commitIgnored: (env.APLYD_COMMIT ?? "").trim() !== "" && parseCommit(env.APLYD_COMMIT) === null,
     },
   };
 }

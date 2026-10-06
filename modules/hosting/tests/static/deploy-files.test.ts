@@ -53,7 +53,9 @@ test("the Dockerfile and the spec hold no secret, and the Dockerfile sets none o
   assert.ok(!/DEMO_ACCESS/.test(dockerfile.replace(/#.*$/gm, "")), "the image does not turn open access on");
   const values = [...spec.matchAll(/^\s*value:\s*(.+)$/gm)].map((m) => m[1].trim());
   assert.ok(values.length >= 4);
-  for (const v of values) assert.ok(["synthetic", "REPLACE_ME"].includes(v), `unexpected value in the spec: ${v}`);
+  // Every literal value is one of four known ones: the environment name, the demonstration switch, the commit variable the platform fills in (a
+  // bindable variable, not a value anyone types) and the secret placeholder. Anything else, a real-looking secret included, fails.
+  for (const v of values) assert.ok(["synthetic", '"true"', "${_self.COMMIT_HASH}", "REPLACE_ME"].includes(v), `unexpected value in the spec: ${v}`);
   assert.ok(!/DEMO_ACCESS/.test(spec.replace(/#.*$/gm, "")), "the spec does not turn open access on");
 });
 
@@ -79,6 +81,18 @@ test("the spec points at the Dockerfile, the port and health route the launcher 
   assert.match(spec, /value: synthetic/);
   assert.ok(!/APLYD_DEMO/.test(spec) || /key: APLYD_DEMO\n\s+value: "?true"?/.test(spec));
   assert.ok(dockerfile.includes("ENV PORT=8080") && dockerfile.includes("EXPOSE 8080"));
+});
+
+test("the commit is shown from a run-time value the platform fills in, and the image can be given one at build time after the build", () => {
+  assert.match(spec, /- key: APLYD_COMMIT\n\s+value: \$\{_self\.COMMIT_HASH\}\n\s+scope: RUN_TIME/, "App Platform's bindable variables are available at run time only for a Dockerfile build");
+  const at = (needle: string) => instructions.findIndex((l) => l.includes(needle));
+  assert.ok(at("ARG APLYD_COMMIT") > at("pnpm build"), "declared after the build, so a new commit does not redo the install and the build");
+  assert.ok(at("ENV APLYD_COMMIT=$APLYD_COMMIT") > at("ARG APLYD_COMMIT"));
+  assert.ok(at("ARG APLYD_COMMIT") < at("USER node"));
+});
+
+test("the spec turns the demonstration on, as the live app does, and the cast is not a secret", () => {
+  assert.match(spec, /- key: APLYD_DEMO\n\s+value: "true"\n\s+scope: RUN_TIME/);
 });
 
 test("the container's build context leaves out secrets, dependencies and build output", () => {

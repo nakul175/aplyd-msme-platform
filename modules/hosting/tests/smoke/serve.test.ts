@@ -36,6 +36,18 @@ test("behind the gate: 401 without the password, an open health route, and the a
   assert.ok(!app.output().includes(PASSWORD) && !app.output().includes(SECRET), "neither the password nor the secret is in the log");
 });
 
+test("the health route names the commit the launcher was given, or says unknown, and ignores a value that is not a commit id", async () => {
+  const sha = "034320ce8a21db0818b9b4a39315d0d4b2f976c4";
+  const withCommit = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD, APLYD_COMMIT: sha });
+  assert.equal(await (await fetch(`${withCommit.base}/healthz`)).text(), `ok\ncommit ${sha}\n`);
+  assert.match(withCommit.output(), new RegExp(`Commit: ${sha}\\.`));
+  const without = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD });
+  assert.equal(await (await fetch(`${without.base}/healthz`)).text(), "ok\ncommit unknown\n");
+  const bad = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD, APLYD_COMMIT: "${_self.COMMIT_HASH}" });
+  assert.equal(bad.output().includes("is not a commit id"), true, "the launcher says the value was ignored");
+  assert.equal(await (await fetch(`${bad.base}/healthz`)).text(), "ok\ncommit unknown\n");
+});
+
 test("a person signs in through the gate as a browser behind a TLS-terminating ingress does, and stays signed in", async () => {
   const app = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD });
   const host = new URL(app.base).host;

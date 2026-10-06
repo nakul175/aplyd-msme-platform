@@ -15,6 +15,8 @@ export type GatewayOptions = {
   ready: () => boolean;
   upstreamHost?: string;
   maxBodyBytes?: number;
+  /** The commit this build was made from, or "unknown". When given, /healthz adds a second line `commit <id>` to every answer, so a live address can be matched to a commit. Left out when not given. A commit id or "unknown" only: the launcher validates it (gate.ts parseCommit). */
+  commit?: string;
   /** One line per refused or failed request. Never receives a header, a body or a credential. */
   log?: (line: string) => void;
 };
@@ -55,14 +57,15 @@ export function createGateway(options: GatewayOptions): http.Server {
   const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const path = (req.url ?? "/").split("?")[0];
 
-    // The platform's health check cannot present the gate's password, so this one route is answered before the gate. It says only ok or not.
+    // The platform's health check cannot present the gate's password, so this one route is answered before the gate. It says ok or not, and which commit is running.
     if (path === "/healthz" && (req.method === "GET" || req.method === "HEAD")) {
-      if (!options.ready()) return reply(res, 503, "starting");
+      const commitLine = options.commit === undefined ? "" : `\ncommit ${options.commit}`;
+      if (!options.ready()) return reply(res, 503, `starting${commitLine}`);
       if (Date.now() - healthAt > HEALTH_CACHE_MS) {
         healthy = await probe();
         healthAt = Date.now();
       }
-      return reply(res, healthy ? 200 : 503, healthy ? "ok" : "application not answering");
+      return reply(res, healthy ? 200 : 503, `${healthy ? "ok" : "application not answering"}${commitLine}`);
     }
 
     if (!passesGate(req.headers.authorization, options.access)) {

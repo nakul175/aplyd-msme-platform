@@ -104,6 +104,39 @@ test("the health route answers without the password and says only ok or not", as
   });
 });
 
+test("the health route names the commit on a second line when it is given one, in every state, and says nothing about it otherwise", async () => {
+  const sha = "034320ce8a21db0818b9b4a39315d0d4b2f976c4";
+  await withGateway({ commit: sha }, async (base) => {
+    stubHealthy = true;
+    const ok = await fetch(`${base}/healthz`);
+    assert.equal(ok.status, 200);
+    assert.equal(await ok.text(), `ok\ncommit ${sha}\n`);
+    assert.equal((await fetch(`${base}/healthz`, { method: "HEAD" })).status, 200);
+  });
+  // A separate gateway: the application's answer is remembered for two seconds.
+  await withGateway({ commit: sha }, async (base) => {
+    stubHealthy = false;
+    const bad = await fetch(`${base}/healthz`);
+    assert.equal(bad.status, 503);
+    assert.equal(await bad.text(), `application not answering\ncommit ${sha}\n`);
+    stubHealthy = true;
+  });
+  await withGateway({ commit: "unknown", ready: () => false }, async (base) => {
+    const starting = await fetch(`${base}/healthz`);
+    assert.equal(starting.status, 503);
+    assert.equal(await starting.text(), "starting\ncommit unknown\n");
+  });
+  await withGateway({}, async (base) => {
+    stubHealthy = true;
+    assert.equal(await (await fetch(`${base}/healthz`)).text(), "ok\n", "no commit line when none is given");
+  });
+  seen.length = 0;
+  await withGateway({ commit: sha }, async (base) => {
+    assert.equal((await fetch(`${base}/sign-in`)).status, 401, "the commit is on the health route only: every other path is still behind the gate");
+  });
+  assert.deepEqual(seen, []);
+});
+
 test("only the exact health path is open: its neighbours are behind the gate", async () => {
   seen.length = 0;
   await withGateway({}, async (base) => {
