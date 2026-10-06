@@ -116,7 +116,7 @@ test("a restart resets the data but not the sign-ins: a cookie issued before it 
   assert.ok(home.includes("SYNTHETIC Company A"), "the cookie from before the restart still signs the person in");
 });
 
-test("a Worker that dies takes the launcher down with exit code 1 and one log line, and a healthy one is left alone (S6)", async () => {
+test("a Worker that dies takes the launcher down with exit code 1 and one log line, and a healthy one is left alone", async () => {
   const app = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD, APLYD_WATCHDOG_PROBES: "3", APLYD_WATCHDOG_SECONDS: "1" });
   // Healthy: more than twice the time three failed probes would need, and it is still up.
   await new Promise((r) => setTimeout(r, 4_500));

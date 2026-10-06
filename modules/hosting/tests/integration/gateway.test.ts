@@ -305,7 +305,7 @@ test("the health probe is true for a 200, false for anything else, and false for
 
 const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-test("the watchdog fires once, after the set number of failed probes in a row, and never before (S6)", async () => {
+test("the watchdog fires once, after the set number of failed probes in a row, and never before", async () => {
   const fired: number[] = [];
   let asked = 0;
   const stop = watchUpstream({ probe: async () => (asked++, false), probes: 3, intervalMs: 5, onDead: (n) => fired.push(n) });
@@ -342,7 +342,7 @@ test("the watchdog counts a probe that throws as a failure, can be stopped, and 
 
   // Stopped while a probe is in flight: the late answer is ignored.
   const late: number[] = [];
-  const stop3 = watchUpstream({ probe: () => new Promise((r) => setTimeout(() => r(false), 60)), probes: 1, intervalMs: 3, onDead: (n) => late.push(n) });
+  const stop3 = watchUpstream({ probe: () => new Promise<boolean>((r) => setTimeout(() => r(false), 60)), probes: 1, intervalMs: 3, onDead: (n) => late.push(n) });
   await settle(30);
   stop3();
   await settle(150);

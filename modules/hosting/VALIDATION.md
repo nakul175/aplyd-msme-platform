@@ -124,3 +124,62 @@ Run on 6 October 2026: `node scripts/test.mjs static` 28 of 28 suites passed (vi
 - Anything on DigitalOcean: the live spec, the console wording, rollback behaviour, what the platform serves while a deploy fails, whether the build honours `.dockerignore`, whether `${_self.COMMIT_HASH}` is filled as documented.
 - GitHub's run logs (forbidden to the token available; only run lists and step timings were read).
 - A run of the full guard on this branch.
+
+## Hosting fixes, 6 October 2026 (wave 2)
+
+Done by agent O of the second wave on branch `ops-12-hosting-fixes`, base `696640e`. **No person and no separate reviewer agent has reviewed it.** Environment: Linux, two cores shared with nine other agents' work, 8 GB, Node v22.22.0, no container daemon. The scripts that ran the scratch proofs and the mutation checks below are not in the repository.
+
+### What changed, and the finding each answers
+
+| Finding | Change | Tests added |
+| --- | --- | --- |
+| S3-05: `DEMO_USER` left as `REPLACE_ME` started the launcher, although the spec and this page said any of the three stops it | `parseConfig` refuses the literal `REPLACE_ME` (white space round it ignored; a longer real value that merely contains the word is not refused) in `SESSION_SECRET`, `DEMO_USER` and `DEMO_PASSWORD`, each alone, naming the variable | unit 3 (each alone; every one at once and with open access; only the whole word), static 1 (each of the spec's three placeholders alone), smoke 1 (the launcher exits 2 for each alone) |
+| S3-04: Miniflare's `MF-Original-URL`, `MF-CF-Blob` and `MF-Route-Override` headers went through the gate to its entry worker | `upstreamHeaders` drops every header whose name starts with `mf-`, in any case | unit 1, integration 1 (sent through a running gateway) |
+| S3-09: `.dockerignore` did not list `.dev.vars`, and `COPY . .` would carry a developer's local file into an image | `.dockerignore` lists `.dev.vars`, `.dev.vars.*` and `*.key` (`*.pem` was there) | static 1 (also that `.gitignore` lists `.dev.vars` and the Dockerfile still copies the whole context) |
+| S3-06: `check-traceability.mjs` and `check-test-docs.mjs` passed with no requirement rows, and `check-test-docs.mjs` with no test documents | Both fail when the BRD yields fewer than 100 rows (the floor of `docs/static/brd`; each script holds its own copy, see "Needs another owner" in the report), or when the BRD, the FSD (traceability) or any of the seven test documents is missing | the scratch proof below |
+| Deploy-readiness pass, difference 2: a dead Worker left the launcher running | A watchdog: once ready, the launcher probes the Worker's `/api/health` every `APLYD_WATCHDOG_SECONDS` (5); after `APLYD_WATCHDOG_PROBES` (6) failures in a row it logs one line and exits 1. 0 probes turns it off. The probe is the gateway's own, now exported (`probeUpstream`); the loop is `watchUpstream` in `gateway.ts` | unit 1 (the two settings), integration 3 (the probe; the loop fires once, only after a run of failures; a thrown probe counts; it can be stopped; 0 does nothing), smoke 1 (a Worker killed with SIGKILL; the launcher exits 1 with one log line; a healthy one is left alone for 4.5 seconds under a 3 probe, 1 second watchdog) |
+| Deploy-readiness pass, difference 5: `POST /api/session` does not apply the application's 64 KB body limit | Not changed here: see the report ("Needs another owner") | none |
+
+The static test's comment and the launcher test helper's comment said "in memory"; both now say a SQLite file in a temporary directory. The runbook's other statements that the database is in memory (sections 1, 4.1, 5.1, 8, 10, 11, 14, 16) are corrected, and its sections 4.3, 4.4, 10 and 19 describe the placeholder rule and the watchdog.
+
+### Checks run on 6 October 2026
+
+- `node scripts/test.mjs static unit integration smoke --only hosting/static/deploy-files,hosting/unit/gate,hosting/integration/gateway,hosting/smoke/serve --update-baseline --reason "..."`, after `pnpm build`, both through the heavy queue in one call: **all four passed**: unit/gate 23 (was 18), integration/gateway 19 (was 15), static/deploy-files 10 (was 8), smoke/serve 10 (was 7); the smoke suite took 43 seconds. The runner updated `modules/hosting/tests/baseline.json` to those counts.
+- `node scripts/test.mjs static unit integration --only hosting/static/deploy-files,hosting/unit/gate,hosting/integration/gateway,static/documentation,static/traceability,static/test-docs,docs/static/docindex`: 7 of 7 passed.
+- `node scripts/test.mjs static --only` the other documentation and platform static suites (`docs/static/*`, `platform/static/source-rules`, `page-lookups`, `conflict-markers`): 12 of 13 passed. The one that failed is `docs/static/lld-sync`, for six lines that are not about this module (`app/diagnose/page.tsx`, `app/deliver/page.tsx` and `app/run/page.tsx` export `metadata`, which the LLD does not list, in two places each). It failed in the same way for those lines before the LLD rows for the hosting files were updated here; the hosting lines it also reported are fixed.
+- `node scripts/test.mjs --check-catalogue`: clean, 118 suites in 5 layers.
+- A TypeScript check of the hosting module's files only (`tsc --noEmit` on a scratch configuration that extends the repository's and includes `modules/hosting/**/*.ts`, Node types only): no errors. **`pnpm typecheck` for the whole repository was not run** (heavy queue; the integrator's guard runs it).
+- `node scripts/check-traceability.mjs` and `node scripts/check-test-docs.mjs` on the real repository: both pass (116 requirements; 623 cases). `node scripts/check-documentation.mjs`: passes.
+- `node scripts/test.mjs pr --guard` was not run.
+
+### Does the new code's test catch a change to it?
+
+17 changes were made to the working tree one at a time, the hosting unit, integration and static suites were run, and the file was restored. **All 17 failed a test**: `DEMO_USER` not refused; `SESSION_SECRET` not refused; the placeholder compared without trimming; the placeholder matched as a substring; `mf-` headers kept; the `mf-` match case-sensitive; only `mf-original-url` dropped; `.dev.vars`, `.dev.vars.*` and `*.key` each removed from `.dockerignore`; the watchdog never starting its count again after a good answer; off by one at the limit; ignoring a stop made during a probe; asking again after it fired; a probe that throws counted as healthy; a probe that accepts any status; a default of 60 probes. The smoke suite was not run for these changes. The same limit as before applies: the author of the code wrote them.
+
+### S3-06 proved on scratch copies
+
+Trees were built in the scratch area (not in the repository): `modules/docs/src`, the two scripts, the repository's `docs/`, `git init` and `git add`, with the BRD changed. The old scripts are the ones at `696640e`.
+
+| Tree | Old `check-traceability` | New | Old `check-test-docs` | New |
+| --- | --- | --- | --- | --- |
+| BRD with no table; no other document | passes, "0 requirements", exit 0 | fails (2 problems: 0 rows, the FSD missing), exit 1 | passes, "0 cases cover 0 requirements", exit 0 | fails (8 problems: 0 rows, the seven test documents missing), exit 1 |
+| No BRD file | not run | fails ("the document does not exist"), exit 1 | not run | fails, exit 1 |
+| The real BRD cut to 20 rows | fails (hundreds of knock-on lines) | fails with one line: 20 rows read, 100 expected | fails (1522 lines) | fails with one line |
+| The real repository | passes | passes | passes | passes |
+
+The first row is the failure the review described. In a copy that holds the other Markdown files the old traceability script already failed, on cited identifiers that nothing defined; the review's tree held only the BRD.
+
+### Run against the launcher by hand
+
+- Where the database is: with `TMPDIR` pointed at an empty scratch directory the launcher wrote one `miniflare-<random>` directory there, holding the D1 database as `d1/miniflare-D1DatabaseObject/<hash>.sqlite` (with its `-wal` and `-shm` files) and a cache database, 680 KB after the demonstration was added. It was still there after the launcher stopped. So the database is a SQLite file in the temporary directory, in a new directory at every start, and not in memory [Certain].
+- The watchdog with its defaults: the launcher was started with the demonstration on, the Worker's process was killed with SIGKILL, and the launcher was gone 27 seconds later after logging `The application has not answered its health check 6 times in a row (one probe every 5 seconds). Exiting with code 1 ...` and `Stopping.`; the gateway no longer answered [Certain]. The exit code 1 and the one log line are pinned by the smoke test, with a faster setting.
+- A sign-in survives a restart: pinned by a smoke test (a cookie issued by one launch is accepted by the next launch with the same `SESSION_SECRET`, signed in as Company A). It passed [Certain for the launcher on this machine].
+- `/healthz` showed `commit <id>` when `APLYD_COMMIT` was set and `commit unknown` when it was not (the existing smoke test, and the same line on this run's launcher).
+
+### Not checked
+
+- **The platform.** That DigitalOcean restarts a container whose main process exits, and how quickly; that the first start after a restart answers within the health check's initial delay; none of it was run. The watchdog's exit code 1 is only as useful as that assumption.
+- **A false alarm under load.** The watchdog needs six failed probes in a row (each fails if the Worker does not answer `/api/health` in 2 seconds, or answers anything but 200). That a slow page never causes six in a row on a 1 vCPU container with a viewer clicking was not measured. A Worker that answers 503 on `/api/health` (a missing guard trigger) is also treated as dead.
+- **The image.** Still no Docker build; whether App Platform honours `.dockerignore` (so `.dev.vars` stays out) was not checked, and a build from git does not hold the file in any case.
+- **The full guard and the whole-repository typecheck** (see above).
+- **S3-10** (no limit on wrong attempts at the gate) is unchanged and still listed under the limits in `STATUS.md` (limit 1).
