@@ -9,13 +9,13 @@
 //   PORT             default 8080
 //   APLYD_ENV        local, synthetic (default) or test; anything else is refused
 //   APLYD_PUBLIC_HOSTS  optional, comma-separated: public host names to treat as this site's own if the platform rewrites Host
-//   APLYD_DEMO=true  add the demonstration package after start (modules/demo)
+//   APLYD_DEMO=true  add the demonstration (modules/demo) after start, and show its presenter script at /demo
 //
 // The choices that can be tested without starting anything are in modules/hosting/src/gate.ts and gateway.ts.
 import { Miniflare } from "miniflare";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createGateway } from "../modules/hosting/src/gateway.ts";
 import { parseConfig } from "../modules/hosting/src/gate.ts";
 import { migrationStatements, seedStatements } from "../modules/platform/src/db/migrate.ts";
@@ -57,7 +57,7 @@ const worker = new Miniflare({
   compatibilityDate: built.compatibility_date,
   compatibilityFlags: built.compatibility_flags,
   d1Databases: { DB: built.d1_databases[0].database_id },
-  bindings: { APLYD_ENV: config.environment, SESSION_SECRET: config.sessionSecret },
+  bindings: { APLYD_ENV: config.environment, SESSION_SECRET: config.sessionSecret, ...(config.demo ? { APLYD_DEMO: "true" } : {}) },
   assets: { directory: resolve(dist, built.assets.directory), routerConfig: { has_user_worker: true }, assetConfig: {} },
   host: "127.0.0.1",
   port: config.upstreamPort,
@@ -95,8 +95,9 @@ try {
   if (config.demo) {
     const demoSeed = join(ROOT, "modules", "demo", "src", "seed.ts");
     if (!existsSync(demoSeed)) throw new Error("APLYD_DEMO=true, but this build has no demonstration package (modules/demo).");
-    const { seedDemo } = await import(demoSeed);
-    await seedDemo(`http://127.0.0.1:${config.upstreamPort}`);
+    const { seedDemo } = await import(pathToFileURL(demoSeed).href);
+    const report = await seedDemo({ db, baseUrl: `http://127.0.0.1:${config.upstreamPort}` });
+    console.log(`The demonstration was added: ${report.companies} companies, ${report.providers} providers, ${report.requests} requests.`);
   }
   ready = true;
   console.log("The application is ready.");
