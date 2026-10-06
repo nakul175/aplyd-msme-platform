@@ -66,3 +66,11 @@ test("the link at the top goes to an open review before a starting number to rec
   assert.equal(firstTurn([{ id: "e1", canRecordBaseline: false, reviews: rv("recorded", "not_due", "not_due") }]), null);
   assert.equal(firstTurn([]), null);
 });
+
+test("when the owner's next step is on another page, the summary says so instead of saying nothing needs the owner (S5-06)", () => {
+  const s = resultsSummary([{ canRecordBaseline: false, reviews: [slot("waiting"), slot("waiting"), slot("waiting")] }], "A delivery is waiting for your decision");
+  assert.equal(s.sentence, "Nothing on this page needs you today. Your next step is on another page: “A delivery is waiting for your decision”, at the foot of this page.");
+  assert.doesNotMatch(s.sentence, /^Nothing needs you today/);
+  assert.equal(resultsSummary([{ canRecordBaseline: true, reviews: [] }], "Anything").sentence, "Write down your starting number before the first milestone is accepted.", "what is the owner's turn on this page still comes first");
+  assert.equal(resultsSummary([{ canRecordBaseline: false, reviews: [slot("due")] }], "Anything").sentence, "1 review is open now.");
+});

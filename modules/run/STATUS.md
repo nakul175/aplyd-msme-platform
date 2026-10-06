@@ -79,3 +79,12 @@ Built by an agent at the sponsor's instruction; no person has read it. Protected
 - **What is not corrected.** A review's verdict and its answer on use, the dates, and the notes. A correction is allowed whether or not the engagement is closed (a typing slip can be found late).
 
 The limits this slice adds are 19 to 22 under Known limits.
+
+## Slice 12d (6 October 2026): the shared "your turn" card, and a starting-number refusal that does not talk about reviews
+
+Built by an agent at the sponsor's instruction (wave 2); no person has read it. The database rules and migrations were not changed.
+
+- **One "your turn" card at the top (S5-06, S5-17).** Results passes its in-page places to the shared frame: the first starting number that can be recorded (`#bl-<engagement>`) and the first open review (`#rv-<engagement>-<n>`). When the journey's `nextStep` is one of these, its card is drawn directly under the page head with its button on the form, and the page's own summary card is not drawn. When the owner's turn is on another page, the summary says "Nothing on this page needs you today. Your next step is on another page: “<title>”, at the foot of this page." instead of "Nothing needs you today" (`resultsSummary(list, elsewhere)` in `src/view.ts`, unit-tested).
+- **A refused starting number (S5-16).** A form post of a starting number whose only fault is the number now goes to `/run?problem=baseline_invalid` (was `invalid`). The message names the unit of the idea's measure when every engagement that can take a number uses the same one: "That could not be saved. The starting number box takes a number only, in percent: for example 42, not “42 late orders”. Give a whole number from 0 to 1,00,00,00,000." It says nothing about reviews. Any other fault (a review field on a baseline) keeps the general message. The JSON answer is unchanged. The box still takes digits only: "42" is recorded, "42 late orders" and "42%" are refused.
+- **The eyebrow** reads "Step 5 of 5: Measure". **Colours:** each `color-mix()` in `run.css` has a plain colour before it, and `.ru-expected` and `.ru-next` use the darker muted tint.
+- **Left as they were:** dates on Results stay YYYY-MM-DD, because the journey and demonstration browser suites (owned by others this wave) pin "Opens on YYYY-MM-DD" and "You first accepted a milestone on YYYY-MM-DD". A redirect after a post still lands at the top of the page (S5-10 not done).

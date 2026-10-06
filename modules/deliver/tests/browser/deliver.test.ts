@@ -109,10 +109,16 @@ test("an owner chooses a provider, writes and agrees a plan, records a delivery,
     assert.match(await page.getByTestId("milestone-1").innerText(), /Delivered, waiting for you/);
     assert.match(await page.getByTestId("milestone-1").getByTestId("history").innerText(), /Delivered: Provider says it is live/);
     assert.equal(await page.getByRole("button", { name: "Record a payment for milestone 1" }).count(), 0, "nothing is paid before it is accepted");
-    // No starting number is recorded, so the page says, beside Accept, that accepting ends the chance to record one (FND-183).
+    // No starting number is recorded, so the page offers no Accept and says why (FND-183, S5-03); the card at the top says the same.
     const warning = page.getByTestId("baseline-warning-1");
-    assert.match(await warning.innerText(), /You have not recorded your starting number\. Once you accept a milestone, it can no longer be recorded\./);
-    assert.match((await warning.getByRole("link", { name: "Record the starting number first" }).getAttribute("href")) ?? "", /^\/run#bl-/);
+    assert.match(await warning.innerText(), /You have not recorded your starting number\. Once you accept a milestone, it can no longer be recorded/);
+    assert.equal(await page.getByRole("button", { name: "Accept milestone 1" }).count(), 0, "no Accept while the starting number can be lost");
+    assert.match(await page.getByTestId("your-turn").innerText(), /Write down your starting number first/);
+    await Promise.all([page.waitForURL((u) => u.pathname === "/run"), warning.getByRole("link", { name: "Write down your starting number first" }).click()]);
+    await page.getByLabel(/^The number today, before the work/).fill("42");
+    await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "baseline"), page.getByRole("button", { name: "Record the starting number" }).click()]);
+    await page.goto("/deliver");
+    assert.equal(await page.getByTestId("baseline-warning-1").count(), 0);
 
     await page.getByTestId("milestone-1").getByLabel("Your note, against your test (optional)").fill("All ten jobs found");
     await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "accepted"), page.getByTestId("milestone-1").getByRole("button", { name: "Accept milestone 1" }).click()]);
@@ -123,7 +129,10 @@ test("an owner chooses a provider, writes and agrees a plan, records a delivery,
     assert.match(await page.getByTestId("totals").innerText(), /Payments you have recorded: ₹1,20,000/, "what the owner typed, not the agreed price");
     assert.match(await page.getByTestId("milestone-1").innerText(), /Paid/);
 
-    await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "closed"), page.getByTestId("close").getByRole("button", { name: "Close this engagement" }).click()]);
+    // Closing is folded away at the foot: the first press opens it, the second closes the engagement (S5-18).
+    assert.equal(await page.getByRole("button", { name: "Close this engagement now" }).isVisible(), false, "not one press away");
+    await page.locator("details.dl-close > summary").click();
+    await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "closed"), page.getByTestId("close").getByRole("button", { name: "Close this engagement now" }).click()]);
     const after = await page.locator("main").innerText();
     assert.match(after, /Ended early/, "milestone 2 was never delivered, so this is not complete");
     assert.match(after, /Closed on /);
@@ -134,7 +143,7 @@ test("an owner chooses a provider, writes and agrees a plan, records a delivery,
   });
 });
 
-test("a bad date comes back with a message and keeps nothing; a rejected milestone can be delivered again; a stale form for a decision already made is refused with a message and changes nothing", { timeout: TEST_TIMEOUT_MS }, async () => {
+test("a bad price comes back naming the box and keeps what was typed; a rejected milestone can be delivered again; a stale form for a decision already made is refused with a message and changes nothing", { timeout: TEST_TIMEOUT_MS }, async () => {
   await withBrowserHarness(async (h) => {
     await listAProvider(h);
     const page = await (await h.newContext()).newPage();
@@ -145,13 +154,20 @@ test("a bad date comes back with a message and keeps nothing; a rejected milesto
     const f = page.getByTestId("add-milestone");
     await f.getByLabel("What is delivered").fill("First part");
     await f.getByLabel("How you will check it").fill("Look at it");
-    await f.getByLabel("Due date (YYYY-MM-DD)").fill("2026-02-30");
-    await f.getByLabel(/^Price for this milestone/).fill("1000");
+    await f.getByLabel("Due date (YYYY-MM-DD)").fill("2026-12-15");
+    await f.getByLabel(/^Price for this milestone/).fill("1000 rupees");
     await Promise.all([page.waitForURL((u) => u.searchParams.get("problem") === "invalid"), f.getByRole("button", { name: "Add this milestone" }).click()]);
-    assert.match(await page.getByTestId("problem").innerText(), /a date written YYYY-MM-DD/);
+    assert.match(await page.getByTestId("problem").innerText(), /Check the box “Price”\. What you typed is still in the boxes\./);
     assert.equal(await page.getByTestId("milestones").count(), 0, "the bad milestone was not saved");
+    assert.deepEqual(
+      [await f.getByLabel("What is delivered").inputValue(), await f.getByLabel("How you will check it").inputValue(), await f.getByLabel("Due date (YYYY-MM-DD)").inputValue(), await f.getByLabel(/^Price for this milestone/).inputValue()],
+      ["First part", "Look at it", "2026-12-15", "1000 rupees"],
+      "nothing typed is lost (S5-16)",
+    );
+    assert.ok(!page.url().includes("First"), "what was typed is not in the address");
 
-    await addMilestone(page, "First part", "Look at it", "2026-12-15", "1000");
+    await f.getByLabel(/^Price for this milestone/).fill("₹1,000");
+    await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "milestone"), f.getByRole("button", { name: "Add this milestone" }).click()]);
     await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "plan_agreed"), page.getByRole("button", { name: "Agree this plan" }).click()]);
     const m1 = () => page.getByTestId("milestone-1");
     await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "delivered"), m1().getByRole("button", { name: "Record that milestone 1 was delivered" }).click()]);
@@ -160,6 +176,10 @@ test("a bad date comes back with a message and keeps nothing; a rejected milesto
     assert.match(await page.getByTestId("saved").innerText(), /It can be delivered again/);
     assert.match(await m1().innerText(), /Rejected/);
     await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "delivered"), m1().getByRole("button", { name: "Record that milestone 1 was delivered" }).click()]);
+    await page.goto("/run");
+    await page.getByLabel(/^The number today, before the work/).fill("42");
+    await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "baseline"), page.getByRole("button", { name: "Record the starting number" }).click()]);
+    await page.goto("/deliver");
 
     // A second tab opened while the milestone waits for a decision. The decision is made in the first tab; the second tab's form is now stale.
     const stale = await page.context().newPage();

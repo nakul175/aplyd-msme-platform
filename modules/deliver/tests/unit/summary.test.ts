@@ -67,3 +67,12 @@ test("accepting is said to end the starting number only while it still can be re
   assert.equal(acceptEndsBaseline({ closed: false, baselineRecorded: false, states: ["paid", "delivered"] }), false, "a paid milestone was accepted");
   assert.equal(acceptEndsBaseline({ closed: true, baselineRecorded: false, states: ["delivered"] }), false, "closed: nothing can be accepted");
 });
+
+test("when the owner's next step is on another page, the summary says so and never says nothing needs a decision (S5-06)", () => {
+  const s = deliverySummary([g("in_progress", "planned")], "Write down your starting number");
+  assert.equal(s.sentence, "Nothing on this page needs your decision right now. Your next step is on another page: “Write down your starting number”, at the foot of this page.");
+  assert.doesNotMatch(s.sentence, /^Nothing needs your decision/);
+  assert.equal(s.yourTurn, false);
+  assert.equal(deliverySummary([g("in_progress", "delivered")], "Anything").sentence, "1 milestone is waiting for your decision.", "what is the owner's turn on this page still comes first");
+  assert.equal(deliverySummary([g("complete", "paid")], "Choose a provider").sentence, "Every engagement here is closed. Everything stays on record.");
+});

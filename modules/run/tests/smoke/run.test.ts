@@ -101,8 +101,11 @@ test("the starting number: a bad one is sent back with a message, a good one is 
   const path = `/api/companies/${A}/engagements/${engagementId}/outcomes`;
   const bad = await form(a, path, [["kind", "baseline"], ["value", "lots"]]);
   assert.equal(bad.status, 303);
-  assert.equal(bad.headers.get("location"), "/run?problem=invalid");
-  assert.match(await page(a, "/run?problem=invalid"), /Give a whole number from 0 to 1,00,00,00,000/);
+  assert.equal(bad.headers.get("location"), "/run?problem=baseline_invalid", "a starting number gets its own refusal");
+  const refused = await page(a, "/run?problem=baseline_invalid");
+  assert.match(refused, /The starting number box takes a number only, in (percent|days|rupees a year): for example 42, not “42 late orders”\. Give a whole number from 0 to 1,00,00,00,000\./, "the unit of the measure, and no word about reviews");
+  assert.ok(!/review/i.test(refused.slice(refused.indexOf('data-testid="problem"'), refused.indexOf("</div>", refused.indexOf('data-testid="problem"')))), "the refusal does not talk about reviews");
+  assert.equal((await form(a, path, [["kind", "baseline"], ["value", "42 late orders"]])).headers.get("location"), "/run?problem=baseline_invalid");
   const good = await form(a, path, [["kind", "baseline"], ["value", "42"], ["note", "From the sheets of September"]]);
   assert.equal(good.headers.get("location"), "/run?saved=baseline");
   const html = await page(a, "/run?saved=baseline");

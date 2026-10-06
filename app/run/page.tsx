@@ -9,7 +9,9 @@ import { REVIEW_TAG, firstOpenReview, firstTurn, latestRecorded, recordedCount, 
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
 import { Arrow, Check } from "../_ui/icons.tsx";
-import { Meter, NotOwner, Notice, Page, SignedOut, Tag } from "../_ui/parts.tsx";
+import { Meter, NotOwner, Notice, Page, SignedOut, Tag, ownerFacts, turnPlace } from "../_ui/parts.tsx";
+import { nextStep } from "../../modules/journey/src/progress.ts";
+import type { NextStep } from "../../modules/journey/src/progress.ts";
 import "./run.css";
 
 export const metadata = { title: "Measure" };
@@ -17,6 +19,9 @@ export const dynamic = "force-dynamic";
 
 type Search = { saved?: string; problem?: string };
 
+/** The refusal of a starting number. It names the unit when the page knows it, and never mentions reviews. */
+const baselineRefused = (unit: string | null) =>
+  `That could not be saved. The starting number box takes a number only${unit ? `, in ${unit}` : ""}: for example 42, not “42 late orders”. Give a whole number from 0 to ${MAX_VALUE.toLocaleString("en-IN")}.`;
 const PROBLEMS: Record<string, string> = {
   invalid: `That could not be saved. Give a whole number from 0 to ${MAX_VALUE.toLocaleString("en-IN")}, and for a review say whether it did what was expected and whether it is still in use.`,
   baseline_exists: "You have already recorded the starting number for this. It is recorded once.",
@@ -27,6 +32,7 @@ const PROBLEMS: Record<string, string> = {
   nothing_accepted: "A review needs an accepted milestone. Accept one on Delivery first.",
   not_due: "That review is not due yet. It opens on the date shown.",
   missing: "That engagement could not be found.",
+  baseline_invalid: baselineRefused(null),
   correction_invalid: `That correction could not be saved. Give the right number, a whole number from 0 to ${MAX_VALUE.toLocaleString("en-IN")}, and say in a few words why the first one was wrong.`,
 };
 const SAVED: Record<string, string> = {
@@ -102,20 +108,37 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
   const engagements = await listEngagements(e.DB, companyId);
   const views = await Promise.all(engagements.map(async (g) => ({ g, o: await presentOutcomes(e.DB as D1Database, companyId, g, now) })));
   const base = (id: string) => `/api/companies/${companyId}/engagements/${id}/outcomes`;
-  const summary = resultsSummary(views.map(({ o }) => ({ canRecordBaseline: o.canRecordBaseline, reviews: o.reviews })));
   const turn = firstTurn(views.map(({ g, o }) => ({ id: g.id, canRecordBaseline: o.canRecordBaseline, reviews: o.reviews })));
+  // The owner's turn, from the same rule as the home page: at the top when it is done on this page (its button goes to the form), and
+  // then the page's own summary is not drawn, because the card says the same thing.
+  const facts = await ownerFacts(identity);
+  const next = facts ? nextStep(facts, now) : null;
+  const here: Partial<Record<NextStep["key"], string>> = {};
+  const toBaseline = views.find(({ o }) => o.canRecordBaseline);
+  if (toBaseline) here.record_baseline = `#bl-${toBaseline.g.id}`;
+  const toReview = views.map(({ g, o }) => ({ id: g.id, no: firstOpenReview(o.reviews) })).find((x) => x.no !== null);
+  if (toReview) here.review_due = `#rv-${toReview.id}-${toReview.no}`;
+  const place = turnPlace(next, "run", here);
+  const summary = resultsSummary(
+    views.map(({ o }) => ({ canRecordBaseline: o.canRecordBaseline, reviews: o.reviews })),
+    place === "foot" && next ? next.title : null,
+  );
+  // The unit the starting number is typed in, named when every engagement that can take one uses the same unit.
+  const baselineUnits = [...new Set(views.filter(({ o }) => o.canRecordBaseline && o.expected).map(({ o }) => UNIT_LABEL[o.expected!.unit]))];
+  const baselineUnit = baselineUnits.length === 1 ? baselineUnits[0] : null;
+  const problemText = q.problem === "baseline_invalid" && baselineUnit ? baselineRefused(baselineUnit) : q.problem && Object.hasOwn(PROBLEMS, q.problem) ? PROBLEMS[q.problem] : null;
   const turnIn = turn ? views.find(({ g }) => g.id === turn.engagementId)?.g : undefined;
 
   return (
-    <Page stage="run" identity={identity} title="Results" lede="See what you expected, what you measured before the work, and what you measured after.">
+    <Page stage="run" identity={identity} facts={facts} here={here} title="Results" lede="See what you expected, what you measured before the work, and what you measured after.">
       {q.saved && Object.hasOwn(SAVED, q.saved) ? (
         <Notice role="status" tone="success" data-testid="saved">
           {SAVED[q.saved]}
         </Notice>
       ) : null}
-      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
+      {problemText ? (
         <Notice role="alert" tone="danger" data-testid="problem">
-          {PROBLEMS[q.problem]}
+          {problemText}
         </Notice>
       ) : null}
 
@@ -126,11 +149,12 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
       {views.length === 0 ? (
         <div className="card">
           <p className="muted" data-testid="no-engagements">
-            Nothing to look at yet. Choose a provider for one of your requirements on <a href="/procure">What you need</a>, agree a plan on <a href="/deliver">Delivery</a>, and come back.
+            Nothing to look at yet. Choose a provider for something you asked for on <a href="/procure">What you need</a>, agree a plan on <a href="/deliver">Delivery</a>, and come back.
           </p>
         </div>
       ) : (
         <>
+          {place === "top" ? null : (
           <section className="card tint ru-summary" aria-label="Where things stand" data-testid="summary">
             <div className="ru-tags">{summary.yourTurn ? <Tag tone="turn">Your turn</Tag> : <Tag tone="ok">Nothing to do now</Tag>}</div>
             <p>{summary.sentence}</p>
@@ -143,6 +167,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
               </div>
             ) : null}
           </section>
+          )}
 
           <ul className="items" data-testid="outcomes">
             {views.map(({ g, o }) => {

@@ -617,8 +617,9 @@ test("form posts go back to the page with what happened, and are never answered 
     assert.equal(res.status, 303, "a form post is redirected, not answered with a document");
     return res.headers.get("location");
   };
-  assert.equal(where(await send([["kind", "baseline"], ["value", ""]])), "/run?problem=invalid");
-  assert.equal(where(await send([["kind", "baseline"], ["value", "twelve"]])), "/run?problem=invalid");
+  assert.equal(where(await send([["kind", "baseline"], ["value", ""]])), "/run?problem=baseline_invalid", "a starting number refused for its number gets a message that does not talk about reviews");
+  assert.equal(where(await send([["kind", "baseline"], ["value", "twelve"]])), "/run?problem=baseline_invalid");
+  assert.equal(where(await send([["kind", "baseline"], ["value", "42"], ["verdict", "met"]])), "/run?problem=invalid", "anything else wrong keeps the general message");
   assert.equal(where(await send([["kind", "baseline"], ["value", "42"], ["note", "From the sheets"]])), "/run?saved=baseline");
   assert.equal(where(await send([["kind", "baseline"], ["value", "43"]])), "/run?problem=baseline_exists");
   assert.equal(where(await send([["kind", "baseline"], ["value", "43"]], "no-such-engagement")), "/run?problem=missing");
@@ -773,7 +774,7 @@ test("a form post refused before the person is known is answered as the platform
   assert.equal(await count("outcome_events"), 0, "nothing was written by any of them");
   // after the person is known, every refusal goes back to the page
   const refused = await answer(await handleOutcomeRecord(formTo(own, p.a, {}, "kind=baseline&value=abc"), env, A, p.id));
-  assert.deepEqual(refused, { status: 303, json: false, location: "/run?problem=invalid" });
+  assert.deepEqual(refused, { status: 303, json: false, location: "/run?problem=baseline_invalid" });
 });
 
 // ---- migration 0015: the database refuses a starting number on a closed engagement and before the plan is agreed (FND-253)

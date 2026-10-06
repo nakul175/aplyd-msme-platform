@@ -9,6 +9,8 @@ import type { AppEnv } from "../../../platform/src/env.ts";
 import { hasControlCharacters } from "../../../factory/src/questionnaire.ts";
 import { addMilestone, appendEvent, createEngagement, listEngagements, loadEngagement } from "../db/engagements.ts";
 import type { EngagementRecord, MilestoneRecord } from "../db/engagements.ts";
+import { clearedDraftCookie, draftCookie, parseDueDate, parseRupees } from "../input.ts";
+import type { MilestoneBox } from "../input.ts";
 import { EVENT_KINDS, MAX_AMOUNT_INR, MAX_NOTE_LENGTH, MAX_TEST_LENGTH, MAX_TITLE_LENGTH, MILESTONE_KINDS, isCalendarDate, milestoneState, nextKinds, statusOf } from "../state.ts";
 import type { EngagementStatus, EventKind, MilestoneKind, MilestoneState } from "../state.ts";
 
@@ -113,10 +115,15 @@ function readText(raw: unknown, max: number, required: boolean): string | null {
   return text;
 }
 
+/** JSON keeps its documented form: a number, or digits only. */
 function readAmount(raw: unknown): number | null {
   const n = typeof raw === "number" ? raw : typeof raw === "string" && /^\d{1,9}$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
   return Number.isInteger(n) && n >= 1 && n <= MAX_AMOUNT_INR ? n : null;
 }
+
+/** A form is typed by an owner: rupees with commas or a leading ₹ or "Rs", and a date written day first, are read too (input.ts). */
+const amountFrom = (raw: unknown, form: boolean) => (form ? parseRupees(raw) : readAmount(raw));
+const dueFrom = (raw: unknown, form: boolean) => (form ? parseDueDate(raw) : typeof raw === "string" && isCalendarDate(raw.trim()) ? raw.trim() : null);
 
 /** POST: add the next milestone to a plan that is not yet agreed. */
 export async function handleMilestoneAdd(request: Request, env: AppEnv, requestedId: string, engagementId: string): Promise<Response> {
@@ -129,17 +136,32 @@ export async function handleMilestoneAdd(request: Request, env: AppEnv, requeste
   const title = readText(bodyField(body, "title"), MAX_TITLE_LENGTH, true);
   const acceptanceTest = readText(bodyField(body, form ? "test" : "acceptanceTest"), MAX_TEST_LENGTH, true);
   const dueRaw = bodyField(body, form ? "due" : "dueOn");
-  const dueOn = typeof dueRaw === "string" && isCalendarDate(dueRaw.trim()) ? dueRaw.trim() : null;
-  const agreedInr = readAmount(bodyField(body, form ? "amount" : "agreedInr"));
+  const dueOn = dueFrom(dueRaw, form);
+  const amountRaw = bodyField(body, form ? "amount" : "agreedInr");
+  const agreedInr = amountFrom(amountRaw, form);
   const fields: Record<string, string> = {};
   if (title === null) fields.title = `Name the milestone, in up to ${MAX_TITLE_LENGTH} characters.`;
   if (acceptanceTest === null) fields.acceptanceTest = `Say how you will check it, in up to ${MAX_TEST_LENGTH} characters.`;
   if (dueOn === null) fields.dueOn = "Give a date, written YYYY-MM-DD.";
   if (agreedInr === null) fields.agreedInr = `Give a whole number of rupees from 1 to ${MAX_AMOUNT_INR}.`;
-  if (Object.keys(fields).length) return form ? redirect("/deliver?problem=invalid") : json(400, { error: "invalid", fields });
+  if (Object.keys(fields).length) {
+    if (!form) return json(400, { error: "invalid", fields });
+    // The page says which boxes to fix and shows what was typed again (a cookie only the Delivery page receives; never the address).
+    const text = (name: string) => {
+      const v = bodyField(body, name);
+      return typeof v === "string" ? v : "";
+    };
+    const failed: MilestoneBox[] = [];
+    if (title === null) failed.push("title");
+    if (acceptanceTest === null) failed.push("test");
+    if (dueOn === null) failed.push("due");
+    if (agreedInr === null) failed.push("amount");
+    const values = { title: text("title"), test: text("test"), due: text("due"), amount: typeof amountRaw === "string" ? amountRaw : "" };
+    return redirect("/deliver?problem=invalid", { "set-cookie": draftCookie({ engagementId, values, failed }) });
+  }
 
   const added = await addMilestone(allowed.db, { companyId: allowed.companyId, userId: allowed.identity.userId, engagementId, title: title as string, acceptanceTest: acceptanceTest as string, dueOn: dueOn as string, agreedInr: agreedInr as number });
-  if (added.ok) return form ? redirect("/deliver?saved=milestone") : json(201, { id: added.id, seq: added.seq });
+  if (added.ok) return form ? redirect("/deliver?saved=milestone", { "set-cookie": clearedDraftCookie() }) : json(201, { id: added.id, seq: added.seq });
   if (added.reason === "not_found") return form ? redirect(MISSING) : json(404, { error: "not_found" });
   return form ? redirect(`/deliver?problem=${added.reason}`) : json(409, { error: added.reason });
 }
@@ -164,7 +186,7 @@ export async function handleEngagementEvent(request: Request, env: AppEnv, reque
   let amountInr: number | null = null;
   const amountRaw = bodyField(body, form ? "amount" : "amountInr");
   if (kind === "payment_recorded") {
-    amountInr = readAmount(amountRaw);
+    amountInr = amountFrom(amountRaw, form);
     if (amountInr === null) fields.amountInr = `Give a whole number of rupees from 1 to ${MAX_AMOUNT_INR}.`;
   } else if (amountRaw !== undefined && amountRaw !== null && amountRaw !== "") fields.amountInr = "Only a payment has an amount.";
   if (note === null) fields.note = `Keep the note to text under ${MAX_NOTE_LENGTH} characters.`;
