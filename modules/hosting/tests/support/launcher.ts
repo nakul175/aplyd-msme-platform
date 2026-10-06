@@ -1,7 +1,7 @@
 // Starts the launcher (scripts/serve.mjs) against the BUILT application for a test, as a host would, and stops it with SIGTERM as a platform does.
 // Shared by the hosting module's own smoke layer and by any module whose smoke or browser layer needs the application behind the launcher (the demo).
-// Needs `pnpm build` first. Ports are chosen free; each launch has its own in-memory database.
-import { spawn } from "node:child_process";
+// Needs `pnpm build` first. Ports are chosen free; each launch has its own database (a SQLite file in a new temporary directory).
+import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createServer } from "node:net";
@@ -66,6 +66,14 @@ export async function launchServe(extra: Record<string, string>, timeoutMs = 90_
     await new Promise((r) => setTimeout(r, 400));
   }
   throw new Error(`the launcher was not healthy in ${Math.round(timeoutMs / 1000)} seconds:\n${log}`);
+}
+
+/** The process ids of the direct children of `pid` (the launcher's children are workerd, the Worker's process). Uses `pgrep -P`, which Linux and macOS have; throws if it cannot be run, so a test never passes for want of the tool. */
+export function childPids(pid: number): number[] {
+  const out = spawnSync("pgrep", ["-P", String(pid)], { encoding: "utf8" });
+  if (out.error) throw new Error(`pgrep could not be run: ${out.error.message}`);
+  // pgrep exits 1 when nothing matches, which is an empty list and not an error.
+  return out.stdout.split("\n").filter((l) => /^\d+$/.test(l.trim())).map(Number);
 }
 
 /** SIGTERM first, as a platform does, so the launcher ends the Worker's process too; SIGKILL only for one that does not leave in 15 seconds. */

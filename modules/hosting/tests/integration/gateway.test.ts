@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
-import { createGateway } from "../../src/gateway.ts";
+import { createGateway, probeUpstream, watchUpstream } from "../../src/gateway.ts";
 import type { GatewayOptions } from "../../src/gateway.ts";
 
 type Seen = { method?: string; url?: string; headers: http.IncomingHttpHeaders; body: string };
@@ -261,6 +261,100 @@ test("headers that belong to one hop are not handed on to the application", asyn
   assert.equal(seen.length, 1);
   for (const name of ["proxy-authorization", "keep-alive", "te", "authorization"]) assert.equal(seen[0].headers[name], undefined, `${name} reached the application`);
   assert.equal(seen[0].headers["x-kept"], "yes", "an ordinary header goes through");
+});
+
+test("Miniflare's control headers sent by a client do not reach the application (S3-04)", async () => {
+  seen.length = 0;
+  await withGateway({}, async (_base, host) => {
+    const [h, p] = host.split(":");
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = http.request({ host: h, port: Number(p), path: "/page", headers: { authorization: AUTH, "MF-Original-URL": "http://x.example/api/session", "MF-CF-Blob": "{not json", "Mf-Route-Override": "other", "x-kept": "yes" } }, (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    assert.equal(status, 200);
+  });
+  assert.equal(seen.length, 1);
+  assert.deepEqual(Object.keys(seen[0].headers).filter((n) => n.startsWith("mf-")), [], "no mf- header reached the application");
+  assert.equal(seen[0].headers["x-kept"], "yes");
+});
+
+test("the health probe is true for a 200, false for anything else, and false for an application that is not there", async () => {
+  stubHealthy = true;
+  assert.equal(await probeUpstream("127.0.0.1", stubPort), true);
+  stubHealthy = false;
+  assert.equal(await probeUpstream("127.0.0.1", stubPort), false);
+  stubHealthy = true;
+  const dead = http.createServer();
+  await new Promise<void>((r) => dead.listen(0, "127.0.0.1", () => r()));
+  const port = (dead.address() as AddressInfo).port;
+  await new Promise((r) => dead.close(r));
+  assert.equal(await probeUpstream("127.0.0.1", port), false);
+  // An application that accepts the connection and never answers: false once the time is up, not a hang.
+  const silent = http.createServer(() => {});
+  await new Promise<void>((r) => silent.listen(0, "127.0.0.1", () => r()));
+  const started = Date.now();
+  assert.equal(await probeUpstream("127.0.0.1", (silent.address() as AddressInfo).port, 150), false);
+  assert.ok(Date.now() - started < 3_000);
+  silent.closeAllConnections();
+  await new Promise((r) => silent.close(r));
+});
+
+const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+test("the watchdog fires once, after the set number of failed probes in a row, and never before (S6)", async () => {
+  const fired: number[] = [];
+  let asked = 0;
+  const stop = watchUpstream({ probe: async () => (asked++, false), probes: 3, intervalMs: 5, onDead: (n) => fired.push(n) });
+  await settle(120);
+  stop();
+  assert.deepEqual(fired, [3], "once, with the count");
+  assert.equal(asked, 3, "it stopped asking when it fired");
+  // One fewer failure than the limit is not enough, however long it goes on being asked.
+  const answers = [false, false, true]; // repeated: two failures, then an answer, again and again
+  let i = 0;
+  const reset: number[] = [];
+  const stop2 = watchUpstream({ probe: async () => answers[i++ % answers.length], probes: 3, intervalMs: 3, onDead: (n) => reset.push(n) });
+  await settle(150);
+  stop2();
+  assert.deepEqual(reset, [], "an answer between the failures starts the count again, so two in a row never reach three");
+  assert.ok(i > answers.length, "it was asked many times");
+});
+
+test("the watchdog counts a probe that throws as a failure, can be stopped, and does nothing with 0 probes", async () => {
+  const thrown: number[] = [];
+  const stop = watchUpstream({ probe: async () => { throw new Error("boom"); }, probes: 2, intervalMs: 3, onDead: (n) => thrown.push(n) });
+  await settle(100);
+  stop();
+  assert.deepEqual(thrown, [2]);
+
+  const stopped: number[] = [];
+  let asked = 0;
+  const stop2 = watchUpstream({ probe: async () => (asked++, false), probes: 2, intervalMs: 40, onDead: (n) => stopped.push(n) });
+  stop2();
+  stop2();
+  await settle(150);
+  assert.deepEqual(stopped, [], "stopped before the first probe: it never fires");
+  assert.equal(asked, 0);
+
+  // Stopped while a probe is in flight: the late answer is ignored.
+  const late: number[] = [];
+  const stop3 = watchUpstream({ probe: () => new Promise((r) => setTimeout(() => r(false), 60)), probes: 1, intervalMs: 3, onDead: (n) => late.push(n) });
+  await settle(30);
+  stop3();
+  await settle(150);
+  assert.deepEqual(late, []);
+
+  const off: number[] = [];
+  let askedOff = 0;
+  const stop4 = watchUpstream({ probe: async () => (askedOff++, false), probes: 0, intervalMs: 3, onDead: (n) => off.push(n) });
+  await settle(60);
+  stop4();
+  assert.deepEqual(off, []);
+  assert.equal(askedOff, 0, "0 probes: never asked");
 });
 
 test("when the application is down the gateway says 502 and its health route says 503, and it does not crash", async () => {

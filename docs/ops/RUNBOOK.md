@@ -13,7 +13,7 @@ How this relates to the other documents: [the high-level design](../design/HLD.m
 | Local development | Building and trying | `pnpm dev` (section 3) | SQLite files under `.wrangler/state` | The developer, at `http://localhost:5173` | `pnpm db:local` deletes and rebuilds it |
 | Automated tests | Proving behaviour | `node scripts/test.mjs` (section 3.4) | In-memory or temporary databases built from the migrations and the seed | The test run | Every run starts fresh |
 | CI | The same checks on every pull request and push to `main` | GitHub Actions (section 15) | As the tests | GitHub | Every run starts fresh |
-| Hosted synthetic demonstration | Showing the journey to others | The launcher in a container on DigitalOcean App Platform (sections 4 and 5) | In memory inside the container | Anyone who holds the gate password | A restart or redeploy (section 8) |
+| Hosted synthetic demonstration | Showing the journey to others | The launcher in a container on DigitalOcean App Platform (sections 4 and 5) | A SQLite file in the container's temporary directory, new at every start | Anyone who holds the gate password | A restart or redeploy (section 8) |
 | Cloudflare synthetic staging | A staging that others can reach | Not built: no account, no hosted database, no deployment workflow (HLD section 7.4) | Not applicable | Not applicable | Not applicable |
 | Real-data environment | A pilot with real owners | Does not exist and must not be improvised | Not decided (OQ-07) | Not applicable | Not applicable |
 
@@ -86,7 +86,7 @@ Mutation checks break the code on purpose to see whether the tests notice. Run t
 
 ### 4.1 What it is
 
-`scripts/serve.mjs` runs the built Worker in workerd through Miniflare, with a SQLite database held in memory that is rebuilt from the migrations and the SYNTHETIC seed at every start. In front of it a gateway (`modules/hosting/src/gateway.ts`) holds the access gate, answers `/healthz`, caps the request size and hands every other request on. It is a demonstration host, not a production one. A restart is a reset. There is no way to keep data, by design: the tables are append-only, so a demonstration cannot be put back by deleting rows.
+`scripts/serve.mjs` runs the built Worker in workerd through Miniflare, with a SQLite database that is rebuilt from the migrations and the SYNTHETIC seed at every start. The database is a file in the temporary directory (Miniflare's D1, in a new `miniflare-<random>` directory at each start, about 1.4 MB), not memory [Certain: checked on 6 October 2026, `modules/hosting/VALIDATION.md`]. In front of it a gateway (`modules/hosting/src/gateway.ts`) holds the access gate, answers `/healthz`, caps the request size and hands every other request on. It is a demonstration host, not a production one. A restart is a reset. There is no way to keep data, by design: the tables are append-only, so a demonstration cannot be put back by deleting rows.
 
 ```mermaid
 flowchart TD
@@ -129,11 +129,13 @@ On startup the launcher prints, in order: `Listening on port 8080; starting the 
 | `PORT` | No | 8080 | A whole number from 1 to 65535, different from `APLYD_UPSTREAM_PORT` | `PORT must be a whole number from 1 to 65535.` or `PORT and APLYD_UPSTREAM_PORT must differ.` Exit 2 |
 | `APLYD_UPSTREAM_PORT` | No | 8787 | The same; the Worker listens on 127.0.0.1 at this port and is not reachable from outside | `APLYD_UPSTREAM_PORT must be a whole number from 1 to 65535.` Exit 2 |
 | `APLYD_ENV` | No | `synthetic` | Exactly `local`, `synthetic` or `test`; case matters | A message that the launcher serves synthetic environments only. Exit 2 |
-| `SESSION_SECRET` | Yes | None | At least 32 bytes, and not one repeated character | `SESSION_SECRET must be at least 32 bytes.` or `SESSION_SECRET must not be one repeated character.` The value is never printed. Exit 2 |
-| `DEMO_USER` | Yes, unless `DEMO_ACCESS=open` | None | Not empty; no colon | `DEMO_USER must not contain a colon.` Exit 2 |
-| `DEMO_PASSWORD` | Yes, unless `DEMO_ACCESS=open` | None | At least 12 characters, counted as characters and not bytes | `DEMO_PASSWORD must be at least 12 characters.` Exit 2 |
+| `SESSION_SECRET` | Yes | None | At least 32 bytes, not one repeated character, and not the placeholder `REPLACE_ME` | `SESSION_SECRET is still the placeholder REPLACE_ME. ...`, `SESSION_SECRET must be at least 32 bytes.` or `SESSION_SECRET must not be one repeated character.` The value is never printed. Exit 2 |
+| `DEMO_USER` | Yes, unless `DEMO_ACCESS=open` | None | Not empty; no colon; not the placeholder `REPLACE_ME` | `DEMO_USER is still the placeholder REPLACE_ME. ...` or `DEMO_USER must not contain a colon.` Exit 2 |
+| `DEMO_PASSWORD` | Yes, unless `DEMO_ACCESS=open` | None | At least 12 characters, counted as characters and not bytes; not the placeholder `REPLACE_ME` | `DEMO_PASSWORD is still the placeholder REPLACE_ME. ...` or `DEMO_PASSWORD must be at least 12 characters.` Exit 2 |
 | `DEMO_ACCESS` | No | Unset | Only `open`, or unset or empty. With `open`, `DEMO_USER` and `DEMO_PASSWORD` must both be unset or empty | `DEMO_ACCESS=open and DEMO_USER or DEMO_PASSWORD are both set: choose one.` or `DEMO_ACCESS may only be "open"` Exit 2 |
 | `APLYD_PUBLIC_HOSTS` | No | Empty | Comma-separated host names, each with an optional port, lower-cased. Names the public host if the platform's ingress rewrites the Host header | `APLYD_PUBLIC_HOSTS holds "<value>", which is not a host name with an optional port.` Exit 2 |
+| `APLYD_WATCHDOG_PROBES` | No | 6 | A whole number from 0 to 1000. After this many failed health probes of the Worker in a row the launcher exits with code 1 (section 4.4). 0 turns the watchdog off | `APLYD_WATCHDOG_PROBES must be a whole number from 0 (no watchdog) to 1000.` Exit 2 |
+| `APLYD_WATCHDOG_SECONDS` | No | 5 | A whole number from 1 to 3600: the pause between probes | `APLYD_WATCHDOG_SECONDS must be a whole number from 1 to 3600.` Exit 2 |
 | `APLYD_DEMO` | No | Off | On only for exactly `true` | With `true` and no `modules/demo/src/seed.ts`: `The application did not start: APLYD_DEMO=true, but this build has no demonstration package (modules/demo).` Exit 1 |
 
 With neither a gate nor `DEMO_ACCESS=open`, the launcher prints `Set DEMO_USER and DEMO_PASSWORD (the access gate), or DEMO_ACCESS=open to leave the address open. Synthetic sign-in lets anyone who reaches the address sign in as the operator.` and exits 2. The launcher does not read `NODE_ENV` (the `Dockerfile` sets it to `production` after the build), and it does not read `.dev.vars`, which only `pnpm dev` uses.
@@ -146,6 +148,7 @@ With neither a gate nor `DEMO_ACCESS=open`, the launcher prints `Set DEMO_USER a
 | 2 | `dist/server/wrangler.json` is missing | `dist/server/wrangler.json is missing. Run pnpm build first.` |
 | 1 | The Worker or the database fails to start after the gateway is listening | `The application did not start: <reason>` then `Stopping.` |
 | 1 | An error that nothing handles, for example the port is already in use (`EADDRINUSE`) | A Node error with a stack trace |
+| 1 | The Worker's process has died or stopped answering: its health route failed 6 probes in a row (5 seconds apart, about 30 seconds), counted from when the application became ready | `The application has not answered its health check 6 times in a row (one probe every 5 seconds). Exiting with code 1 so that the platform restarts the container.` then `Stopping.` A platform that restarts a stopped container then replaces it, and the practice data is rebuilt (section 8) |
 | 0 | `SIGTERM` or `SIGINT` | `Stopping.` The gateway closes, the Worker's process ends. A forced exit follows after 10 seconds if it has not |
 
 The container's `HEALTHCHECK` (`Dockerfile`) calls `/healthz` every 30 seconds, with a 5 second timeout, a 60 second start period and 3 retries.
@@ -176,11 +179,11 @@ flowchart LR
   gh["GitHub branch slice-9-demo"] -->|"autodeploy: build from Dockerfile"| ingress
   ingress -->|"HTTP, port 8080"| gw
   subgraph container["One container, 1 GiB, 1 shared vCPU"]
-    gw["Gateway: gate and health route"] --> wd["workerd and in-memory D1"]
+    gw["Gateway: gate and health route"] --> wd["workerd and D1 (a SQLite file)"]
   end
 ```
 
-What follows from these facts. Each push to `slice-9-demo` rebuilds the image and restarts the container, which empties the database and reseeds it. The gate is one shared password over plain HTTP between the ingress and the container. The data is in memory and is not backed up. The host tracks a slice branch and not `main`, so `main` may not hold the code that is live (the HLD's technical question about this is open).
+What follows from these facts. Each push to `slice-9-demo` rebuilds the image and restarts the container, which empties the database and reseeds it. The gate is one shared password over plain HTTP between the ingress and the container. The data is a file in the container's temporary directory, discarded with the container, and is not backed up. The host tracks a slice branch and not `main`, so `main` may not hold the code that is live (the HLD's technical question about this is open).
 
 ### 5.2 `.do/app.yaml` does not match the live app
 
@@ -231,9 +234,9 @@ This checklist comes from `modules/demo/STATUS.md` and its limits. Do it in this
 
 ## 8. Resetting it
 
-A restart or a redeploy resets everything, because the database is in memory and is rebuilt from the migrations and the seed at every start. There is no reset button, on purpose, and no way to put one record back. The same happens on platform maintenance.
+A restart or a redeploy resets everything, because the database is a file in the container's temporary directory, in a new directory at every start, and is rebuilt from the migrations and the seed each time. There is no reset button, on purpose, and no way to put one record back. The same happens on platform maintenance.
 
-To reset, a person with the DigitalOcean account restarts the app or forces a new deployment from the app's actions in the console. The menu wording is the console's and is not recorded here [not known]. The app answers 503 `starting` until the database and the demonstration seed are done; expect longer than the 12 seconds measured on a development machine [the container's time was not measured]. Sessions may survive a restart if `SESSION_SECRET` is unchanged, because the seeded people keep their ids [Likely; not observed]: sign out and in again if a page behaves oddly.
+To reset, a person with the DigitalOcean account restarts the app or forces a new deployment from the app's actions in the console. The menu wording is the console's and is not recorded here [not known]. The app answers 503 `starting` until the database and the demonstration seed are done; expect longer than the 12 seconds measured on a development machine [the container's time was not measured]. A sign-in survives a restart while `SESSION_SECRET` is unchanged, because the seeded people keep their ids: a cookie issued before a restart was accepted after it, and the person saw the freshly rebuilt company [Certain: observed on 6 October 2026, and pinned by a smoke test, `modules/hosting/VALIDATION.md`]. Sign out and in again if a page behaves oddly.
 
 A push to `slice-9-demo` also resets it (section 13).
 
@@ -246,7 +249,7 @@ Only a person with the DigitalOcean account does this, in the console. The value
 3. DigitalOcean redeploys. The redeploy resets all demonstration data (section 8).
 4. Tell the people who need the new password through a channel other than Git.
 
-Rules. The gate password must be at least 12 characters, or the container exits with code 2 and the deploy does not become healthy. This happened on 5 October 2026 with an 8-character password. `DEMO_USER` must not contain a colon. `SESSION_SECRET` must be at least 32 bytes and not one repeated character; `openssl rand -hex 32` gives 64 characters. Changing `SESSION_SECRET` ends every session, so everyone signs in again. A value left as the spec's placeholder `REPLACE_ME` is refused (it is too short). What the platform serves while a failed deploy is unhealthy, whether the previous deployment or nothing, is not known; check the console after any change.
+Rules. The gate password must be at least 12 characters, or the container exits with code 2 and the deploy does not become healthy. This happened on 5 October 2026 with an 8-character password. `DEMO_USER` must not contain a colon. `SESSION_SECRET` must be at least 32 bytes and not one repeated character; `openssl rand -hex 32` gives 64 characters. Changing `SESSION_SECRET` ends every session, so everyone signs in again. A value left as the spec's placeholder `REPLACE_ME` is refused by name, in each of `SESSION_SECRET`, `DEMO_USER` and `DEMO_PASSWORD` on its own (before 6 October 2026 only the two that were too short were: a `DEMO_USER` left as `REPLACE_ME` started). What the platform serves while a failed deploy is unhealthy, whether the previous deployment or nothing, is not known; check the console after any change.
 
 ## 10. Troubleshooting
 
@@ -254,7 +257,7 @@ Rules. The gate password must be at least 12 characters, or the container exits 
 | --- | --- | --- |
 | The browser keeps asking for a user and password; `Authentication required.` | Wrong user or password. Both are compared exactly | Ask the sponsor for the current pair; check for a changed password (section 9) |
 | `The application is starting. Try again in a few seconds.` (503) | The database and the seed are still being built after a start or deploy | Wait and reload. If it lasts minutes, read the runtime log for `The application did not start:` |
-| `/healthz` answers 503 `starting` or `application not answering` | Still starting, or the Worker has stopped | Wait; then restart (section 8) and read the log |
+| `/healthz` answers 503 `starting` or `application not answering` | Still starting, or the Worker has stopped. A Worker that stays stopped makes the launcher exit with code 1 after about 30 seconds (section 4.4), so the platform restarts the container | Wait; if the container did not restart by itself, restart it (section 8) and read the log for `has not answered its health check` |
 | The container exits at once; the log shows `The application was not started:` and lines with dashes | A setting is invalid (section 4.3) | Fix every line named; all problems are printed at once. A password under 12 characters, a secret under 32 bytes, a missing user, or `REPLACE_ME` left in place are the usual causes. Exit code 2 |
 | `dist/server/wrangler.json is missing. Run pnpm build first.` | The build did not run, or failed | On a laptop, run `pnpm build`. On the host, read the build log |
 | `The application did not start: ...` followed by Stopping | The Worker or the database failed to start, or `APLYD_DEMO=true` with no demonstration package | Read the reason in the line. Exit code 1 |
@@ -263,19 +266,19 @@ Rules. The gate password must be at least 12 characters, or the container exits 
 | After pressing Sign in the page shows `{"error":"cross_site_refused"}` | The ingress rewrote the Host header, so the origin check does not match | Set `APLYD_PUBLIC_HOSTS` to the public host name of the app (comma-separated if more than one) and redeploy [Likely, from `modules/hosting/STATUS.md`; not observed] |
 | Sign-in appears to work but the next page is the sign-in page again | The cookie is `Secure` and was not kept: the address is plain `http` and not `localhost` | Use the `https` address |
 | `/demo` says the page is not found | `APLYD_DEMO` is not exactly `true` (case matters) | Set it to `true` and redeploy |
-| Data entered earlier has gone | A restart, redeploy or platform maintenance reset the in-memory database | By design. Nothing can be recovered |
+| Data entered earlier has gone | A restart, redeploy or platform maintenance reset the database (a file in the container's temporary directory) | By design. Nothing can be recovered |
 | The demonstration is in the wrong state: a company already has work done | Someone used it since the last restart | Restart (section 8) |
 | The host behaves differently from yesterday | A push to `slice-9-demo` redeployed it | Read the deployment history in the console and the branch's commits |
 | The build fails on the host while installing | The seven-day package rule refused a very new package, or the builder's resources ran out [Guessing] | Read the build log; do not weaken `pnpm-workspace.yaml` to get past it |
 | 413 `The request is too large.` | A body over 256 KiB reached the gateway; the application's own limit is 64 KiB of characters | Send less |
-| 502 `The application did not answer.` | The Worker crashed or took over 60 seconds | Read the log; restart |
+| 502 `The application did not answer.` | The Worker crashed or took over 60 seconds | Read the log. A crashed Worker ends the launcher after about 30 seconds and the platform restarts the container; if it does not, restart it |
 | `GET /api/health` answers 503 `degraded` | A guard trigger is missing, or the database is unavailable | Read the three status words; a missing trigger means the migrations did not apply. Restart; if it persists, stop and tell the module's owner |
 
 ## 11. Stopping the app and ending the cost
 
 Only a person with the DigitalOcean account may stop or delete the app: the sponsor, in the console. No agent and no other person may, and no one should ask an agent to try. Stopping the cost means deleting the app (its settings page has the destroy action, which asks for confirmation) [Likely; the wording is the console's]. How the last month is charged is not known; check the invoice.
 
-Deleting the app loses nothing durable, because the data is in memory and is synthetic. It leaves the GitHub authorisation in place: do section 12 as well. To bring the host back, a person with the accounts follows `modules/hosting/STATUS.md`, "How to deploy it on DigitalOcean App Platform", with the live settings from section 5.1:
+Deleting the app loses nothing durable, because the data is a file in the container's temporary directory and is synthetic. It leaves the GitHub authorisation in place: do section 12 as well. To bring the host back, a person with the accounts follows `modules/hosting/STATUS.md`, "How to deploy it on DigitalOcean App Platform", with the live settings from section 5.1:
 
 1. Sign in to DigitalOcean and create an app from GitHub: repository `nakul175/aplyd-msme-platform`, the branch the sponsor chooses. App Platform finds the `Dockerfile`.
 2. Choose Bangalore (BLR1) and a container of 1 GiB. Set the HTTP port to 8080.
@@ -306,7 +309,7 @@ At most four agents write code at once; each owns one module under `modules/<nam
 
 ## 14. What must not be done
 
-- Do not enter real data of any kind in any environment: no real company, person, address, factory, provider, price or compliance rule. The host has one shared password, an in-memory database and a plain-HTTP hop (RK-10, BR-DATA-01).
+- Do not enter real data of any kind in any environment: no real company, person, address, factory, provider, price or compliance rule. The host has one shared password, a throwaway database (a file in the temporary directory) and a plain-HTTP hop (RK-10, BR-DATA-01).
 - Do not take or show a percentage of deals, or any fee that varies with the vendor chosen (D-03, OQ-11). The ₹1,500 figure is a placeholder, shown to the operator only; no fee is decided; do not show it to owners.
 - Do not describe the platform as certifying a factory or a product, building products it lists, or selling company data (C-01 to C-03).
 - Do not push to `slice-9-demo` expecting nothing to happen: it redeploys the live host and resets its data.
@@ -330,7 +333,7 @@ A pull request that changes only Markdown or `docs/` runs the documentation chec
 
 ## 16. Backup, recovery and monitoring
 
-AS BUILT: none. The demonstration's database is in memory and synthetic, so there is nothing to back up or restore (BR-NFR-07 is not built). No availability target is set (BR-NFR-08). The platform's default health check is the only monitoring; there is no log shipping and no alert (BR-NFR-10). The gateway writes one line for each refusal or failure, with the method and the reason and never a header, body or credential. TO BE, before any durable or real-data environment: a backup, a restore that has been run and timed, an availability target that is measured, and an alert (these are the requirements named above).
+AS BUILT: none. The demonstration's database is a throwaway file in the container's temporary directory and synthetic, so there is nothing to back up or restore (BR-NFR-07 is not built). No availability target is set (BR-NFR-08). The platform's default health check is the only monitoring; there is no log shipping and no alert (BR-NFR-10). The gateway writes one line for each refusal or failure, with the method and the reason and never a header, body or credential. TO BE, before any durable or real-data environment: a backup, a restore that has been run and timed, an availability target that is measured, and an alert (these are the requirements named above).
 
 ## 17. Commands used in this runbook
 
@@ -403,7 +406,7 @@ Why not `doctl apps update --spec .do/app.yaml`: that file holds `REPLACE_ME` fo
 
 Two more changes are worth making in the same edit. Both are optional and neither is needed for the move.
 
-- **Health check.** The live app uses the platform's default check, not `/healthz` (the lead's report). Set an HTTP check: path `/healthz`, port 8080, initial delay 60 seconds, period 10, timeout 5, failure threshold 3 (the values in `.do/app.yaml`). Reason, from runs on 6 October: the gateway listens within about one second, five to eight seconds before the application is ready. A default check that only tests the port passes in that gap. And when the Worker process dies the gateway stays up and the launcher does not exit: `/healthz` turns 503 within two seconds and every other page answers 502, but only an HTTP check on `/healthz` lets the platform notice and restart the container [Certain for the behaviour; Likely for what the platform does with it].
+- **Health check.** The live app uses the platform's default check, not `/healthz` (the lead's report). Set an HTTP check: path `/healthz`, port 8080, initial delay 60 seconds, period 10, timeout 5, failure threshold 3 (the values in `.do/app.yaml`). Reason, from runs on 6 October: the gateway listens within about one second, five to eight seconds before the application is ready. A default check that only tests the port passes in that gap. When the Worker process dies the gateway stays up: `/healthz` turns 503 within two seconds and every other page answers 502. Until 6 October 2026 nothing but an HTTP check on `/healthz` could make the platform notice. Now the launcher itself exits with code 1 about 30 seconds after the Worker stops answering (section 4.4; `APLYD_WATCHDOG_PROBES` and `APLYD_WATCHDOG_SECONDS`), and a platform that restarts a stopped container then replaces it, whichever check is set [Certain for the exit, run on 6 October 2026; Likely for what the platform does with an exit, not run]. The HTTP check is still worth setting, for the gap at start.
 - **Commit on `/healthz`.** Add a run-time value `APLYD_COMMIT` with the value `${_self.COMMIT_HASH}` (not encrypted). DigitalOcean fills that bindable variable at run time, and for a Dockerfile build it is available at run time only. Without it `/healthz` says `commit unknown` and everything else works [Certain that the launcher behaves so; Likely that the variable is filled as documented, not run].
 
 Autodeploy. After the move every push to `main` rebuilds the app and resets the practice data, documentation-only pushes included: DigitalOcean has no path filter. Either leave autodeploy on and tell everyone who pushes to `main` that each push resets the demonstration, or turn it off for demonstration days (set `deploy_on_push` to false in Source, or the console toggle) and deploy by hand when `main` is ready (Create Deployment, or `doctl apps create-deployment <app id>`). The sponsor decides [Likely for the push behaviour; the toggle's wording is the console's].
@@ -445,8 +448,9 @@ Say this to a viewer: "The demonstration has just been updated and is rebuilding
 
 ### 19.8 What would surprise you
 
-- **A restart resets the data but not the sign-ins.** After a restart the cookie of someone already signed in still works (checked on 6 October), because the key that signs it is unchanged and the seeded people keep their ids. They see the freshly rebuilt company. Changing `SESSION_SECRET` ends every sign-in.
+- **A restart resets the data but not the sign-ins.** After a restart the cookie of someone already signed in still works (checked on 6 October, and pinned by a smoke test), because the key that signs it is unchanged and the seeded people keep their ids. They see the freshly rebuilt company. Changing `SESSION_SECRET` ends every sign-in.
 - **The database is a file, not memory.** The launcher's own text said "in memory". Miniflare keeps the SQLite database as files in the temporary directory, in a new directory at every start. A restart is still a reset, and on a container the disk is discarded with it. On a machine that is not a container the old directories stay in the temporary directory (about 1.4 MB each).
+- **A dead Worker restarts the container by itself.** If workerd is killed or crashes and stays unanswering for about 30 seconds, the launcher logs `The application has not answered its health check ... Exiting with code 1` and ends, and the platform starts a new container, which rebuilds the practice data (section 4.4). A very slow page does not trigger it: it takes six failed probes in a row, five seconds apart, and one good answer starts the count again. To turn it off set `APLYD_WATCHDOG_PROBES=0`.
 - **Every push to `main` is a deploy,** if autodeploy is on (19.3).
 - **A failed deploy.** With the default health check a build that starts and then breaks can replace a good one. With the `/healthz` check the platform should keep the old deployment [Likely; FND-204 lists it as not observed].
 - **Size.** The 1 GiB container is enough: highest resident memory of both processes together 345 MB at start with the demonstration (about 289 MB when shared pages are counted once), 297 to 319 MB after a browse. The 512 MiB size would probably hold but leaves little [Guessing]; do not use it for a presentation.

@@ -36,6 +36,62 @@ function reply(res: ServerResponse, status: number, text: string, extra: Record<
   res.end(`${text}\n`);
 }
 
+/** Whether the application on loopback answers its own health route (/api/health) with 200 within `timeoutMs`. Never throws; an unreachable application is `false`. */
+export function probeUpstream(host: string, port: number, timeoutMs: number = HEALTH_TIMEOUT_MS): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get({ host, port, path: "/api/health", timeout: timeoutMs }, (r) => {
+      r.resume();
+      resolve(r.statusCode === 200);
+    });
+    req.on("timeout", () => req.destroy());
+    req.on("error", () => resolve(false));
+  });
+}
+
+export type WatchdogOptions = {
+  /** Asked once per round. True means the application answered its health route. */
+  probe: () => Promise<boolean>;
+  /** How many failed probes in a row make the application count as dead. */
+  probes: number;
+  /** Milliseconds between the end of one probe and the start of the next. */
+  intervalMs: number;
+  /** Called once, with the number of failures, when `probes` in a row have failed. The watchdog has stopped by then. */
+  onDead: (failures: number) => void;
+};
+
+/**
+ * Asks the application whether it is alive, again and again, and says so once if it has not been for `probes` probes in a row. One answer is enough
+ * to start the count again from zero, so a slow moment is forgiven and only a run of failures counts. It decides nothing about what to do: the launcher
+ * exits, and the platform restarts the container. Returns a function that stops it (safe to call twice, and after it has fired).
+ */
+export function watchUpstream(options: WatchdogOptions): () => void {
+  if (options.probes < 1) return () => {};
+  let stopped = false;
+  let failures = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const round = async () => {
+    let healthy = false;
+    try {
+      healthy = await options.probe();
+    } catch {
+      healthy = false;
+    }
+    if (stopped) return;
+    failures = healthy ? 0 : failures + 1;
+    if (failures >= options.probes) {
+      stopped = true;
+      options.onDead(failures);
+      return;
+    }
+    timer = setTimeout(() => void round(), options.intervalMs);
+  };
+  timer = setTimeout(() => void round(), options.intervalMs);
+  return () => {
+    stopped = true;
+    if (timer !== undefined) clearTimeout(timer);
+  };
+}
+
 export function createGateway(options: GatewayOptions): http.Server {
   const host = options.upstreamHost ?? "127.0.0.1";
   const maxBody = options.maxBodyBytes ?? MAX_PROXY_BODY_BYTES;
@@ -44,15 +100,7 @@ export function createGateway(options: GatewayOptions): http.Server {
   let healthy = false;
 
   /** Whether the application itself answers its own health route. Asked at most once every two seconds, whoever is asking. */
-  const probe = (): Promise<boolean> =>
-    new Promise((resolve) => {
-      const req = http.get({ host, port: options.upstreamPort, path: "/api/health", timeout: HEALTH_TIMEOUT_MS }, (r) => {
-        r.resume();
-        resolve(r.statusCode === 200);
-      });
-      req.on("timeout", () => req.destroy());
-      req.on("error", () => resolve(false));
-    });
+  const probe = (): Promise<boolean> => probeUpstream(host, options.upstreamPort);
 
   const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const path = (req.url ?? "/").split("?")[0];

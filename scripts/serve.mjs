@@ -13,13 +13,17 @@
 //   APLYD_COMMIT     optional: the git commit this build was made from (7 to 64 hexadecimal characters). /healthz shows it as a second line, `commit <id>`,
 //                    so the live address can be matched to a commit. On App Platform set it to ${_self.COMMIT_HASH} at run time (.do/app.yaml); in a
 //                    plain `docker build`, pass --build-arg APLYD_COMMIT=$(git rev-parse HEAD). Anything that is not a commit id is ignored.
+//   APLYD_WATCHDOG_PROBES, APLYD_WATCHDOG_SECONDS   optional: once the application is ready the launcher asks the Worker's own health route every
+//                    APLYD_WATCHDOG_SECONDS seconds (default 5); after APLYD_WATCHDOG_PROBES failures in a row (default 6, about 30 seconds) it logs one
+//                    line and exits with code 1, so a platform that restarts a stopped container replaces a dead Worker. 0 probes turns it off.
+//   REPLACE_ME       is refused as the value of SESSION_SECRET, DEMO_USER or DEMO_PASSWORD (it is what .do/app.yaml holds until the real values are set).
 //
 // The choices that can be tested without starting anything are in modules/hosting/src/gate.ts and gateway.ts.
 import { Miniflare } from "miniflare";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createGateway } from "../modules/hosting/src/gateway.ts";
+import { createGateway, probeUpstream, watchUpstream } from "../modules/hosting/src/gateway.ts";
 import { parseConfig } from "../modules/hosting/src/gate.ts";
 import { migrationStatements, seedStatements } from "../modules/platform/src/db/migrate.ts";
 
@@ -73,10 +77,12 @@ process.removeAllListeners("SIGINT");
 process.removeAllListeners("SIGTERM");
 
 let stopping = false;
+let stopWatchdog = () => {};
 async function stop(code) {
   if (stopping) return;
   stopping = true;
   ready = false;
+  stopWatchdog();
   console.log("Stopping.");
   const force = setTimeout(() => process.exit(code), 10_000);
   force.unref();
@@ -105,6 +111,19 @@ try {
   }
   ready = true;
   console.log("The application is ready.");
+  if (config.watchdog.probes > 0) {
+    // A dead Worker (workerd killed or crashed) leaves the gateway up, answering 503 on /healthz and 502 elsewhere, and nothing else would notice. Exit non-zero
+    // so the container is replaced. It starts only now: while the database is being built the Worker is not expected to answer, and /healthz says "starting".
+    stopWatchdog = watchUpstream({
+      probe: () => probeUpstream("127.0.0.1", config.upstreamPort),
+      probes: config.watchdog.probes,
+      intervalMs: config.watchdog.seconds * 1000,
+      onDead: (failures) => {
+        console.error(`The application has not answered its health check ${failures} times in a row (one probe every ${config.watchdog.seconds} seconds). Exiting with code 1 so that the platform restarts the container.`);
+        void stop(1);
+      },
+    });
+  }
 } catch (error) {
   console.error(`The application did not start: ${error instanceof Error ? error.message : String(error)}`);
   await stop(1);
