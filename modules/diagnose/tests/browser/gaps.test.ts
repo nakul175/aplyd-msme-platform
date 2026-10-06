@@ -162,7 +162,7 @@ test("a second assessment, made after an answer is changed and confirmed, shows 
 
     const compare = page.getByTestId("compare");
     assert.equal(await compare.getByRole("heading", { level: 2 }).innerText(), "What changed since the earlier assessment");
-    assert.match(await page.getByTestId("jump").innerText(), /What changed since the earlier assessment is just below\./);
+    assert.match(await page.getByTestId("jump").innerText(), /What changed since the earlier assessment comes after the ideas and the sign-off\./);
     // The comparison is above the ideas, where the owner who has just changed an answer looks first.
     assert.ok((await compare.boundingBox())!.y < (await page.locator("li[data-testid^='item-']").first().boundingBox())!.y, "the comparison comes before the ideas");
     assert.match(await page.getByTestId("compare-which").innerText(), /This assessment is from version 2 of your description .*The one before it is from version 1 .*Both are kept as they were\./s);

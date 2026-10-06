@@ -107,7 +107,8 @@ export async function handleDecisionCreate(request: Request, env: AppEnv, reques
   if (Object.keys(fields).length) return form ? back("problem=decision") : json(400, { error: "invalid", fields });
 
   const result = await appendDecision(allowed.db, { companyId: allowed.companyId, userId: allowed.identity.userId, assessmentId, opportunityId: opportunityId as string, decision: decision as DecisionValue, note: note as string });
-  if (result.ok) return form ? back(`saved=${encodeURIComponent(opportunityId as string)}`) : json(201, { ok: true });
+  // The page lands on the card that changed, not at the top of a long page (finding S5-10).
+  if (result.ok) return form ? back(`saved=${encodeURIComponent(opportunityId as string)}#idea-${encodeURIComponent(opportunityId as string)}`) : json(201, { ok: true });
   if (result.reason === "signed_off") return form ? back("problem=signed") : json(409, { error: "signed_off" });
   if (result.reason === "unknown_item") return form ? back("problem=decision") : json(400, { error: "invalid", fields: { opportunityId: "That item is not in this assessment." } });
   if (result.reason === "too_many") return form ? back("problem=too_many") : json(409, { error: "too_many_decisions" });
