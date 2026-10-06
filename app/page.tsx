@@ -63,7 +63,7 @@ export default async function Home() {
         <section className="hero">
           <h1 className="brandline">APLYD MSME platform</h1>
           <p className="display">See which technology is worth trying in your factory.</p>
-          <p>Tell us how your factory runs. You get a short, ranked list of what is worth doing. Then you write down what you need, keep the plan you agree with a provider, check each piece of work, and measure the result with your own numbers.</p>
+          <p>You give us a description of your factory, in plain questions. You get back a short ranked list of ideas, a plan written with a provider you choose, and a before-and-after number measured with your own figures.</p>
           <div className="actions">
             <a className="btn turn big" href="/sign-in">
               Sign in
@@ -157,10 +157,6 @@ export default async function Home() {
           <p>{identity.companyId !== null ? "Only the owner of your company can work through the steps. You can see your company's record below." : "This account is not linked to a company, so there are no steps to work through here."}</p>
         </section>
       )}
-
-      <p className="muted">
-        Signed in as {identity.displayName} <span className="tag">{identity.role}</span>
-      </p>
 
       {isOwner && status && facts ? (
         <div className="grid-2">

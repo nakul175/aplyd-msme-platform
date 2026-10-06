@@ -47,7 +47,9 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           <label htmlFor="email" className="label">
             Synthetic user
           </label>
-          <select id="email" name="email" required>
+          {/* The list starts on "Choose a person", never on a real account: pressing Sign in without choosing is refused with a sentence (S5-21). */}
+          <select id="email" name="email" defaultValue="">
+            <option value="">Choose a person</option>
             {results.map((u) => (
               <option key={u.email} value={u.email}>
                 {u.display_name} ({u.role})

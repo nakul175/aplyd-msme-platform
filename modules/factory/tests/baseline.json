@@ -1,12 +1,14 @@
 {
-  "updatedAt": "2026-10-05",
-  "reason": "Slice 11d polish (6 October 2026): session expiry on a form post, page titles, withdrawn counts, date helper, contrast tokens, phone layout, empty states",
+  "updatedAt": "2026-10-06",
+  "reason": "Slice 12a (6 October 2026): typed answers kept on a refused or stale save, limit on biggest problems, confirmed head card, sign-in placeholder; new suites unit/draft and browser/first-visit",
   "suites": {
-    "browser/describe": 9,
-    "integration/factory-api": 35,
+    "browser/describe": 15,
+    "integration/factory-api": 39,
     "smoke/describe": 11,
     "static/scope-rules": 3,
     "unit/questionnaire": 12,
-    "unit/progress": 7
+    "unit/progress": 7,
+    "browser/first-visit": 3,
+    "unit/draft": 8
   }
 }

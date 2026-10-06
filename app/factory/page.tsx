@@ -1,20 +1,23 @@
 import { env } from "cloudflare:workers";
 import { headers } from "next/headers";
 import { loadHistory, loadLatest, loadRevision } from "../../modules/factory/src/db/revisions.ts";
+import { draftAnswers, readDraft } from "../../modules/factory/src/draft.ts";
 import { confirmWords, progressOf, progressWords } from "../../modules/factory/src/progress.ts";
-import { MAX_NOTE_LENGTH, REQUIRED_TO_CONFIRM, SECTIONS } from "../../modules/factory/src/questionnaire.ts";
+import { MAX_NOTE_LENGTH, REQUIRED_TO_CONFIRM, SECTIONS, validateAnswers } from "../../modules/factory/src/questionnaire.ts";
 import type { Answers, Field } from "../../modules/factory/src/questionnaire.ts";
+import { firstTexts, isVersionNumber } from "../../modules/factory/src/search.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
 import { formatDate } from "../_ui/dates.ts";
-import { Check } from "../_ui/icons.tsx";
+import { Arrow, Check } from "../_ui/icons.tsx";
 import { Meter, NotOwner, Notice, Page, SignedOut, Tag } from "../_ui/parts.tsx";
 import "./factory.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Describe" };
 
-type Search = { saved?: string; confirmed?: string; missing?: string; stale?: string; rev?: string; problem?: string; fields?: string };
+// Every name the page reads from its address. A name repeated in the address reaches the page as a list: each is read as its first text (S3-03).
+const SEARCH_NAMES = ["saved", "confirmed", "missing", "stale", "rev", "problem", "fields"] as const;
 
 const LABELS = new Map(SECTIONS.flatMap((s) => s.fields).map((f) => [f.key, f.label]));
 const NEEDED = new Set<string>(REQUIRED_TO_CONFIRM);
@@ -29,39 +32,66 @@ const PROBLEMS: Record<string, string> = {
   request: "Nothing was saved, because the request was not complete. Please reload the page and try again.",
   too_many: "Nothing was saved. A company can keep at most 500 saved versions, and this one has reached it.",
 };
+// When the answers the person typed are shown again in the boxes, the notice says what to change instead.
+const KEPT_PROBLEMS: Record<string, string> = {
+  invalid: "Nothing was saved. Your answers are still in the boxes below: change the ones marked, then save again.",
+  note: "Nothing was saved. Your answers are still in the boxes below: keep the note to plain text of 500 characters or fewer, then save again.",
+  request: "Nothing was saved, because the request was not complete. Your answers are still in the boxes below: save again.",
+  too_many: PROBLEMS.too_many,
+};
+// A save with no question answered is refused with no question named.
+const NOTHING_ANSWERED = "Nothing was saved, because no question has been answered yet. Answer at least one question, then save.";
+// The one sentence added when a refused save's answers could not be shown again (cookies off, too long to keep, or too late).
+const NOT_KEPT = " What you typed could not be kept, so please type it again.";
+// At most this many boxes may be ticked in a group that names a limit: the unticked ones are switched off at the limit.
+const LIMIT_SCRIPT = `document.addEventListener("change",function(e){var t=e.target;if(!t||t.type!=="checkbox")return;var g=t.closest("[data-max]");if(!g)return;var m=Number(g.getAttribute("data-max"));var b=g.querySelectorAll('input[type="checkbox"]');var n=0;b.forEach(function(x){if(x.checked)n++});b.forEach(function(x){x.disabled=!x.checked&&n>=m});var l=g.parentNode.querySelector(".fc-limit");if(l)l.hidden=n<m});`;
 
-function Input({ field, value, readOnly, describedBy }: { field: Field; value: unknown; readOnly: boolean; describedBy?: string }) {
+function Input({ field, value, readOnly, describedBy, invalid }: { field: Field; value: unknown; readOnly: boolean; describedBy?: string; invalid?: boolean }) {
   const name = `a.${field.key}`;
   const id = `f-${field.key}`;
   if (field.kind === "text") {
     return field.long ? (
-      <textarea id={id} name={name} rows={field.maxLength > 1000 ? 7 : 4} maxLength={field.maxLength} defaultValue={typeof value === "string" ? value : ""} readOnly={readOnly} aria-describedby={describedBy} />
+      <textarea id={id} name={name} rows={field.maxLength > 1000 ? 7 : 4} maxLength={field.maxLength} defaultValue={typeof value === "string" ? value : ""} readOnly={readOnly} aria-describedby={describedBy} aria-invalid={invalid ? true : undefined} />
     ) : (
-      <input id={id} name={name} type="text" maxLength={field.maxLength} defaultValue={typeof value === "string" ? value : ""} readOnly={readOnly} aria-describedby={describedBy} />
+      <input id={id} name={name} type="text" maxLength={field.maxLength} defaultValue={typeof value === "string" ? value : ""} readOnly={readOnly} aria-describedby={describedBy} aria-invalid={invalid ? true : undefined} />
     );
   }
   if (field.kind === "number") {
-    return <input id={id} className="fc-narrow" name={name} type="number" inputMode="numeric" min={field.min} max={field.max} defaultValue={typeof value === "number" ? value : ""} readOnly={readOnly} aria-describedby={describedBy} />;
+    // A refused save is shown back as typed, so a box can hold text that is not a number: the server says which box to change.
+    return <input id={id} className="fc-narrow" name={name} type="number" inputMode="numeric" min={field.min} max={field.max} defaultValue={typeof value === "number" || typeof value === "string" ? value : ""} readOnly={readOnly} aria-describedby={describedBy} aria-invalid={invalid ? true : undefined} />;
   }
   const picked = field.kind === "multi" ? (Array.isArray(value) ? value : []) : [value];
+  // A group with a limit (the biggest problems: three) switches off the unticked boxes once the limit is reached. The server keeps the same rule.
+  const max = field.kind === "multi" ? field.maxChoices : undefined;
+  const full = max !== undefined && picked.length >= max;
   return (
-    <div className={field.options.length > LONG_LIST ? "options cols" : "options"}>
-      {field.options.map((opt) => (
-        <label key={opt.value} className="option">
-          <input type={field.kind === "multi" ? "checkbox" : "radio"} name={name} value={opt.value} defaultChecked={picked.includes(opt.value)} disabled={readOnly} />
-          {opt.label}
-        </label>
-      ))}
+    <div className={field.options.length > LONG_LIST ? "options cols" : "options"} data-max={max}>
+      {field.options.map((opt) => {
+        const on = picked.includes(opt.value);
+        return (
+          <label key={opt.value} className="option">
+            <input type={field.kind === "multi" ? "checkbox" : "radio"} name={name} value={opt.value} defaultChecked={on} disabled={readOnly || (full && !on)} />
+            {opt.label}
+          </label>
+        );
+      })}
     </div>
   );
 }
 
 /** One question: its label, a short help line (with a tag when the question is needed to confirm), and the control. */
-function Question({ field, value, readOnly }: { field: Field; value: unknown; readOnly: boolean }) {
+function Question({ field, value, readOnly, error }: { field: Field; value: unknown; readOnly: boolean; error?: string }) {
   const needed = !readOnly && NEEDED.has(field.key);
   const chooseUpTo = field.kind === "multi" && field.maxChoices ? `Choose up to ${field.maxChoices}.` : null;
   const words = [field.help, chooseUpTo].filter(Boolean).join(" ");
   const helpId = needed || words ? `h-${field.key}` : undefined;
+  const errorId = error ? `e-${field.key}` : undefined;
+  const describedBy = [helpId, errorId].filter(Boolean).join(" ") || undefined;
+  const problem = error ? (
+    <p id={errorId} className="fc-error" data-testid={`error-${field.key}`}>
+      <strong>Change this answer.</strong> {error}
+    </p>
+  ) : null;
   const help = helpId ? (
     <p id={helpId} className="help fc-help">
       {needed ? <Tag tone="brand">Needed to confirm</Tag> : null}
@@ -71,27 +101,34 @@ function Question({ field, value, readOnly }: { field: Field; value: unknown; re
 
   if (field.kind === "choice" || field.kind === "multi") {
     return (
-      <fieldset className="question" aria-describedby={helpId}>
+      <fieldset className={error ? "question fc-bad" : "question"} aria-describedby={describedBy}>
         <legend id={`l-${field.key}`} className="label">
           {field.label}
         </legend>
+        {problem}
         {help}
         <Input field={field} value={value} readOnly={readOnly} />
+        {field.kind === "multi" && field.maxChoices ? (
+          <p className="help fc-limit" hidden={!(Array.isArray(value) && value.length >= field.maxChoices)}>
+            That is the most you can choose. Untick one to choose another.
+          </p>
+        ) : null}
       </fieldset>
     );
   }
   return (
-    <div className="question">
+    <div className={error ? "question fc-bad" : "question"}>
       <label htmlFor={`f-${field.key}`} className="label">
         {field.label}
       </label>
+      {problem}
       {help}
-      <Input field={field} value={value} readOnly={readOnly} describedBy={helpId} />
+      <Input field={field} value={value} readOnly={readOnly} describedBy={describedBy} invalid={Boolean(error)} />
     </div>
   );
 }
 
-function Sections({ answers, readOnly }: { answers: Answers; readOnly: boolean }) {
+function Sections({ answers, readOnly, errors }: { answers: Answers; readOnly: boolean; errors: Record<string, string> }) {
   return (
     <div className="fc-sections">
       {SECTIONS.map((section) => {
@@ -112,11 +149,11 @@ function Sections({ answers, readOnly }: { answers: Answers; readOnly: boolean }
               block.length === 2 ? (
                 <div key={block[0]!.key} className="field-row two">
                   {block.map((field) => (
-                    <Question key={field.key} field={field} value={answers[field.key]} readOnly={readOnly} />
+                    <Question key={field.key} field={field} value={answers[field.key]} readOnly={readOnly} error={errors[field.key]} />
                   ))}
                 </div>
               ) : (
-                <Question key={block[0]!.key} field={block[0]!} value={answers[block[0]!.key]} readOnly={readOnly} />
+                <Question key={block[0]!.key} field={block[0]!} value={answers[block[0]!.key]} readOnly={readOnly} error={errors[block[0]!.key]} />
               ),
             )}
           </fieldset>
@@ -126,10 +163,11 @@ function Sections({ answers, readOnly }: { answers: Answers; readOnly: boolean }
   );
 }
 
-export default async function Factory({ searchParams }: { searchParams: Promise<Search> }) {
+export default async function Factory({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const e = env as unknown as AppEnv;
-  const q = await searchParams;
-  const identity = await resolveIdentityFromCookieHeader((await headers()).get("cookie"), e);
+  const q = firstTexts(await searchParams, SEARCH_NAMES);
+  const cookieHeader = (await headers()).get("cookie");
+  const identity = await resolveIdentityFromCookieHeader(cookieHeader, e);
 
   if (!identity) return <SignedOut title="Describe your factory" reason="to describe your factory." />;
   if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Describe your factory" hasCompany={identity.companyId !== null} />;
@@ -137,18 +175,47 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
   const db = e.DB;
   const companyId = identity.companyId;
   const [latest, history] = await Promise.all([loadLatest(db, companyId), loadHistory(db, companyId)]);
-  const viewing = q.rev && /^\d{1,9}$/.test(q.rev) ? await loadRevision(db, companyId, Number(q.rev)) : null;
+  const viewing = isVersionNumber(q.rev) ? await loadRevision(db, companyId, Number(q.rev)) : null;
   const shown = viewing ?? latest;
   const readOnly = viewing !== null && viewing.revision !== latest?.revision;
+  // A refused or stale save comes back with the answers the person typed in a short-lived cookie (draft.ts). They are drawn in the boxes in
+  // place of the saved ones, and checked again with the same rules as a save so each question that failed is marked.
+  const problem = q.problem !== undefined && Object.hasOwn(PROBLEMS, q.problem) ? q.problem : null;
+  const stale = q.stale === "1";
+  const typed = (problem !== null || stale) && !readOnly ? readDraft(cookieHeader, companyId) : null;
+  const typedAnswers = typed ? draftAnswers(typed) : null;
+  const fieldErrors: Record<string, string> = {};
+  if (typedAnswers) {
+    const checked = validateAnswers(typedAnswers, { confirm: false });
+    if (!checked.ok) for (const [key, message] of Object.entries(checked.errors)) if (LABELS.has(key)) fieldErrors[key] = message;
+  }
   const missing = (q.missing ?? "").split(",").filter((k) => (REQUIRED_TO_CONFIRM as readonly string[]).includes(k));
   const problemFields = (q.fields ?? "").split(",").filter((k) => LABELS.has(k));
   // How much of the questionnaire the newest saved version covers: worked out here from the saved answers, not from what is being typed.
   const progress = progressOf(latest?.answers);
   const confirmLine = confirmWords(progress, latest?.confirmed === true);
 
+  const confirmedNow = latest?.confirmed === true;
+  const lede = (
+    <>
+      <p>Answer what you can and stop whenever you like: every save is kept as a new version, and nothing is overwritten.</p>
+      {confirmedNow && latest ? (
+        <div className="fc-next" data-testid="confirmed-next">
+          <p>
+            <strong>Your description is confirmed (version {latest.revision}).</strong> The next step is to see which ideas are worth trying in your factory. You can change an answer below at any time and save a new version.
+          </p>
+          <a className="btn primary" href="/diagnose">
+            See what is worth doing
+            <Arrow className="icon" />
+          </a>
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
-    <Page stage="describe" identity={identity} title="Describe your factory" lede="Answer what you can and stop whenever you like: every save is kept as a new version, and nothing is overwritten.">
-      {q.saved ? (
+    <Page stage="describe" identity={identity} title="Describe your factory" lede={lede} hideNext={confirmedNow}>
+      {isVersionNumber(q.saved) ? (
         <Notice role="status" tone="success" data-testid="saved">
           {q.confirmed === "1" ? `Version ${q.saved} saved and confirmed as accurate.` : `Version ${q.saved} saved as a draft.`}
         </Notice>
@@ -158,15 +225,25 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
           It was saved as a draft, not confirmed. To confirm, please answer: {missing.map((k) => LABELS.get(k) ?? k).join("; ")}.
         </Notice>
       ) : null}
-      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
+      {problem ? (
         <Notice role="alert" tone="danger" data-testid="problem">
-          {PROBLEMS[q.problem]}
-          {q.problem === "invalid" && problemFields.length ? ` Check: ${problemFields.map((k) => LABELS.get(k)).join("; ")}.` : ""}
+          {problem === "invalid" && problemFields.length === 0 ? NOTHING_ANSWERED : typed ? KEPT_PROBLEMS[problem] : PROBLEMS[problem] + (problem === "too_many" ? "" : NOT_KEPT)}
+          {problem === "invalid" && problemFields.length ? ` Check: ${problemFields.map((k) => LABELS.get(k)).join("; ")}.` : ""}
         </Notice>
       ) : null}
-      {q.stale === "1" ? (
+      {stale ? (
         <Notice role="alert" tone="warn" data-testid="stale">
-          Someone saved a newer version while you were typing, so yours was not saved. The newest version is shown below. Please make your changes again.
+          {latest ? `Version ${latest.revision} was saved while you were typing, so yours was not saved. ` : "A newer version was saved while you were typing, so yours was not saved. "}
+          {typed ? "Your answers are still in the boxes below. If you save now, they become the newest version." : "The newest version is shown below. Please make your changes again."}
+          {latest ? (
+            <>
+              {" "}
+              <a href={`/factory?rev=${latest.revision}`} target="_blank" rel="noopener">
+                Look at version {latest.revision} first (it opens in a new tab)
+              </a>
+              .
+            </>
+          ) : null}
         </Notice>
       ) : null}
 
@@ -203,7 +280,7 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
 
       <form method="post" action={`/api/companies/${companyId}/factory/revisions`} className="fc-form" data-testid="describe-form">
         <input type="hidden" name="based_on" value={latest?.revision ?? 0} />
-        <Sections answers={shown?.answers ?? {}} readOnly={readOnly} />
+        <Sections answers={typedAnswers ?? shown?.answers ?? {}} readOnly={readOnly} errors={fieldErrors} />
         {readOnly ? null : (
           <>
             <div className="card fc-save">
@@ -211,9 +288,13 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
                 <label htmlFor="note" className="label">
                   What changed since last time? (optional)
                 </label>
-                <input id="note" name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
+                <input id="note" name="note" type="text" maxLength={MAX_NOTE_LENGTH} defaultValue={typed?.note ?? ""} />
               </div>
-              <p className="help">Confirming says the description is accurate and ready for the next step. You can still save a newer version later.</p>
+              <p className="help">
+                {confirmedNow
+                  ? "Saving a new version keeps your description confirmed as accurate. Choose Save as draft instead if you are not sure yet: the version you confirmed stays on record."
+                  : "Confirming says the description is accurate and ready for the next step. You can still save a newer version later."}
+              </p>
             </div>
             <div className="sticky-actions">
               <div className="actions">
@@ -221,13 +302,20 @@ export default async function Factory({ searchParams }: { searchParams: Promise<
                   Save as draft
                 </button>
                 <button type="submit" name="intent" value="confirm" className="primary">
-                  Confirm this is accurate
+                  {confirmedNow ? (
+                    <>
+                      Save a new version<span className="sr"> and confirm this is accurate</span>
+                    </>
+                  ) : (
+                    "Confirm this is accurate"
+                  )}
                 </button>
               </div>
             </div>
           </>
         )}
       </form>
+      <script dangerouslySetInnerHTML={{ __html: LIMIT_SCRIPT }} />
 
       {history.length ? (
         <details className="card" open={readOnly}>
