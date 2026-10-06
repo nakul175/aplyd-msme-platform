@@ -51,7 +51,7 @@ The drivers below are the requirements and decisions that shaped the architectur
 | Synthetic only | BR-DATA-01, BR-UX-08, BR-OPS-08 | A synthetic sign-in that works only where the environment name allows it; a banner; a launcher that refuses to start unless configured as synthetic | 6.9, 7.3 |
 | The Saha stack | D-04, D-06 | Next.js on vinext, Workers, D1, Drizzle, pnpm, Node 22, pinned versions; Saha's hosting layer is not reused | 3.2, 9 (AD-01) |
 | Where real data lives is open | OQ-07, BR-DATA-02, DP-04 | Nothing in the design commits real data to Cloudflare; the dependence on SQLite syntax in triggers is recorded as a constraint | 7.4, 11.1 |
-| The platform does not certify, build registry products or sell data | C-01, C-02, C-03, BR-GOV-03, BR-GOV-04, BR-GOV-05 | Absence: there is no certification record, no provider-side write path for APLYD, and no export of a company's data to anyone but its owner | 3.3, 10.1 |
+| The platform does not certify, build registry products or sell data | C-01, C-02, C-03, BR-GOV-03, BR-GOV-04, BR-GOV-05 | Absence: there is no certification record, no provider-side write path for APLYD, and no file or interface that gives a company's data to anyone but a person of that company (the only export is the company's own file, `/export`, API-30) | 3.3, 10.1 |
 | Reproducible diagnosis | BR-DIAG-04 | A rules engine with pinned versions rather than a model; the stored result copies library facts | 9 (AD-03) |
 | Evidence and regression | BR-NFR-04, BR-NFR-05 | Layered tests, a baseline guard, static tripwires over the source | 4.7, 8 |
 | A presenter can show the journey | BR-OPS-07, BR-OPS-08 | A seeded cast, a presenter script page, a hosted synthetic host behind a gate | 3.3, 7.3 |
@@ -159,15 +159,17 @@ AS BUILT. The modules are directories, not packages: each is a folder under `mod
 | `diagnose` | Diagnose: the rules engine, the SYNTHETIC library, assessments, decisions, sign-off, fingerprint | `assessments`, `assessment_events` | `/diagnose` | 4 files, 5 operations |
 | `procure` | Requirements, pools with a floor of five, the provider registry, the one listing fee, the operator's page | `requirements`, `requirement_events`, `providers`, `provider_services`, `listing_terms`, `provider_events` | `/procure`, `/operator` | 8 files, 11 operations |
 | `deliver` | Choice of a provider, the milestone plan, deliveries, acceptances, payments the owner made, close | `engagements`, `milestones`, `engagement_events` | `/deliver` | 5 files, 5 operations |
-| `run` | Baseline, reviews at 30, 90 and 180 days, change since baseline, next idea | `outcome_events` | `/run` | 1 file, 2 operations |
+| `run` | Baseline, reviews at 30, 90 and 180 days, corrections to a number, change since baseline, next idea | `outcome_events`, `outcome_corrections` | `/run` | 1 file, 2 operations |
 | `hosting` | Gate and gateway for the demonstration host; no import from any other module | none | none | none |
 | `demo` | The cast, the seeder (through the application's own requests), the presenter script | none | `/demo` (only with `APLYD_DEMO=true`) | none |
 | `journey` | The next-step logic behind the home page and the progress strip (`src/progress.ts`, `src/facts.ts`), and the browser test that walks the whole journey through the pages. It has no page and no route of its own | none | none | none |
+| `portability` | One company's records as one JSON file (`/export`, API-30), read through the other modules' own data layers; it holds no SQL, and no table of its own | none | `/export` | 1 file, 1 operation |
+| `quality` | Browser tests that measure every page on a phone, for accessibility, on a slow connection and with scripts off, with lists of known faults; no application code | none | none | none |
 | `docs` | Readers that read the project's own documents as data (the BRD, the FSD, the identifiers they cite, the API reference, the data dictionary, the test documents, the findings register, the glossary, the documentation index and the low-level design), used by `scripts/check-traceability.mjs`, `scripts/check-test-docs.mjs` and the static tests of the module; no application code | none | none | none |
 
-The totals are 9 pages, 23 route files and 29 operations (GET and POST), counted from `app/`. The operation-level catalogue is in [the API reference](API-REFERENCE.md). One route of the `deliver` module lives under the `requirements` path (`requirements/[rid]/engagement`), and the `/operator` page belongs to `procure`.
+The totals are 10 pages, 24 route files and 30 operations (GET and POST), counted from `app/` on 6 October 2026. The operation-level catalogue is in [the API reference](API-REFERENCE.md). One route of the `deliver` module lives under the `requirements` path (`requirements/[rid]/engagement`), and the `/operator` page belongs to `procure`.
 
-Capabilities that the invariants say must not exist have no component: there is no certification record (C-01), no write path through which APLYD lists a product of its own (C-02), and no interface that exports a company's data (C-03).
+Capabilities that the invariants say must not exist have no component: there is no certification record (C-01), no write path through which APLYD lists a product of its own (C-02), and no interface that gives a company's data to anyone but a person of that company: the one export is that company's own file (C-03; `modules/portability`).
 
 ### 3.4 Dependencies between modules
 
@@ -378,7 +380,7 @@ AS BUILT. `pnpm db:local` (`scripts/local-db.mjs`) deletes `.wrangler/state/v3/d
 
 ### 4.7 Tests and continuous integration
 
-AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue (`node scripts/test.mjs --list`) held 86 suites at commit 21fd329 on 5 October 2026 (23 static, 35 unit, 9 integration, 8 smoke and 11 browser) and 95 at commit b741f59 (28 static including five command suites, 39 unit, 9 integration, 8 smoke and 11 browser); the command prints the current list. The earlier figure of 67 in this paragraph was out of date.
+AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue (`node scripts/test.mjs --list`) held 86 suites at commit 21fd329 on 5 October 2026 (23 static, 35 unit, 9 integration, 8 smoke and 11 browser), 95 at commit b741f59 (28 static including five command suites, 39 unit, 9 integration, 8 smoke and 11 browser) and 118 at commit 696640e on 6 October 2026 (29 static, 49 unit, 10 integration, 10 smoke and 20 browser, counted by module from the baselines and the catalogue); the command prints the current list. The earlier figure of 67 in this paragraph was out of date.
 
 | Layer | What runs | Needs |
 | --- | --- | --- |
@@ -400,7 +402,7 @@ The column-level description of every table is in [the data dictionary](DATA-DIC
 
 AS BUILT. Four rules shape every table.
 
-1. A confirmed record is never changed. A correction is a new row that carries evidence; the old row stays (BR-DATA-04, AGENTS.md). Fourteen of the 16 tables are append-only. `companies` and `users` are not, but no route creates or edits them: only the seed files and the demonstration seeder write them, so there is no sign-up path today (BR-ID-01 is partial).
+1. A confirmed record is never changed. A correction is a new row that carries evidence; the old row stays (BR-DATA-04, AGENTS.md). Fifteen of the 17 tables are append-only. `companies` and `users` are not, but no route creates or edits them: only the seed files and the demonstration seeder write them, so there is no sign-up path today (BR-ID-01 is partial).
 2. Change is recorded as events. Where something changes state (a decision on an idea, a withdrawal, a listing, a delivery, an acceptance, a review), the change is an event row, and the state is read from the events.
 3. State is derived on read, never stored (5.6). There is no "status" column to go out of step with the events.
 4. Every refusal that matters is also made by the database (5.4), so a bug in the application layer cannot write what a rule forbids.
@@ -409,7 +411,7 @@ Identifiers and time follow one convention. Records that people name in a URL (a
 
 ### 5.2 Table families
 
-AS BUILT. 16 tables, created by migrations 0000 to 0014.
+AS BUILT. 17 tables, created by migrations 0000 to 0015.
 
 | Module | Table | Holds | Append-only | Notes |
 | --- | --- | --- | --- | --- |
@@ -428,7 +430,8 @@ AS BUILT. 16 tables, created by migrations 0000 to 0014.
 | deliver | `engagements` | The owner's choice of one listed provider for one of the company's requirements | Yes | One per requirement |
 | deliver | `milestones` | A step of the plan: the owner's test, the agreed price in rupees, a due date | Yes | Up to 12; open only until the plan is agreed |
 | deliver | `engagement_events` | Plan agreed, delivery, acceptance, rejection, payment the owner says they made, close | Yes | A fixed order enforced by triggers (5.4) |
-| run | `outcome_events` | One baseline and the reviews at 30, 90 and 180 days: the owner's number, whether it did what was expected, whether it is in use | Yes | Numbers are whole; one baseline; one review of each kind |
+| run | `outcome_events` | One baseline and the reviews at 30, 90 and 180 days: the owner's number, whether it did what was expected, whether it is in use | Yes | Numbers are whole; one baseline; one review of each kind; no baseline on a closed engagement or before the plan is agreed (0015) |
+| run | `outcome_corrections` | A correction of a baseline or a review: the number it should have been and why. The number it corrects is never changed | Yes | Added by migration 0015. Whole numbers; a reason of 1 to 500 characters; names a number of the same engagement and company |
 
 ```mermaid
 erDiagram
@@ -447,6 +450,7 @@ erDiagram
   engagements ||--o{ engagement_events : records
   milestones ||--o{ engagement_events : "delivered or accepted"
   engagements ||--o{ outcome_events : measures
+  outcome_events ||--o{ outcome_corrections : "corrected by"
 ```
 
 `audit_events` is left off the diagram: it refers to users and companies by text, with no foreign key. Where a child row names a parent that belongs to a company, the key is composite (the parent's id and its company id), so a child cannot name another company's parent even by a mistake in the application (for example `assessment_events` refers to `(assessment_id, company_id)`). The foreign keys declare `ON DELETE no action`; deletion is in any case refused by the append-only triggers.
@@ -508,7 +512,7 @@ AS BUILT. `audit_events` records every write (event names such as `factory.revis
 
 ### 5.9 Migrations
 
-AS BUILT. Migrations are SQL files in `drizzle/`, numbered 0000 to 0014. Table definitions are generated from the modules' `db/schema.ts` files with `pnpm db:generate`; triggers are written as custom SQL migrations (`pnpm db:generate --custom`). `drizzle-kit check` runs in the static layer. Applied migrations are never edited; a defect in a rule is fixed by a later migration that drops and recreates the trigger (0007 and 0014 do this). The test and local scripts apply them with `modules/platform/src/db/migrate.ts`, which also holds the seed functions; no application code applies migrations at run time. Against a hosted D1 the sponsor or an operator would apply them with Wrangler (TO BE; nothing is hosted).
+AS BUILT. Migrations are SQL files in `drizzle/`, numbered 0000 to 0015. Table definitions are generated from the modules' `db/schema.ts` files with `pnpm db:generate`; triggers are written as custom SQL migrations (`pnpm db:generate --custom`). `drizzle-kit check` runs in the static layer. Applied migrations are never edited; a defect in a rule is fixed by a later migration that drops and recreates the trigger (0007 and 0014 do this; 0015 adds the table `outcome_corrections` and two baseline rules). The test and local scripts apply them with `modules/platform/src/db/migrate.ts`, which also holds the seed functions; no application code applies migrations at run time. Against a hosted D1 the sponsor or an operator would apply them with Wrangler (TO BE; no hosted D1 database is used. The demonstration host runs the Worker in Miniflare with a database in memory that is built again at every start).
 
 ## 6. Security architecture
 
@@ -641,7 +645,7 @@ AS BUILT against BR-NFR-01 to BR-NFR-15. The status column is the BRD's own, rea
 | Requirement | How the architecture addresses it | What is missing or unmeasured | BRD status |
 | --- | --- | --- | --- |
 | BR-NFR-01 Authority on the server | Signed cookie, database lookup of company and role per request, one scope function, header-read rule, cross-company probes in the integration and browser layers (6.2 to 6.5) | The header rule is a tripwire, not a proof | Built |
-| BR-NFR-02 Integrity in the database | 91 triggers listed in `guards.ts`; a health check that names a missing one (5.4) | The check matches names, not bodies; one probe per rule in tests | Built |
+| BR-NFR-02 Integrity in the database | 98 triggers listed in `guards.ts`; a health check that names a missing one (5.4) | The check matches names, not bodies; one probe per rule in tests | Built |
 | BR-NFR-03 Nothing secret or real in git | A static test over tracked files; secrets in the host's environment and an untracked `.dev.vars` | The test reads tracked files, not history [Likely] | Built |
 | BR-NFR-04 Evidence for every change | A `STATUS.md` and `VALIDATION.md` per module, with dates and limits | Evidence is written by the builders, and no person has read it | Built |
 | BR-NFR-05 Regression protection | `tests/baseline.json` per module and the `--guard` option (4.7) | A baseline can be edited in a pull request | Built |
@@ -702,7 +706,7 @@ Source. [Diagnose status](../../modules/diagnose/STATUS.md); BR-DIAG-04; commit 
 
 Context. BR-DATA-04, BR-ID-06 and [AGENTS.md](../../AGENTS.md): confirmed records, revisions and audit entries are never edited or deleted, and corrections append.
 
-Decision. Fourteen of the 16 tables are append-only. A change of state is an event row. No table has a stored status column (5.1, 5.6).
+Decision. Fifteen of the 17 tables are append-only. A change of state is an event row. No table has a stored status column (5.1, 5.6).
 
 Consequences. History and audit come with the model, and a stale status is impossible. Reads fold events, which costs more as history grows; the caps (500 revisions, 200 decisions, 12 milestones, 14 deliveries) bound it. A wrong entry cannot be removed, so a wrong provider choice is permanent (OQ-15) and an erasure request has no answer (BR-DATA-05, OQ-07). A hosted demonstration cannot be put back by deleting rows, which is why its reset is a rebuild (AD-19).
 
@@ -714,11 +718,11 @@ Source. AGENTS.md; BR-DATA-04; the module status pages; commits 1260d45 and 4083
 
 Context. The independent reviews of slices 2 to 5 found rules that the application kept and the database did not. The review of slice 3 found a high defect: a second sign-off could replace the first through `INSERT OR REPLACE`.
 
-Decision. 91 triggers (42 append-only and 49 rule triggers), listed by name in `modules/platform/src/db/guards.ts`; a unit test compares the list with the migrations; the health endpoint reports `degraded` if one is missing.
+Decision. 98 triggers (45 append-only and 53 rule triggers), listed by name in `modules/platform/src/db/guards.ts`; a unit test compares the list with the migrations; the health endpoint reports `degraded` if one is missing.
 
 Consequences. A defective handler cannot write what a rule forbids, and a rule change is a migration. Trigger messages are matched by regular expression in TypeScript (5.4), the health check cannot see a weakened body, and the rules are SQLite-specific (CN-01).
 
-Status. Built. The second tranche (migration 0014, about 20 triggers and two recreated) came from the review fixes.
+Status. Built. The second tranche (migration 0014, about 20 triggers and two recreated) came from the review fixes, and migration 0015 added seven more (five for `outcome_corrections`, two for the baseline).
 
 Source. BR-NFR-02; [platform validation record](../../modules/platform/VALIDATION.md); [HANDOVER.md](../../HANDOVER.md); commits b0056c4 and 78b20a2.
 
@@ -1007,7 +1011,7 @@ The advisor and provider scopes and the owner's export are new code inside the W
 | Offers and quotes (BR-PROC-07, BR-PROC-08) | Offer events in the procure module; a total-cost comparison as a pure rule beside `state.ts`; an accepted offer becomes the plan | Procure data layer and pages, deliver, the money-column tests (updated on purpose) | Money, data scope | OQ-19, OQ-12, OQ-11 |
 | Pooling actions (BR-PROC-03) | A pool-level event, a joint request, issued through the operator or the owners | `pool.ts`, `db/pool.ts`, the operator page; the floor of five would have to govern who sees membership | Data scope (widens the one cross-company read) | OQ-14, OQ-19, OQ-12 |
 | Reminders and notifications (BR-RUN-07, BR-UX-11) | A scheduled job that reads the derived "due" state and sends through a channel; a contact record with consent; an append-only notification log | `run/src/state.ts`; a scheduler (none on the demonstration host; the target's scheduling features were not examined here [Guessing]); contact data | Data scope | OQ-17, OQ-13, OQ-07 |
-| Document export (BR-UX-10, BR-DATA-03) | Read-only export routes in each module that render the owner's own records as a printable page or a file, with the SYNTHETIC marks, to nobody but the owner (BR-GOV-05) | Every module's data layer (read side) and a rendering component | Data scope | None; TQ-04 |
+| Document export (BR-UX-10, BR-DATA-03) | Read-only export routes in each module that render the owner's own records as a printable page or a file, with the SYNTHETIC marks, to nobody but the owner (BR-GOV-05) | Every module's data layer (read side) and a rendering component | Data scope | None; TQ-04. Partly built since 6 October 2026: the JSON file of one company's records (`modules/portability`, `/export`, API-30), as one document read through the other modules' data layers. A printable page, a file per record and the audit log are not built |
 | Payments (BR-DEPL-10, BR-DEPL-04) | None proposed. If OQ-12 decides that the platform holds or moves money, a separate module behind a narrow interface called from `deliver`, with its own append-only ledger and no import by other modules | `deliver` money columns, the D-03 tests | Money | OQ-12, OQ-11 (BR-DEPL-10 is open) |
 | Durable hosting, backup, retention and erasure (BR-NFR-07, BR-NFR-15, BR-DATA-02, BR-DATA-05, BR-DATA-07) | A hosted database with restore on whichever platform OQ-07 selects; migrations applied by a deployment step; a redaction record as the way to answer an erasure request without editing history | Deployment, `migrate.ts`, the guards and the health check | Migrations, data scope | OQ-07 |
 | Observability and abuse protection (BR-NFR-10, BR-NFR-12, BR-OPS-06) | Log shipping and alerts from the host; rate limits at the edge or gateway; an audit view for the operator | Worker logging, the gateway, `audit_events` (which names users and companies, so an operator view is a scope question), the health endpoint | Data scope (audit view) | TQ-03 |
@@ -1023,7 +1027,7 @@ Advisor and provider scopes. Each is a new scope function with its own tests of 
 
 Offers, pools and payments. These are the places where D-03 and C-04 are most easily broken. An offer is not a fee, but an offer table next to a fee table makes it easy to add a share. The static tests that read the money columns would flag it; they would have to be extended with the new tables, deliberately.
 
-Durable hosting. A different SQL engine would mean rewriting the 91 triggers and the regular expressions that read their messages (CN-01). Staying on D1 keeps them. Which is right depends on OQ-07, which no document in the repository answers.
+Durable hosting. A different SQL engine would mean rewriting the 98 triggers and the regular expressions that read their messages (CN-01). Staying on D1 keeps them. Which is right depends on OQ-07, which no document in the repository answers.
 
 ### 10.4 Protected paths and what would touch them
 
@@ -1109,7 +1113,7 @@ These are places where the code, a status page and the BRD disagree, or where th
 | 6 | Static assets under `/_next/static/` | Served by the assets layer, with none of the four security headers | `modules/platform/STATUS.md` says every response carries them | The statement holds for responses the Worker produces only |
 | 7 | `modules/diagnose/STATUS.md` (limit 4 and others), `modules/procure/STATUS.md` (limits 3 and 11), `modules/deliver/STATUS.md` (items 16 and 17) | Migration 0014 is merged. `modules/diagnose/src/api/diagnose.ts` refuses control characters in a decision note | "Migration 0014 on the review-fixes branch", "until 0014 is applied", and that the diagnose handler does not refuse control characters | Wording from before the merge; one statement is no longer true |
 | 8 | `modules/platform/src/identity/resolve.ts` (comment) and `modules/platform/STATUS.md` (limit 3) | No route or column removes or disables a user, and a user who has saved a version cannot be deleted (factory limit 3) | "A removed user loses access at once"; a session can be revoked "by deleting the user" | True in principle; in practice revocation is by rotating `SESSION_SECRET` for everyone |
-| 9 | `docs/open-questions.md` | No open question covers a model or speech provider, an operator view of the audit log, or an owner's export | The BRD has requirements that need them (BR-DESC-07, BR-OPS-06, BR-UX-10, BR-DATA-03) | Technical questions TQ-01, TQ-03 and TQ-04 are not tracked in the register |
+| 9 | `docs/open-questions.md` | No open question covers a model or speech provider, an operator view of the audit log, or the form of an owner's export (a first JSON file exists since 6 October 2026, chosen by an agent, not decided) | The BRD has requirements that need them (BR-DESC-07, BR-OPS-06, BR-UX-10, BR-DATA-03) | Technical questions TQ-01, TQ-03 and TQ-04 are not tracked in the register |
 | 10 | `modules/factory/src/api/factory.ts` | The factory handlers inline the sign-in check, the scope check and the body bound (their own `MAX_BODY_CHARACTERS`) | `modules/platform/src/api/authorize.ts` says the checks are in one place "so that no endpoint can forget one" | The other four modules call the shared functions; the factory copy has to be kept in step by hand |
 
 Two further observations are not discrepancies. The catalogue listed 86 suites at commit 21fd329 and lists 95 at commit b741f59, while the recorded full runs in the module validation records show 58 and 64: the later runs predate the commits that added the documentation and interface suites [Likely]. The hosting status page says the demonstration host was built "on `main` after pull requests #1 to #9 were merged", while the HANDOVER pull-request table stops at #9; the question of what `main` holds is TQ-10.

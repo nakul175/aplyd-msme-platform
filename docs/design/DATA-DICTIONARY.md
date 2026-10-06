@@ -1,8 +1,8 @@
 # Data dictionary
 
-Version 0.1. 5 October 2026. Status: draft, not reviewed by a person.
+Version 0.1. 5 October 2026. Status: draft, not reviewed by a person. Counts and the run module's rows brought up to the code on 6 October 2026 (commit 696640e).
 
-This dictionary describes the database of the APLYD MSME platform as it stands after the fifteen migrations 0000 to 0014 are applied in order (AS BUILT): 16 tables, 91 triggers, and the lists of values that the code keeps outside the database. For every table and column it says what the value means, who writes it, what values it may hold and where each limit is enforced. It also proposes how the data might be classified once real data is allowed (TO BE, Proposed). Every record in the application is SYNTHETIC: no real company, person, provider, rule or figure exists, and no person has reviewed any of the code.
+This dictionary describes the database of the APLYD MSME platform as it stands after the sixteen migrations 0000 to 0015 are applied in order (AS BUILT): 17 tables, 98 triggers, and the lists of values that the code keeps outside the database. For every table and column it says what the value means, who writes it, what values it may hold and where each limit is enforced. It also proposes how the data might be classified once real data is allowed (TO BE, Proposed). Every record in the application is SYNTHETIC: no real company, person, provider, rule or figure exists, and no person has reviewed any of the code.
 
 How this relates to the other documents: the [BRD](../brd/BRD.md) says what the data must do (BR-DATA-04, BR-NFR-02); the [FSD](../fsd/FSD.md) says what the screens and rules do with it; the [HLD](HLD.md) and [LLD](LLD.md) say how the modules are built; the [API reference](API-REFERENCE.md) lists every operation that reads or writes it; [Security and privacy](SECURITY-AND-PRIVACY.md) holds the threats; the [glossary](../GLOSSARY.md) defines the terms.
 

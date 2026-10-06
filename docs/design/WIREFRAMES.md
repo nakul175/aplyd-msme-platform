@@ -4,7 +4,7 @@ Version 0.2. Date: 5 October 2026. Status: draft, not reviewed by a person.
 
 This document shows the screens of the APLYD MSME platform, page by page, as drawings with numbered notes. Version 0.1, written earlier on 5 October 2026, showed the interface as it then was, with screenshots, and proposed a redesign. It answered the sponsor's reaction on 5 October 2026 on opening the running application: "i dont under stand the ui ux at all. what does this app dp". The interface was then redesigned and built (slice 10). Version 0.2 draws the screens as built (section 2), keeps the earlier interface with its screenshots (section 3) and the earlier proposal (sections 4 to 6) as earlier versions, and says what the built interface took from the proposal and what it did not (section 7). Every company, person, provider and figure on every screen is SYNTHETIC. No owner of a factory has used the redesigned screens, and no person has reviewed this document. Later on 5 October 2026 the document was corrected after reviews run by agents, not by a person: the next-step rules and some texts had changed in the code (commit `f35b835`), and the drawings and notes follow that code.
 
-How this relates to the other documents: the requirements it serves are BR-UX-01 to BR-UX-11 in the [business requirements](../brd/BRD.md); the screens are SCR-01 to SCR-09 in the [functional specification](../fsd/FSD.md), whose section 5 gives every field, button, message and state of each screen (this document shows where they sit) and whose rows FR-UX-15 to FR-UX-24 describe the parts every page shares; the same drawings, as boxes that follow the light or dark setting of the browser, are in the [wireframes page](wireframes.html); how a page is built is in the [interface guide](INTERFACE-GUIDE.md); the user and the five stages come from sections 1 and 3 of the [thesis](../thesis.md); the architecture is in the [high-level design](HLD.md); the words are to be fixed in the [glossary](../GLOSSARY.md); the sessions that would test the screens are in the [UAT plan](../test/UAT-PLAN.md) and the [ten-owner test](../ten-owner-test.md).
+How this relates to the other documents: the requirements it serves are BR-UX-01 to BR-UX-11 in the [business requirements](../brd/BRD.md); the screens are SCR-01 to SCR-10 in the [functional specification](../fsd/FSD.md), whose section 5 gives every field, button, message and state of each screen (this document shows where they sit) and whose rows FR-UX-15 to FR-UX-24 describe the parts every page shares; the same drawings, as boxes that follow the light or dark setting of the browser, are in the [wireframes page](wireframes.html); how a page is built is in the [interface guide](INTERFACE-GUIDE.md); the user and the five stages come from sections 1 and 3 of the [thesis](../thesis.md); the architecture is in the [high-level design](HLD.md); the words are to be fixed in the [glossary](../GLOSSARY.md); the sessions that would test the screens are in the [UAT plan](../test/UAT-PLAN.md) and the [ten-owner test](../ten-owner-test.md).
 
 ## 1. How to read this document
 
@@ -702,6 +702,57 @@ way, without forms.
 | 3 | **Signed off.** In this order: the heading "Signed off" with a tick; "Signed off on (date)." and, only if the owner wrote one, "Your note: ..."; the bar with its words; when the owner's turn is on a later step, "Next:" with its title, that step's button (the main button) and one sentence; and the first 16 characters of the fingerprint with the result of checking it against what is stored just now. The card "Your next step" is then left out of the foot of the page, so the step is not shown twice. When the owner's turn is on Describe or Decide, or nothing is needed from the owner, there is no "Next:" part. | FR-DIAG-08, FR-UX-18 |
 | 4 | **Ideas, no forms.** After the sign-off each idea shows the decision as a tag and in words, and has no form: nothing on a signed-off assessment can be changed. | FR-DIAG-07, FR-DIAG-08 |
 
+#### An assessment with its comparison and where the factory stands
+
+Drawn from: read in app/diagnose/page.tsx, modules/diagnose/src/gaps.ts and modules/diagnose/src/compare.ts, and the browser test of the gap view. Not seen on a screen; the earlier drawings of this section were made from a capture.
+
+```text
+...... Frame: banner and app bar .......
+# What to do about it (1)
+~~~~~~~~~~~~~~~~~~~~~
+
+## What changed since the earlier (2)
+## assessment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Answers that changed
+* Ideas that moved up or down, and why
+* Ideas that came in or dropped out
+
++--------------------------------------+ (3)
+| ### 1. Idea title                    |
+| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+| Where these figures come from: an    |
+|     assumption (SYNTHETIC            |
+|     placeholder).                    |
+| Nothing the library asks for first   |
+|     is missing.                      |
++--------------------------------------+
+
+## Where your factory stands (4)
++- - - - - - - - - - - - - - - - - - -+
+: Data                                 :
+: ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ :
+: ### What stands in the way           :
+: * what has to come first             :
+: * what to check, what is missing     :
+: * cost against the budget band       :
++- - - - - - - - - - - - - - - - - - -+
+People, Systems, Money, Quality: the same
+............ Frame: footer .............
+```
+
+| No. | What it is | Built from |
+| --- | --- | --- |
+| 1 | **The comparison.** Above the ideas: what changed since the assessment made just before this one. The owner cannot pick another. With one assessment, or the earliest of several, it says there is nothing to compare and links to the newest. | FR-DIAG-19, BR-DIAG-11 |
+| 2 | **The source line.** Each idea says where its figures come from, and whether anything has to come first. | FR-DIAG-20, BR-DIAG-02 |
+| 3 | **Where your factory stands.** Below the ideas, with a link to it under the assessment's heading. Five parts in a fixed order: Data, People, Systems, Money, Quality. Each part says what it is about and what stands in the way, in plain words, without reading the ideas. A part with nothing in the way says so. No level, rating or score is shown. | FR-DIAG-18, BR-DIAG-08 |
+| 4 | **A part that is not assessed.** A part the library cannot support says it is not assessed (People reads one question; Money needs a yearly budget band). | FR-DIAG-18 |
+
+Other states of this view:
+
+- An assessment made with another library version shows its lines as not placed, because they are placed with the current library only when the versions are equal.
+- The same lines can be read idea by idea, in a folded block.
+
 ### 2.6 SCR-05 What you need
 
 Address `/procure`, source `app/procure/page.tsx`, FSD section 5.6. Lets the owner turn an accepted idea into a requirement in a cluster, see how many companies ask for the same, see the providers listed for it, choose one, or withdraw the requirement. The same drawings, as boxes, are in the [wireframes page](wireframes.html#scr-05).
@@ -1021,6 +1072,59 @@ recorded: ₹0.
 | 5 | **About this page.** At the foot of every state of the page. It holds the tag SYNTHETIC and the page's only statement that the providers and plans are placeholders, then what the page is. It is not a closed section. | FR-UX-01, FR-UX-24 |
 | 6 | **Two links.** "What you need" and "Home". | FSD section 3.1 |
 
+#### Writing a milestone's test, and the warning beside Accept
+
+Drawn from: read in app/deliver/page.tsx, modules/deliver/src/test-quality.ts and modules/deliver/src/summary.ts, and the browser test of the Delivery page. Not seen on a screen.
+
+```text
+...... Frame: banner and app bar .......
+# Delivery (1)
+~~~~~~~~~~~~
+
++--------------------------------------+ (2)
+| ## Add a milestone                   |
+| What it is called                    |
+| [______________________________]     |
+| How you will check it                |
+| [______________________________]     |
+| Write it so that someone else could  |
+|     check it.                        |
++- - - - - - - - - - - - - - - - - - -+
+: What a good test looks like          :
+: <SYNTHETIC> one worked example in    :
+:     five parts                       :
++- - - - - - - - - - - - - - - - - - -+
+
++--------------------------------------+ (3)
+| ### Milestone 1                      |
+| Saved test text                      |
+| This test has no number, so someone  |
+|     else could not tell whether it   |
+|     was met.                         |
++--------------------------------------+
+
++- - - - - - - - - - - - - - - - - - -+ (4)
+: You have not recorded your starting  :
+:     number. Once you accept a        :
+:     milestone, it can no longer be   :
+:     recorded. {Record the starting   :
+:     number first}                    :
+: [> Accept <]   [ Reject ]            :
++- - - - - - - - - - - - - - - - - - -+
+............ Frame: footer .............
+```
+
+| No. | What it is | Built from |
+| --- | --- | --- |
+| 1 | **Head.** The title and the step line, as on every page of the journey. | FR-UX-01 |
+| 2 | **Help for the test.** The help under the test says to write it so that someone else could check it. A folded example, marked SYNTHETIC, shows what a good test looks like. The words are not a standard. | FR-DEPL-14, BR-DEPL-08 |
+| 3 | **The flag.** A saved test with no number, or no unit, gets one sentence. Saving is never refused for a flag. An empty test is still refused. | FR-DEPL-14 |
+| 4 | **The warning beside Accept.** While the engagement is open, nothing is accepted and no starting number is recorded, a sentence says that accepting the first milestone ends the chance to record the number, and a link goes to the place to record it. | FR-DEPL-15, BR-RUN-01 |
+
+Other states of this view:
+
+- Once a starting number is recorded, or anything is accepted, or the engagement is closed, the warning is not drawn.
+
 ### 2.8 SCR-07 Results
 
 Address `/run`, source `app/run/page.tsx`, FSD section 5.8. Lets the owner record a starting number, record reviews 30, 90 and 180 days after the first acceptance, and see the change and the next idea. The same drawings, as boxes, are in the [wireframes page](wireframes.html#scr-07).
@@ -1118,6 +1222,44 @@ Other states of this view:
 - An engagement with no agreed plan, or one that was closed before anything was accepted, still gets the starting-number form and the tag "Your turn", although the home page no longer asks for the number then (FSD section 12, item 27).
 
 Wide screens: From 40 rem wide the head of each engagement card is in two columns: the title, the provider and the cluster on the left, the bar on the right.
+
+#### A starting number that was corrected
+
+Drawn from: read in app/run/page.tsx and modules/run/src/api/outcomes.ts, and the integration tests of the run module. Not seen on a screen.
+
+```text
+...... Frame: banner and app bar .......
+# Results (1)
+~~~~~~~~~~~
+
++--------------------------------------+ (2)
+| ## Starting number                   |
+| # 120                                |
+| Recorded {date}. Corrected: the      |
+|     first number was 100.            |
++--------------------------------------+
+
++--------------------------------------+ (3)
+| Correct this number                  |
+| The right number                     |
+| [______]                             |
+| Why the first one was wrong          |
+| [______________________________]     |
+| [> Save the correction <]            |
++--------------------------------------+
+............ Frame: footer .............
+```
+
+| No. | What it is | Built from |
+| --- | --- | --- |
+| 1 | **Head.** The title and the step line. | FR-UX-01 |
+| 2 | **A corrected number.** The large number, the tiles and the change since the starting number use the latest correction. The number first recorded stays on the page, marked as corrected, with each correction and its reason. | FR-RUN-14, BR-RUN-09 |
+| 3 | **The correction form.** The right number (a whole number) and the reason (required, at most 500 characters). Nothing else. It appends a record; it changes nothing that was recorded. It is the owner's word, and nothing checks it. | FR-RUN-14 |
+
+Other states of this view:
+
+- A correction is allowed after the engagement is closed.
+- A baseline cannot be recorded for a closed engagement or before the plan is agreed: the page says why, with a line that points to Delivery before the plan is agreed, or a line that the engagement was closed before anything was accepted.
 
 ### 2.9 SCR-08 Providers and the listing fee
 
@@ -1301,6 +1443,60 @@ Other states of this view:
 
 - The page exists only when the application was started in demonstration mode (APLYD_DEMO=true). Otherwise every person gets the framework's not-found page.
 
+### 2.11 SCR-10 Take your data with you
+
+Address `/export`, source `app/export/page.tsx`, FSD section 5.11. Lets a person of a company download every record of that company as one file. It is not one of the five steps, and it does not close the account. The same drawings, as boxes, are in the [wireframes page](wireframes.html#scr-10).
+
+#### An owner who may download the company's records
+
+Drawn from: read in app/export/page.tsx and modules/portability/src/bundle.ts, and the browser test of the page. The figures are invented and SYNTHETIC. Not seen on a screen.
+
+```text
+...... Frame: banner and app bar .......
+# Take your data with you (1)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What the file holds, counted (2)
+* Your company: 1 record
+* Your factory, every version:
+      3 versions
+* Ideas and your decisions: 2 lists
+      of ideas, 12 ideas, 6 decisions,
+      1 sign-off
+* What you asked for, Providers you
+      chose and the plans, Your numbers
+
++--------------------------------------+ (3)
+| [> Download your records <]          |
+| One JSON file, about 40 KB.          |
++--------------------------------------+
+
+### What happens next (4)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++- - - - - - - - - - - - - - - - - - -+ (5)
+: What is not in the file, and why     :
++- - - - - - - - - - - - - - - - - - -+
+: How the file is laid out             :
++- - - - - - - - - - - - - - - - - - -+
+............ Frame: footer .............
+```
+
+| No. | What it is | Built from |
+| --- | --- | --- |
+| 1 | **Head.** The title "Take your data with you". There is no step line: the page is not one of the five steps. | FR-DATA-05 |
+| 2 | **What the file holds.** Each section of the file in the owner's words, counted. The words are the same as in the file's own readme. | FR-DATA-05, BR-DATA-03 |
+| 3 | **The download.** A plain link, "Download your records", that needs no script. It goes to GET /api/companies/{id}/export, which answers a JSON file to save. | FR-DATA-05 |
+| 4 | **What happens next.** The browser saves the file; downloading does not close the account or remove anything; the file is the owner's and anyone who has it can read it; each download is noted in the log; any person of the company can download it; closing an account is not built. | FR-DATA-05, BR-GOV-05 |
+| 5 | **Folded blocks.** What is left out and why (other companies' records, pool sizes, the provider register and fee, the audit log, people's names and email addresses, sessions and secrets), and how the file is laid out. | FR-DATA-05 |
+
+Other states of this view:
+
+- A visitor sees the title and one link named Sign in, and no download.
+- The operator is told that the operator cannot download a company's records.
+- A signed-in person with no company gets the not-linked notice.
+- If the records cannot be read, the page says so and shows no download.
+
 ## 3. The earlier interface (earlier version)
 
 **Earlier version.** Everything in this section describes the interface as it was before the redesign of 5 October 2026 (slice 10). It no longer matches the application. The screenshots are in `screens/as-is` and show that earlier interface; they were not retaken. The built interface is in section 2.
@@ -1312,6 +1508,8 @@ Other states of this view:
 The phone captures show a long page in full. The desktop captures show the top 1,700 pixels of a long page, because the desktop layout is one centred column of at most 40 rem and the rest would only repeat it. The images are reduced to a 48-colour palette so each stays under 250 KB, so colours are close to, not exactly, what a browser shows. The pictures are of the SYNTHETIC demonstration data and nothing in them is real.
 
 [Certain] Measurements taken in the same run, at 390 pixels wide: no page scrolled sideways (the page's scroll width equalled the 390-pixel viewport on all 11 pages captured). Links are 20 pixels high, buttons 41, drop-down lists 37 and text boxes 39. A radio button or check box is 13 by 13 pixels inside a row 24 pixels high. The page heights on a phone are one screen for the home page, 5,440 pixels for Describe, 6,279 for Diagnose with five ideas, 3,757 for Procure, 2,068 for Delivery, 1,635 for Results and 3,901 for the operator page. These are one browser, one width and one run. They say nothing about a slow connection, a screen reader or a real phone.
+
+[Certain] The figures above are those of the earlier interface, taken on the date of the capture. The quality module measured the built interface on 6 October 2026 at commit b741f59, at 390 pixels wide: the longest pages were Describe at 8,934 pixels (about ten screens of 844) and Decide at 8,854, and every radio row was at least 44 pixels high. See [the quality validation record](../../modules/quality/VALIDATION.md#page-lengths-on-a-phone). One browser, one width and one run; nothing was tried with a person or a real phone.
 
 ### 3.2 What the sponsor saw, in order of importance
 
@@ -1645,7 +1843,7 @@ A request with no company on the list yet is not an action for the owner. The ca
 - A title bar on every owner page: the word APLYD (a link to the home page) and a Menu button that opens three links: Home, Words we use and Sign out. [Guessing] Three links need no menu on a desktop, where they sit in the bar.
 - A footer on every owner page: Words we use, and the SYNTHETIC note.
 - Back is the browser's back button. A page never traps the owner: the sign-in page gets a link to the start. The earlier sign-in page had none; in the built interface the mark in the app bar goes to the home page and is the only link on the sign-in page (FSD section 5.3).
-- Each page's browser title says the step and the page, for example "Step 2 of 5: See what could help - APLYD". Every page has the same title, so several open tabs cannot be told apart; this is still so in the built interface (FSD section 5.1). This also serves BR-UX-01.
+- Each page's browser title says the step and the page, for example "Step 2 of 5: See what could help - APLYD". In the earlier interface every page had the same title, so several open tabs could not be told apart. In the built interface the home page is titled "APLYD MSME platform" and every other page except `/export` is titled "<page>: APLYD", for example "Describe: APLYD" (FSD FR-UX-26; commit 6e4b7d3). `/export` has no title of its own yet. The built titles do not carry the step number. This serves BR-UX-01.
 - After a form is posted the owner returns to the same page with a message at the top (as built, FR-UX-02), and when a stage is finished the page ends with the one button for the next stage. In the earlier interface no page sent the owner on; the built pages do, with the card "Your next step" (FR-UX-18).
 
 ## 7. What the built interface took from the earlier proposal
