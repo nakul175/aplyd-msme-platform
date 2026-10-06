@@ -24,31 +24,31 @@ Three cautions. First, covered-automated means that the cases which can run toda
 ## 2. Coverage counts
 
 <!-- COVERAGE-START -->
-Cases: 623, citing 116 of 116 requirements.
+Cases: 660, citing 116 of 116 requirements.
 
 | Cases by | static | unit | integration | smoke | browser | manual | All |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Layer | 62 | 147 | 250 | 72 | 58 | 34 | 623 |
+| Layer | 62 | 159 | 260 | 77 | 70 | 32 | 660 |
 
 | Cases by | positive | negative | boundary | security | regression | usability | All |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Type | 96 | 102 | 71 | 162 | 126 | 66 | 623 |
+| Type | 104 | 105 | 76 | 168 | 135 | 72 | 660 |
 
 | Cases by | automated | designed | people | All |
 | --- | ---: | ---: | ---: | ---: |
-| Automation | 547 | 42 | 34 | 623 |
+| Automation | 590 | 38 | 32 | 660 |
 
 | Requirements by verdict | Must | Should | Could | All |
 | --- | ---: | ---: | ---: | ---: |
 | covered-automated | 23 | 3 | 0 | 26 |
-| covered-partly | 18 | 8 | 1 | 27 |
-| designed-only | 3 | 2 | 0 | 5 |
-| people-only | 2 | 0 | 0 | 2 |
-| not-testable-yet | 21 | 27 | 8 | 56 |
+| covered-partly | 20 | 13 | 1 | 34 |
+| designed-only | 3 | 0 | 0 | 3 |
+| people-only | 1 | 0 | 0 | 1 |
+| not-testable-yet | 20 | 24 | 8 | 52 |
 | uncovered | 0 | 0 | 0 | 0 |
 | **All** | 67 | 40 | 9 | 116 |
 
-Must requirements that the BRD calls Built or Partial: 43. With at least one automated case: 40. Without: 3 (BR-NFR-04, BR-NFR-05, BR-NFR-06; see the known gaps in TEST-CASES.md).
+Must requirements that the BRD calls Built or Partial: 44. With at least one automated case: 41. Without: 3 (BR-NFR-04, BR-NFR-05, BR-NFR-06; see the known gaps in TEST-CASES.md).
 <!-- COVERAGE-END -->
 
 ## 3. Matrix
@@ -64,7 +64,7 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-GOV-02 | Vendor-neutral earnings. | Must | Built | TC-GOV-02 to TC-GOV-13, TC-PROC-40, TC-DEPL-46 | 13 | covered-automated | to be linked |
 | BR-GOV-03 | No certification. | Must | Partial | TC-GOV-14, TC-GOV-15 | 1 | covered-partly | to be linked |
 | BR-GOV-04 | No own products in the registry. | Must | Not built | TC-GOV-16 | 0 | not-testable-yet | to be linked |
-| BR-GOV-05 | No data sale. | Must | Partial | TC-GOV-17 to TC-GOV-19 | 2 | covered-partly | to be linked |
+| BR-GOV-05 | No data sale. | Must | Partial | TC-GOV-17 to TC-GOV-19, TC-DATA-23, TC-DATA-25 | 5 | covered-partly | to be linked |
 | BR-GOV-06 | Floor of five. | Must | Built | TC-GOV-20 to TC-GOV-34, TC-OPS-03 | 16 | covered-automated | to be linked |
 | BR-GOV-07 | Origin of every contact. | Must | Not built | TC-GOV-35 | 0 | not-testable-yet | to be linked |
 | BR-GOV-08 | Right to reuse the study's material. | Must | Open | TC-GOV-36 | 0 | not-testable-yet | to be linked |
@@ -72,8 +72,8 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-GOV-10 | Custodian of rule content. | Must | Open | TC-GOV-38 | 0 | not-testable-yet | to be linked |
 | BR-ID-01 | Sign in as a named person with a role. | Must | Partial | TC-ID-01 to TC-ID-17, TC-ID-80 to TC-ID-114, TC-ID-137 to TC-ID-145 | 61 | covered-automated | to be linked |
 | BR-ID-02 | Real owners can sign in safely. | Must | Not built | TC-ID-18 | 0 | not-testable-yet | to be linked |
-| BR-ID-03 | One company never sees another. | Must | Built | TC-ID-19 to TC-ID-52, TC-ID-115 to TC-ID-121, TC-ID-123 to TC-ID-127, TC-ID-129 to TC-ID-135 | 52 | covered-partly | to be linked |
-| BR-ID-04 | The operator does not override scope. | Must | Built | TC-ID-53 to TC-ID-64, TC-ID-122, TC-ID-128 | 14 | covered-automated | to be linked |
+| BR-ID-03 | One company never sees another. | Must | Built | TC-ID-19 to TC-ID-52, TC-ID-115 to TC-ID-121, TC-ID-123 to TC-ID-127, TC-ID-129 to TC-ID-135, TC-RUN-47, TC-DATA-24 | 54 | covered-partly | to be linked |
+| BR-ID-04 | The operator does not override scope. | Must | Built | TC-ID-53 to TC-ID-64, TC-ID-122, TC-ID-128, TC-DATA-26 | 15 | covered-automated | to be linked |
 | BR-ID-05 | Members read, owners write. | Should | Partial | TC-ID-65 to TC-ID-70 | 5 | covered-partly | to be linked |
 | BR-ID-06 | An audit trail that cannot be rewritten. | Must | Built | TC-ID-71 to TC-ID-76, TC-ID-136 | 7 | covered-automated | to be linked |
 | BR-ID-07 | Session control. | Should | Not built | TC-ID-77 | 0 | not-testable-yet | to be linked |
@@ -89,16 +89,16 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-DESC-08 | Questions come from owners. | Should | Partial | TC-DESC-50, TC-DESC-51 | 1 | covered-partly | to be linked |
 | BR-DESC-09 | Assisted entry. | Could | Not built | TC-DESC-52 | 0 | not-testable-yet | to be linked |
 | BR-DIAG-01 | A ranked list of ideas from the confirmed description. | Must | Built | TC-DESC-53, TC-DIAG-01 to TC-DIAG-20, TC-DIAG-63, TC-DIAG-64, TC-DIAG-67, TC-DIAG-68, TC-DIAG-73 | 25 | covered-partly | to be linked |
-| BR-DIAG-02 | Each idea shows what the owner needs to judge it. | Must | Partial | TC-DIAG-08, TC-DIAG-20 to TC-DIAG-23, TC-DIAG-69 | 6 | covered-partly | to be linked |
+| BR-DIAG-02 | Each idea shows what the owner needs to judge it. | Must | Partial | TC-DIAG-08, TC-DIAG-20 to TC-DIAG-23, TC-DIAG-58, TC-DIAG-69 | 7 | covered-partly | to be linked |
 | BR-DIAG-03 | Non-AI ideas count equally. | Must | Built | TC-DIAG-24 to TC-DIAG-26 | 3 | covered-automated | to be linked |
 | BR-DIAG-04 | Reproducible. | Must | Built | TC-DIAG-03, TC-DIAG-27 to TC-DIAG-33, TC-DIAG-70 | 9 | covered-automated | to be linked |
 | BR-DIAG-05 | The owner decides on each idea and signs off. | Must | Built | TC-DIAG-34 to TC-DIAG-54, TC-DIAG-65, TC-DIAG-66, TC-DIAG-71, TC-DIAG-72, TC-DIAG-74 | 26 | covered-automated | to be linked |
 | BR-DIAG-06 | A person checks the draft. | Must | Not built | TC-DIAG-55 | 0 | not-testable-yet | to be linked |
 | BR-DIAG-07 | Real, sourced content. | Must | Not built | TC-DIAG-56, TC-DIAG-57 | 2 | covered-partly | to be linked |
-| BR-DIAG-08 | A gap assessment the owner can read. | Should | Partial | TC-DIAG-58 | 0 | not-testable-yet | to be linked |
+| BR-DIAG-08 | A gap assessment the owner can read. | Should | Partial | TC-DIAG-58, TC-DIAG-75, TC-DIAG-76, TC-DIAG-80 | 4 | covered-partly | to be linked |
 | BR-DIAG-09 | The ranking is explained. | Should | Built | TC-DIAG-07, TC-DIAG-08, TC-DIAG-59 | 3 | covered-automated | to be linked |
 | BR-DIAG-10 | Financing options in the cost. | Should | Not built | TC-DIAG-60 | 0 | not-testable-yet | to be linked |
-| BR-DIAG-11 | Compare or redo. | Should | Partial | TC-DIAG-61 | 1 | covered-partly | to be linked |
+| BR-DIAG-11 | Compare or redo. | Should | Partial | TC-DIAG-61, TC-DIAG-77 to TC-DIAG-79 | 4 | covered-partly | to be linked |
 | BR-DIAG-12 | Sector content. | Could | Not built | TC-DIAG-62 | 0 | not-testable-yet | to be linked |
 | BR-PROC-01 | An accepted idea becomes a standard requirement in a cluster. | Must | Built | TC-DESC-53, TC-PROC-01 to TC-PROC-14, TC-PROC-39 | 16 | covered-partly | to be linked |
 | BR-PROC-02 | Pools count companies. | Must | Built | TC-GOV-20 to TC-GOV-23, TC-GOV-26, TC-GOV-27, TC-GOV-31 | 7 | covered-automated | to be linked |
@@ -113,15 +113,15 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-PROC-11 | Real clusters. | Should | Open | TC-PROC-38 | 0 | not-testable-yet | to be linked |
 | BR-DEPL-01 | Choose a named provider. | Must | Built | TC-GOV-08, TC-DESC-53, TC-DEPL-01 to TC-DEPL-05, TC-DEPL-43, TC-DEPL-48 | 9 | covered-automated | to be linked |
 | BR-DEPL-02 | A milestone plan with the owner's test and price. | Must | Built | TC-DEPL-06 to TC-DEPL-15 | 10 | covered-partly | to be linked |
-| BR-DEPL-03 | A fixed order of events. | Must | Built | TC-DESC-53, TC-DEPL-13, TC-DEPL-16 to TC-DEPL-28, TC-DEPL-44, TC-DEPL-45, TC-DEPL-47 | 18 | covered-partly | to be linked |
+| BR-DEPL-03 | A fixed order of events. | Must | Built | TC-DESC-53, TC-DEPL-13, TC-DEPL-16 to TC-DEPL-28, TC-DEPL-44, TC-DEPL-45, TC-DEPL-47, TC-DEPL-50, TC-DEPL-51 | 20 | covered-partly | to be linked |
 | BR-DEPL-04 | Payment tied to acceptance. | Must | Partial | TC-GOV-09, TC-DEPL-27, TC-DEPL-29 to TC-DEPL-32, TC-DEPL-46 | 6 | covered-automated | to be linked |
 | BR-DEPL-05 | The provider takes part. | Must | Not built | TC-DEPL-33 | 0 | not-testable-yet | to be linked |
 | BR-DEPL-06 | Dispute and arbitration. | Should | Not built | TC-DEPL-34 | 0 | not-testable-yet | to be linked |
 | BR-DEPL-07 | Change an agreed plan. | Should | Not built | TC-DEPL-35 | 0 | not-testable-yet | to be linked |
-| BR-DEPL-08 | A measurable acceptance test. | Should | Not built | TC-DEPL-36 | 0 | not-testable-yet | to be linked |
+| BR-DEPL-08 | A measurable acceptance test. | Should | Partial | TC-DEPL-36, TC-DEPL-49, TC-DEPL-52 | 3 | covered-partly | to be linked |
 | BR-DEPL-09 | Close the engagement honestly. | Must | Built | TC-DEPL-37 to TC-DEPL-41 | 5 | covered-automated | to be linked |
 | BR-DEPL-10 | Money. | Could | Open | TC-DEPL-42 | 0 | not-testable-yet | to be linked |
-| BR-RUN-01 | A baseline before the work. | Must | Built | TC-DESC-53, TC-DEPL-48, TC-RUN-01 to TC-RUN-11, TC-RUN-42 to TC-RUN-44 | 16 | covered-partly | to be linked |
+| BR-RUN-01 | A baseline before the work. | Must | Built | TC-DESC-53, TC-DEPL-48, TC-DEPL-50, TC-DEPL-51, TC-RUN-01 to TC-RUN-11, TC-RUN-42 to TC-RUN-44, TC-RUN-49 to TC-RUN-51 | 21 | covered-partly | to be linked |
 | BR-RUN-02 | Reviews at 30, 90 and 180 days. | Must | Built | TC-DESC-53, TC-RUN-06, TC-RUN-07, TC-RUN-12 to TC-RUN-25 | 17 | covered-automated | to be linked |
 | BR-RUN-03 | The change since the baseline. | Must | Built | TC-GOV-10, TC-GOV-11, TC-RUN-26 to TC-RUN-30 | 7 | covered-automated | to be linked |
 | BR-RUN-04 | The next idea. | Must | Built | TC-RUN-31 to TC-RUN-35, TC-RUN-45 | 6 | covered-automated | to be linked |
@@ -129,7 +129,7 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-RUN-06 | A person re-checks. | Should | Not built | TC-RUN-37 | 0 | not-testable-yet | to be linked |
 | BR-RUN-07 | Reminders. | Should | Not built | TC-RUN-38 | 0 | not-testable-yet | to be linked |
 | BR-RUN-08 | Measured, not typed. | Could | Not built | TC-RUN-39 | 0 | not-testable-yet | to be linked |
-| BR-RUN-09 | Correct a number. | Should | Not built | TC-RUN-40 | 0 | not-testable-yet | to be linked |
+| BR-RUN-09 | Correct a number. | Should | Partial | TC-RUN-40, TC-RUN-46 to TC-RUN-48, TC-RUN-52 | 5 | covered-partly | to be linked |
 | BR-RUN-10 | Outcomes across companies. | Could | Not built | TC-GOV-18, TC-RUN-41 | 1 | covered-partly | to be linked |
 | BR-OPS-01 | The operator keeps the registry and the one fee. | Must | Built | TC-PROC-15 to TC-PROC-17, TC-PROC-28, TC-PROC-29, TC-OPS-01 | 6 | covered-automated | to be linked |
 | BR-OPS-02 | The operator sees pooled demand without seeing companies. | Must | Built | TC-OPS-02 to TC-OPS-04 | 3 | covered-automated | to be linked |
@@ -139,21 +139,21 @@ The column BRD status is copied from the BRD as it was written. For BR-UX-01 and
 | BR-OPS-06 | A way to see the system's health and its audit trail. | Should | Partial | TC-ID-74, TC-OPS-08 to TC-OPS-10 | 4 | covered-partly | to be linked |
 | BR-OPS-07 | A presenter can show the journey in about 15 minutes. | Should | Built | TC-GOV-33, TC-GOV-34, TC-DIAG-26, TC-OPS-11 to TC-OPS-29, TC-OPS-67 to TC-OPS-70 | 26 | covered-automated | to be linked |
 | BR-OPS-08 | A hosted synthetic demonstration behind an access gate. | Should | Built | TC-OPS-30 to TC-OPS-66 | 37 | covered-automated | to be linked |
-| BR-UX-01 | Every page says what it is for and what to do next. | Must | Unverified | TC-UX-01 | 0 | people-only | to be linked |
+| BR-UX-01 | Every page says what it is for and what to do next. | Must | Unverified | TC-UX-01, TC-UX-34, TC-UX-39, TC-UX-42 | 3 | covered-partly | to be linked |
 | BR-UX-02 | One view of the journey. | Must | Unverified | TC-UX-02 | 0 | people-only | to be linked |
 | BR-UX-03 | Plain words. | Must | Unverified | TC-UX-03 | 0 | not-testable-yet | to be linked |
 | BR-UX-04 | The interface in the owner's language. | Must | Not built | TC-UX-04 | 0 | not-testable-yet | to be linked |
-| BR-UX-05 | Works on a phone. | Should | Unverified | TC-UX-05 | 0 | designed-only | to be linked |
-| BR-UX-06 | A refusal says what to do. | Must | Partial | TC-DESC-32, TC-DESC-44, TC-DESC-57 to TC-DESC-59, TC-DIAG-63, TC-DIAG-65, TC-DIAG-66, TC-DIAG-72, TC-DIAG-73, TC-PROC-13, TC-PROC-14, TC-PROC-23, TC-DEPL-45, TC-RUN-25, TC-RUN-42, TC-RUN-45, TC-UX-06 to TC-UX-13 | 24 | covered-partly | to be linked |
-| BR-UX-07 | Empty and waiting states explain themselves. | Should | Partial | TC-DIAG-05, TC-DIAG-10, TC-UX-14 to TC-UX-19 | 7 | covered-partly | to be linked |
+| BR-UX-05 | Works on a phone. | Should | Unverified | TC-UX-05, TC-UX-30 to TC-UX-32, TC-UX-40 | 4 | covered-partly | to be linked |
+| BR-UX-06 | A refusal says what to do. | Must | Partial | TC-DESC-32, TC-DESC-44, TC-DESC-57 to TC-DESC-59, TC-DIAG-63, TC-DIAG-65, TC-DIAG-66, TC-DIAG-72, TC-DIAG-73, TC-PROC-13, TC-PROC-14, TC-PROC-23, TC-DEPL-45, TC-RUN-25, TC-RUN-42, TC-RUN-45, TC-UX-06 to TC-UX-13, TC-UX-36 to TC-UX-38 | 28 | covered-partly | to be linked |
+| BR-UX-07 | Empty and waiting states explain themselves. | Should | Partial | TC-DIAG-05, TC-DIAG-10, TC-DIAG-80, TC-UX-14 to TC-UX-19 | 8 | covered-partly | to be linked |
 | BR-UX-08 | Mark what is not real. | Must | Built | TC-RUN-28, TC-UX-20 to TC-UX-26 | 7 | covered-partly | to be linked |
-| BR-UX-09 | Accessible. | Should | Unverified | TC-UX-27 | 0 | designed-only | to be linked |
+| BR-UX-09 | Accessible. | Should | Unverified | TC-UX-27, TC-UX-33 to TC-UX-35, TC-UX-41 | 4 | covered-partly | to be linked |
 | BR-UX-10 | Take it away. | Could | Not built | TC-UX-28 | 0 | not-testable-yet | to be linked |
 | BR-UX-11 | The channel the owner uses. | Could | Open | TC-UX-29 | 0 | not-testable-yet | to be linked |
 | BR-DATA-01 | Synthetic only until the data position is settled. | Must | Built | TC-ID-09 to TC-ID-11, TC-ID-112, TC-DIAG-57, TC-OPS-19, TC-OPS-48, TC-UX-25, TC-DATA-01 to TC-DATA-08 | 16 | covered-automated | to be linked |
 | BR-DATA-02 | Where real data lives is decided. | Must | Open | TC-DATA-09 | 0 | not-testable-yet | to be linked |
-| BR-DATA-03 | The owner can take their data and leave. | Must | Not built | TC-DATA-10 | 0 | not-testable-yet | to be linked |
-| BR-DATA-04 | Records are permanent; corrections append. | Must | Built | TC-ID-71, TC-ID-72, TC-DESC-22, TC-DIAG-42, TC-DIAG-43, TC-PROC-07, TC-PROC-19, TC-DATA-11 to TC-DATA-18, TC-DATA-22, TC-NFR-37 | 17 | covered-partly | to be linked |
+| BR-DATA-03 | The owner can take their data and leave. | Must | Partial | TC-DATA-10, TC-DATA-23 to TC-DATA-29 | 8 | covered-partly | to be linked |
+| BR-DATA-04 | Records are permanent; corrections append. | Must | Built | TC-ID-71, TC-ID-72, TC-DESC-22, TC-DIAG-42, TC-DIAG-43, TC-PROC-07, TC-PROC-19, TC-RUN-48, TC-DATA-11 to TC-DATA-18, TC-DATA-22, TC-NFR-37 | 18 | covered-partly | to be linked |
 | BR-DATA-05 | A request to erase personal data has an answer. | Should | Open | TC-DATA-19 | 0 | not-testable-yet | to be linked |
 | BR-DATA-06 | A provider sees only what the owner shares. | Must | Not built | TC-DATA-20 | 0 | not-testable-yet | to be linked |
 | BR-DATA-07 | Retention is defined. | Should | Not built | TC-DATA-21 | 0 | not-testable-yet | to be linked |
