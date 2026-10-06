@@ -21,7 +21,9 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The guard took 600 to 672 seconds of a 633 to 704 second job on 4 and 5 October (67 suites); every suite added since lengthens it. Each suite has its own
+    # limit in scripts/test.mjs (10 to 15 minutes), so a hang is still stopped; this only keeps a slow but passing run from being cancelled and paid for twice.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
