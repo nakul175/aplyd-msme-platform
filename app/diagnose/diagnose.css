@@ -113,3 +113,11 @@
 .dg-stand-answers > .facts { margin-left: 1.25rem; margin-top: var(--s-2); }
 /* A link a finger has to hit: at least 44 pixels tall, and still part of its sentence. */
 .dg-jump a, .dg-list a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+
+/* 6 October 2026: the count of decided ideas under the heading, the saved line on the card that changed, and what a benefit figure means. */
+.dg-count { font-weight: 600; }
+.dg-saved-here { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-3); font-weight: 600; }
+.dg-saved-here a { min-height: 2.75rem; display: inline-flex; align-items: center; }
+.dg-benefit-means { display: block; margin-top: var(--s-1); }
+.dg-idea { scroll-margin-top: var(--s-4); }
+.dg-count a { display: inline-flex; align-items: center; min-height: 2.75rem; }

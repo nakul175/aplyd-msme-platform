@@ -192,3 +192,34 @@ Limits of this check: the mutants were chosen by the same agent that wrote the p
 - The clock is fixed in 70 per cent of the cases. `reviewSlots` of the run module is used as it is; its edges are tested in the run module, and the generator only puts first acceptances on them.
 - No database, page or browser is involved, so nothing here tests `loadFacts` or what a page draws.
 - Everything is SYNTHETIC input.
+
+## Wave 2, slice 12c: what was run on the journey rules (6 October 2026)
+
+Branch `slice-12c-decide-journey`, run by the agent that wrote it, on 6 October 2026, on a shared two-core machine. Not reviewed by a person. The rule changes are described in [STATUS.md](STATUS.md), "Wave 2, slice 12c".
+
+### Run, with results
+
+- `node --test modules/journey/tests/unit/progress.test.ts`: 41 passed, 0 failed (36 before; five tests added for S3-01, S3-07, S3-08, S5-07 and the extreme time).
+- `node --test modules/journey/tests/unit/properties.test.ts`: 27 passed, 0 failed.
+- `node --test modules/journey/tests/unit/properties-exhaustive.test.ts`: 5 passed, 0 failed (the small world is now 504 prefixes; the early world 1,512 states).
+- `node --test modules/journey/tests/unit/contrast.test.ts`: 8 passed, 0 failed, with `--muted-tint` on `--brand-tint` (text, 4.5 to 1) and `--edge-tint` on `--brand-tint` (edge, 3 to 1) added to the pairs in the three colour sets.
+- `node scripts/test.mjs integration --only journey/integration/facts` (through the shared queue): 9 passed (7 before). A first run failed one test, "a company reads only its own facts", because `loadFacts` returned `requirementsWithdrawn: 0` and `NO_FACTS` did not have it; `NO_FACTS` now has it, and the second run passed. The two S3-01 tests build the real state through the real handlers and assert the step the owner is shown: after "No idea is left to ask for" (`new_assessment`, `/factory`), after a draft newer version (still `new_assessment`), after the newer version is confirmed (`diagnose`, "Get your ranked ideas", `/diagnose`, Decide current), after the newer assessment is made (`decide`, the newer assessment counted, `newerVersion` false), during the decisions (`decide`, then `sign_off`) and after the sign-off (`make_requirement`, Decide done). The old test "with a newer assessment not yet signed off..." built no work in progress; it now builds an open request from the signed-off assessment and asserts that the owner is shown `waiting_for_listing` and that the signed-off assessment counts.
+- `node scripts/test.mjs browser --only journey/browser/journey` (with the diagnose browser suites, after `pnpm build`): 1 passed. Its sign-off date pattern now reads "6 October 2026" (`formatDate` on the Decide page).
+- `pnpm typecheck`: exit 0.
+
+### The extreme-date finding (finding 1 above) is fixed
+
+`readable()` in `src/progress.ts` treats a first-acceptance time later than 8.64e15 ms less 180 days as unreadable. `+275760-09-12T00:00:00.000Z` and the edge `+275760-03-17T00:00:00.000Z` (still readable: its last review date is the last moment a date can hold) are in `EXTREME_TIMES`, so the `wild` tier now uses them, and a unit test calls `nextStep`, `stageStatuses` and `stageLine("run")` on two such times. `modules/run` is unchanged.
+
+### The mutation check, again
+
+The wave-1 script (`mutate.mjs`, kept outside the repository) was copied and pointed at this branch, with three changes: the line-number swaps find their blocks by their anchor text (the code moved), four mutants whose text this slice changed were rewritten to the same mutation of the new text (M05, M15, M36, M51), and six mutants of the new code were added (W01 to W06). To spare the shared machine it ran `progress.test.ts` and `properties.test.ts` for each mutant but not `properties-exhaustive.test.ts`, so the kill rate below is a lower bound for the property tests.
+
+- 58 real mutants. 57 are killed by `properties.test.ts`; the one that survives it, W06 ("waiting for a listing" always says there is nothing to do), changes only words, and `progress.test.ts` kills it. Every one of the 58 is killed by at least one of the two files. The three expected-equivalent mutants (E1 to E3) survive, as in wave 1.
+- Not run: the exhaustive file on each mutant.
+
+### What these results do not show
+
+- The rules were changed by an agent from two review findings and a walkthrough. No owner has seen the new steps, and the wider rule 3 has not been read by a person.
+- `stageProgress` is not used by any page yet (the pages that draw the strip and the home list are not this slice's), so S5-07 is not visible on a page.
+- No acceptance case of the BRD is promoted. Everything is SYNTHETIC input.

@@ -139,8 +139,12 @@ test("deciding on every idea and signing off fixes the assessment: the forms go,
     await Promise.all([page.waitForURL((u) => u.searchParams.get("signed") === "1"), page.getByRole("button", { name: "Sign off this assessment" }).click()]);
     assert.match(await page.getByTestId("signed").innerText(), /Signed off/);
     const box = page.getByTestId("signoff");
-    assert.match(await box.innerText(), /Signed off on \d{4}-\d{2}-\d{2}. Your note: Read with my brother\./);
+    // Dates read "6 October 2026" since 6 October 2026 (formatDate); the fingerprint is behind a closed "How this is checked" (S5-13).
+    assert.match(await box.innerText(), /Signed off on \d{1,2} [A-Z][a-z]+ \d{4}\. Your note: Read with my brother\./);
+    assert.match(await box.getByTestId("unchanged").innerText(), /^Nothing in this list has changed since you signed it\.$/);
+    await box.getByText("How this is checked").click();
     assert.match(await box.innerText(), /checked just now: it matches/);
+    assert.doesNotMatch(await page.getByTestId("drafted-by").innerText(), /decide on each idea below/, "after sign-off the page does not ask for decisions");
     assert.equal(await page.getByRole("button", { name: /^Save decision on/ }).count(), 0, "no decision forms");
     assert.equal(await page.getByRole("radio").count(), 0);
     assert.match(await page.getByTestId("decision-digital_job_log").innerText(), /Your decision: Accept: I want to do this/);

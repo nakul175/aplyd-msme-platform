@@ -46,9 +46,12 @@ const TEXT: [string, string][] = [
   ["banner-fg", "banner-bg"], ["warn-text", "warn-tint"],
   ["hero-fg", "hero-a"], ["hero-fg", "hero-b"], ["hero-muted", "hero-a"], ["hero-muted", "hero-b"], ["turn", "hero-a"], ["turn", "hero-b"],
   ["surface", "ok"], ["surface", "danger"],
+  // Inside a tinted card or a notice, --muted is --muted-tint (app/globals.css, .card.tint and .notice). Added 6 October 2026.
+  ["muted-tint", "brand-tint"],
 ];
 /** [edge token, ground token]: the border of a control, or the mark of a state, which has to be seen against what it sits on. */
-const EDGE: [string, string][] = [["line-strong", "surface"], ["line-strong", "bg"], ["brand", "surface"], ["brand", "bg"], ["turn-edge", "surface"], ["turn-edge", "bg"]];
+// Inside a tinted card or a notice, --line-strong is --edge-tint, on --brand-tint (added 6 October 2026).
+const EDGE: [string, string][] = [["line-strong", "surface"], ["line-strong", "bg"], ["brand", "surface"], ["brand", "bg"], ["turn-edge", "surface"], ["turn-edge", "bg"], ["edge-tint", "brand-tint"]];
 
 for (const [name, set] of [["light", light], ["dark (chosen)", dark], ["dark (from the system)", darkViaMedia]] as const) {
   test(`${name}: every text and ground pair reads at 4.5 to 1`, () => {

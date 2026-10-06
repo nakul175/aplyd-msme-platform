@@ -2,8 +2,9 @@
 // chosen so that every rule of docs/design/LLD.md 4.7 can fire and every pair of rules that can hold together does. The answers are
 // compared with the documented order (RULES in tests/support/model.ts), and the statuses with the documented own tests of each stage.
 //
-// Size, so a silent shrink of the lists fails here: 360 prefixes (versions, assessment, counts) for the early rules, and for the later
-// rules 18 prefixes with an assessment that was signed off, each tried with no engagement, with each of the 1,080 single engagements,
+// Size, so a silent shrink of the lists fails here: 504 prefixes (versions, assessment, counts) for the early rules (360 until 6 October
+// 2026, when two assessments made from an older version than the confirmed one were added), and for the later rules 18 prefixes with an
+// assessment that was signed off from the confirmed version, each tried with no engagement, with each of the 1,080 single engagements,
 // with each ordered pair of 24 hand-chosen engagements and with each ordered triple of 8 of those.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -47,7 +48,7 @@ const TRIPLE_POOL = [1, 4, 6, 7, 9, 11, 13, 15].map((i) => POOL[i]!);
 function* earlyWorld(): Generator<Facts> {
   for (const p of smallPrefixes()) for (const engagements of [[], [POOL[5]!], [POOL[8]!, POOL[0]!]]) yield { ...p, engagements };
 }
-const LATE = smallPrefixes().filter((p) => p.factory.latestRevision === 2 && p.factory.confirmedRevision === 2 && p.assessment?.signedOff === true);
+const LATE = smallPrefixes().filter((p) => p.factory.latestRevision === 2 && p.factory.confirmedRevision === 2 && p.assessment?.signedOff === true && p.assessment.newerVersion !== true);
 function* lateSingles(): Generator<Facts> {
   for (const p of LATE) {
     yield { ...p, engagements: [] };
@@ -90,8 +91,8 @@ function checkAll(world: Generator<Facts>): number {
   return n;
 }
 
-test("the small world is as large as it says: 360 prefixes, 1,080 single engagements, 24 hand-chosen ones, 18 late prefixes", () => {
-  assert.equal(smallPrefixes().length, 360);
+test("the small world is as large as it says: 504 prefixes, 1,080 single engagements, 24 hand-chosen ones, 18 late prefixes", () => {
+  assert.equal(smallPrefixes().length, 504);
   assert.equal(smallEngagements().length, 1_080);
   assert.equal(POOL.length, 24);
   assert.equal(TRIPLE_POOL.length, 8);
@@ -99,7 +100,7 @@ test("the small world is as large as it says: 360 prefixes, 1,080 single engagem
 });
 
 test("early rules, exhaustively: every version, assessment and count, with no engagement and with two kinds of engagement behind them", () => {
-  assert.equal(checkAll(earlyWorld()), 360 * 3);
+  assert.equal(checkAll(earlyWorld()), 504 * 3);
 });
 
 test("late rules, exhaustively: a signed-off assessment with no engagement and with each of the 1,080 single engagements", () => {

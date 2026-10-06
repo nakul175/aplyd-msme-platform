@@ -63,10 +63,16 @@ export const STAGE_ORDER: readonly StageId[] = ["describe", "diagnose", "procure
 export const PAGE_OF: Readonly<Record<StageId, string>> = { describe: "/factory", diagnose: "/diagnose", procure: "/procure", deliver: "/deliver", run: "/run" };
 export const KNOWN_PAGES: readonly string[] = Object.values(PAGE_OF);
 
+/** The last moment a JavaScript date can hold, in milliseconds after 1970 (ECMAScript, "Time Values and Time Range"). */
+const LAST_DATE_MS = 8.64e15;
+/**
+ * A first-acceptance time that cannot be read counts as none, and so does one so late that its last review date (180 days on) could not be
+ * written as a date (docs/design/LLD.md 4.7, added 6 October 2026).
+ */
 const readableTime = (at: string | null): number | null => {
   if (at === null) return null;
   const t = Date.parse(at);
-  return Number.isNaN(t) ? null : t;
+  return Number.isNaN(t) || t + REVIEW_AFTER_DAYS[2] * DAY > LAST_DATE_MS ? null : t;
 };
 /** The numbers of the reviews that can be recorded now on one engagement. A first-acceptance time that cannot be read counts as none. */
 export function openReviewsOf(g: EngagementFacts, now: Date): number[] {
@@ -97,7 +103,17 @@ export type RuleSpec = {
 export const RULES: readonly RuleSpec[] = [
   { n: 1, key: "describe", stage: "describe", holds: (f) => f.factory.latestRevision === null },
   { n: 2, key: "confirm", stage: "describe", holds: (f) => f.factory.confirmedRevision === null },
-  { n: 3, key: "diagnose", stage: "diagnose", holds: (f) => f.assessment === null },
+  // Rule 3 also fires, since 6 October 2026 (finding S3-01), when the owner has confirmed a newer version of the description than the counted
+  // assessment came from, and that assessment either has no idea or is signed off with nothing left from it: the conditions of rules 4 and 14.
+  {
+    n: 3,
+    key: "diagnose",
+    stage: "diagnose",
+    holds: (f) =>
+      f.assessment === null ||
+      (f.assessment.newerVersion === true &&
+        ((!f.assessment.signedOff && f.assessment.items === 0) || (f.assessment.signedOff && f.requirements === 0 && f.engagements.length === 0 && f.ideasToAsk === 0))),
+  },
   { n: 4, key: "no_ideas", stage: "describe", holds: (f) => f.assessment !== null && !f.assessment.signedOff && f.assessment.items === 0 },
   { n: 5, key: "decide", stage: "diagnose", holds: (f) => f.assessment !== null && !f.assessment.signedOff && f.assessment.decided < f.assessment.items },
   { n: 6, key: "sign_off", stage: "diagnose", holds: (f) => f.assessment !== null && !f.assessment.signedOff },
@@ -163,7 +179,7 @@ export function expectedLinePattern(stage: StageId, f: Facts, now: Date): RegExp
       return assessment.signedOff ? /^Signed off\./ : /Not signed off\.$/;
     case "procure":
       if (assessment?.signedOff !== true) return /^Waits for your signed-off decisions/;
-      if (f.requirements === 0) return /^Nothing asked for yet/;
+      if (f.requirements === 0) return (f.requirementsWithdrawn ?? 0) > 0 ? /^Nothing asked for now\. \d+ requests? (was|were) taken back\.$/ : /^Nothing asked for yet/;
       return /requirements?, \d+ providers? chosen\.$/;
     case "deliver":
       if (engagements.length === 0) return /^Waits for a chosen provider/;
@@ -186,11 +202,10 @@ export function expectedLinePattern(stage: StageId, f: Facts, now: Date): RegExp
 const MILESTONE_STATES: readonly Milestone[] = ["planned", "delivered", "accepted", "rejected", "paid"];
 const BAD_TIMES: readonly string[] = ["", "not a date", "2026-13-45", "yesterday"];
 /**
- * Times that can be read and are very far from today. Not in the list: a time within 180 days of the last moment a JavaScript date can
- * hold ("+275760-09-12T00:00:00.000Z"). The functions throw "Invalid time value" on it (open finding in VALIDATION.md, 6 October 2026), and a
- * property that fails on the real code stays out of the suite.
+ * Times that can be read and are very far from today. The last one is the last moment a JavaScript date can hold: its review dates cannot
+ * be written as dates, so it counts as unreadable (until 6 October 2026 the functions threw "Invalid time value" on it).
  */
-const EXTREME_TIMES: readonly string[] = ["9999-12-31T23:59:59.999Z", "0000-01-01T00:00:00.000Z", "-271821-04-20T00:00:00.000Z", "1970-01-01T00:00:00.000Z", "2026-10-05"];
+const EXTREME_TIMES: readonly string[] = ["9999-12-31T23:59:59.999Z", "0000-01-01T00:00:00.000Z", "-271821-04-20T00:00:00.000Z", "1970-01-01T00:00:00.000Z", "2026-10-05", "+275760-09-12T00:00:00.000Z", "+275760-03-17T00:00:00.000Z"];
 
 /** An age in milliseconds, often exactly on or one millisecond either side of a review day, so a comparison that is off by one is found. */
 function ageMs(r: Rng): number {
@@ -233,11 +248,13 @@ export function coherentFacts(r: Rng, now: Date): Facts {
   let requirements = 0;
   let requirementsWithoutProvider = 0;
   let requirementsToChoose = 0;
+  let requirementsWithdrawn = 0;
   const engagements: EngagementFacts[] = [];
   if (confirmedRevision !== null && !r.chance(0.07)) {
     const items = r.chance(0.08) ? 0 : r.int(1, 8);
     const signedOff = items > 0 && r.chance(0.78);
-    assessment = { items, decided: signedOff ? items : r.int(0, items), signedOff };
+    // The assessment came from the confirmed version or an older one (a newer version was confirmed after it was made).
+    assessment = { items, decided: signedOff ? items : r.int(0, items), signedOff, newerVersion: confirmedRevision > 1 && r.chance(0.25) };
     if (signedOff) {
       const acceptedIdeas = r.int(0, items);
       const made = r.int(0, acceptedIdeas);
@@ -246,13 +263,14 @@ export function coherentFacts(r: Rng, now: Date): Facts {
       // A requirement that has an engagement cannot be withdrawn (a trigger of the procure module), so every engagement belongs to a
       // requirement that still counts: requirements = requirementsWithoutProvider + engagements.
       requirements = made - withdrawn;
+      requirementsWithdrawn = withdrawn;
       const engaged = Math.min(r.int(0, requirements), 3);
       requirementsWithoutProvider = requirements - engaged;
       requirementsToChoose = r.int(0, requirementsWithoutProvider);
       for (let i = 0; i < engaged; i++) engagements.push(coherentEngagement(r, now));
     }
   }
-  return { factory: { latestRevision, confirmedRevision }, assessment, ideasToAsk, requirements, requirementsWithoutProvider, requirementsToChoose, engagements };
+  return { factory: { latestRevision, confirmedRevision }, assessment, ideasToAsk, requirements, requirementsWithdrawn, requirementsWithoutProvider, requirementsToChoose, engagements };
 }
 
 /** Any combination of the fields, including ones the records cannot produce (more decided than there are ideas, an unconfirmed version with an assessment). Counts stay whole and not negative. */
@@ -269,9 +287,10 @@ export function oddFacts(r: Rng, now: Date): Facts {
   const items = count();
   return {
     factory: { latestRevision: r.chance(0.2) ? null : r.int(1, 4), confirmedRevision: r.chance(0.3) ? null : r.int(1, 4) },
-    assessment: r.chance(0.15) ? null : { items, decided: r.chance(0.3) ? count() : r.int(0, items), signedOff: r.chance(0.7) },
+    assessment: r.chance(0.15) ? null : { items, decided: r.chance(0.3) ? count() : r.int(0, items), signedOff: r.chance(0.7), newerVersion: r.chance(0.3) },
     ideasToAsk: count(),
     requirements: count(),
+    requirementsWithdrawn: count(),
     requirementsWithoutProvider: count(),
     requirementsToChoose: count(),
     engagements: Array.from({ length: r.weighted([[0, 3], [1, 4], [2, 3], [3, 1]]) }, engagement),
@@ -285,9 +304,10 @@ export function wildFacts(r: Rng, now: Date): Facts {
   const many = r.chance(0.2) ? Array.from({ length: r.int(8, 40) }, () => oddFacts(r, now).engagements[0] ?? coherentEngagement(r, now)) : base.engagements;
   return {
     factory: { latestRevision: r.chance(0.5) ? base.factory.latestRevision : big(), confirmedRevision: r.chance(0.5) ? base.factory.confirmedRevision : big() },
-    assessment: base.assessment === null ? null : { items: big(), decided: big(), signedOff: base.assessment.signedOff },
+    assessment: base.assessment === null ? null : { items: big(), decided: big(), signedOff: base.assessment.signedOff, newerVersion: base.assessment.newerVersion },
     ideasToAsk: big(),
     requirements: big(),
+    requirementsWithdrawn: big(),
     requirementsWithoutProvider: big(),
     requirementsToChoose: big(),
     engagements: many.map((g) => ({
@@ -345,7 +365,7 @@ export function smallEngagements(): EngagementFacts[] {
 export function smallPrefixes(): Omit<Facts, "engagements">[] {
   const out: Omit<Facts, "engagements">[] = [];
   const factories: Facts["factory"][] = [{ latestRevision: null, confirmedRevision: null }, { latestRevision: 1, confirmedRevision: null }, { latestRevision: 2, confirmedRevision: 1 }, { latestRevision: 2, confirmedRevision: 2 }];
-  const assessments: Facts["assessment"][] = [null, { items: 0, decided: 0, signedOff: false }, { items: 3, decided: 1, signedOff: false }, { items: 3, decided: 3, signedOff: false }, { items: 3, decided: 3, signedOff: true }];
+  const assessments: Facts["assessment"][] = [null, { items: 0, decided: 0, signedOff: false }, { items: 3, decided: 1, signedOff: false }, { items: 3, decided: 3, signedOff: false }, { items: 3, decided: 3, signedOff: true }, { items: 0, decided: 0, signedOff: false, newerVersion: true }, { items: 3, decided: 3, signedOff: true, newerVersion: true }];
   // requirements, without a provider, to choose (to choose never exceeds without a provider)
   const counts: [number, number, number][] = [[0, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 0], [2, 1, 1], [2, 2, 1]];
   for (const factory of factories) for (const assessment of assessments) for (const ideasToAsk of [0, 1, 2]) for (const [requirements, requirementsWithoutProvider, requirementsToChoose] of counts) {

@@ -2290,7 +2290,7 @@ The screens and rules are in [the functional specification](../fsd/FSD.md): FR-U
 
 | File | Holds | Exports |
 | --- | --- | --- |
-| `modules/journey/src/progress.ts` | The five stages, the shape of the facts, the 19 rules of `nextStep` (18 keys), `isOwnersTurn`, the status of each stage, and the line under each stage. Pure: no I/O and no clock (the time is a parameter). | `STAGE_IDS`, `StageId`, `Stage`, `STAGES`, `stageById`, `EngagementFacts`, `Facts`, `NO_FACTS`, `milestoneStatesOf`, `StageStatus`, `NextStep`, `isOwnersTurn`, `nextStep`, `stageStatuses`, `stageLine` |
+| `modules/journey/src/progress.ts` | The five stages, the shape of the facts, the 19 rules of `nextStep` (18 keys), `isOwnersTurn`, the status of each stage, and the line under each stage. Pure: no I/O and no clock (the time is a parameter). | `STAGE_IDS`, `StageId`, `Stage`, `STAGES`, `stageById`, `EngagementFacts`, `Facts`, `NO_FACTS`, `milestoneStatesOf`, `StageStatus`, `NextStep`, `isOwnersTurn`, `nextStep`, `stageStatuses`, `StageProgress`, `stageProgress`, `stageLine` |
 | `modules/journey/src/facts.ts` | The reader: builds `Facts` for one company from the stage modules' reads, and the one-engagement helper. Writes nothing. | `engagementFacts`, `loadFacts` |
 | `modules/journey/STATUS.md` | The module's status page (not code). | `none` |
 | `modules/journey/VALIDATION.md` | The module's validation record (not code). | `none` |

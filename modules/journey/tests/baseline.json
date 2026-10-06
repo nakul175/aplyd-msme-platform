@@ -1,11 +1,11 @@
 {
-  "updatedAt": "2026-10-05",
-  "reason": "journey property tests: next-step rules on generated and exhaustive facts, and on walks that only add progress",
+  "updatedAt": "2026-10-06",
+  "reason": "slice 12c: five unit tests for S3-01, S3-07, S3-08, S5-07 and the extreme first-acceptance time",
   "suites": {
     "browser/journey": 1,
     "integration/facts": 7,
     "unit/contrast": 8,
-    "unit/progress": 36,
+    "unit/progress": 41,
     "unit/properties-exhaustive": 5,
     "unit/properties": 27
   }

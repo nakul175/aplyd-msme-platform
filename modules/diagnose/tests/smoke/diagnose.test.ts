@@ -70,6 +70,26 @@ test("the form posts to make an assessment, and the page shows it ranked, labell
   assert.ok(!html.includes(B));
 });
 
+// 6 October 2026 (it runs before the sign-off test below, while company A's assessment is still open): a repeated query parameter (S3-03), the redirect to the card that changed (S5-10) and what a benefit figure means (S5-11).
+test("a repeated ?a= is read as its first value, a saved decision lands on its card, and each benefit figure says the library gives no direction", async () => {
+  const cookie = await signIn("owner-a@synthetic.invalid");
+  const where = (await form(cookie, `/api/companies/${A}/assessments`)).headers.get("location")!;
+  const id = new URL(where, app.base).searchParams.get("a")!;
+  const twice = await fetch(`${app.base}/diagnose?a=${id}&a=not-an-id`, { headers: { cookie } });
+  assert.equal(twice.status, 200, "a list of values does not reach the database");
+  const html = withoutMarkers(await twice.text());
+  assert.match(html, /Assessment from version 1 of your description/, "the first value is the one read");
+  assert.match(html, /the library does not say whether the number goes up or down/);
+  const detail = (await (await fetch(`${app.base}/api/companies/${A}/assessments/${id}`, { headers: { cookie } })).json()) as Detail;
+  const item = detail.result.items[1]!.opportunityId;
+  const saved = await form(cookie, `/api/companies/${A}/assessments/${id}/decisions`, { opportunity: item, decision: "accept" });
+  assert.equal(saved.status, 303);
+  assert.equal(saved.headers.get("location"), `/diagnose?a=${id}&saved=${item}#idea-${item}`);
+  const after = await page(cookie, `/diagnose?a=${id}&saved=${item}`);
+  assert.match(after, /data-testid="saved-here"/, "the card that changed says so");
+  assert.match(after, /1 of 5 ideas decided/);
+});
+
 test("the API lists, reads and refuses across companies with the same 404 as a missing record", async () => {
   const a = await signIn("owner-a@synthetic.invalid");
   const made = await (await send(a, `/api/companies/${A}/assessments`, {})).json() as { id: string; created: boolean };
@@ -157,3 +177,4 @@ test("Diagnose pages and API answers carry the security headers, and the health 
   }
   assert.deepEqual(await (await fetch(`${app.base}/api/health`)).json(), { status: "ok", database: "ok", auditGuard: "ok" });
 });
+

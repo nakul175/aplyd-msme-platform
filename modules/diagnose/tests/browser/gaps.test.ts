@@ -162,9 +162,10 @@ test("a second assessment, made after an answer is changed and confirmed, shows 
 
     const compare = page.getByTestId("compare");
     assert.equal(await compare.getByRole("heading", { level: 2 }).innerText(), "What changed since the earlier assessment");
-    assert.match(await page.getByTestId("jump").innerText(), /What changed since the earlier assessment is just below\./);
-    // The comparison is above the ideas, where the owner who has just changed an answer looks first.
-    assert.ok((await compare.boundingBox())!.y < (await page.locator("li[data-testid^='item-']").first().boundingBox())!.y, "the comparison comes before the ideas");
+    assert.match(await page.getByTestId("jump").innerText(), /What changed since the earlier assessment comes after the ideas and the sign-off\./);
+    // Since 6 October 2026 (finding S5-09) the ideas come first and the comparison follows the last idea and the sign-off; the jump line says so.
+    assert.ok((await compare.boundingBox())!.y > (await page.locator("li[data-testid^='item-']").last().boundingBox())!.y, "the comparison comes after the ideas");
+    assert.ok((await compare.boundingBox())!.y > (await page.getByTestId("signoff").boundingBox())!.y, "and after the sign-off");
     assert.match(await page.getByTestId("compare-which").innerText(), /This assessment is from version 2 of your description .*The one before it is from version 1 .*Both are kept as they were\./s);
     const answers = await page.getByTestId("compare-answers").innerText();
     assert.match(answers, /How do you keep track of what is being made\?\s+Was: On paper or a register\. Now: In software\./);
