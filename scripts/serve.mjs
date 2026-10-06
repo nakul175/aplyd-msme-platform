@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Serves the BUILT application (dist/, from `pnpm build`) on one port, for a host that runs a container or a process (DigitalOcean App
 // Platform, a Droplet, any machine with Node 22). The application is a Cloudflare Worker with a D1 database; this runs the same Worker
-// code in workerd through Miniflare, with an in-memory SQLite database that is built from the migrations and the SYNTHETIC seed at every
+// code in workerd through Miniflare, with a SQLite database (Miniflare's D1; a file in the temporary directory, fresh at every start) that is built from the migrations and the SYNTHETIC seed at every
 // start. So it is a demonstration host, not a production one: a restart is a reset, and nothing here is durable.
 //
 //   SESSION_SECRET   at least 32 bytes, not one repeated character
@@ -10,13 +10,20 @@
 //   APLYD_ENV        local, synthetic (default) or test; anything else is refused
 //   APLYD_PUBLIC_HOSTS  optional, comma-separated: public host names to treat as this site's own if the platform rewrites Host
 //   APLYD_DEMO=true  add the demonstration (modules/demo) after start, and show its presenter script at /demo
+//   APLYD_COMMIT     optional: the git commit this build was made from (7 to 64 hexadecimal characters). /healthz shows it as a second line, `commit <id>`,
+//                    so the live address can be matched to a commit. On App Platform set it to ${_self.COMMIT_HASH} at run time (.do/app.yaml); in a
+//                    plain `docker build`, pass --build-arg APLYD_COMMIT=$(git rev-parse HEAD). Anything that is not a commit id is ignored.
+//   APLYD_WATCHDOG_PROBES, APLYD_WATCHDOG_SECONDS   optional: once the application is ready the launcher asks the Worker's own health route every
+//                    APLYD_WATCHDOG_SECONDS seconds (default 5); after APLYD_WATCHDOG_PROBES failures in a row (default 6, about 30 seconds) it logs one
+//                    line and exits with code 1, so a platform that restarts a stopped container replaces a dead Worker. 0 probes turns it off.
+//   REPLACE_ME       is refused as the value of SESSION_SECRET, DEMO_USER or DEMO_PASSWORD (it is what .do/app.yaml holds until the real values are set).
 //
 // The choices that can be tested without starting anything are in modules/hosting/src/gate.ts and gateway.ts.
 import { Miniflare } from "miniflare";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createGateway } from "../modules/hosting/src/gateway.ts";
+import { createGateway, probeUpstream, watchUpstream } from "../modules/hosting/src/gateway.ts";
 import { parseConfig } from "../modules/hosting/src/gate.ts";
 import { migrationStatements, seedStatements } from "../modules/platform/src/db/migrate.ts";
 
@@ -37,12 +44,13 @@ if (!existsSync(join(dist, "wrangler.json"))) {
 const built = JSON.parse(readFileSync(join(dist, "wrangler.json"), "utf8"));
 
 let ready = false;
-const gateway = createGateway({ access: config.access, publicHosts: config.publicHosts, upstreamPort: config.upstreamPort, ready: () => ready, log: (line) => console.log(line) });
+const gateway = createGateway({ access: config.access, publicHosts: config.publicHosts, upstreamPort: config.upstreamPort, ready: () => ready, commit: config.commit ?? "unknown", log: (line) => console.log(line) });
 await new Promise((resolveListening, reject) => {
   gateway.once("error", reject);
   gateway.listen(config.port, "0.0.0.0", () => resolveListening(undefined));
 });
 console.log(`Listening on port ${config.port}; starting the application (${config.environment}, access: ${config.access.kind === "open" ? "OPEN" : "password"}).`);
+console.log(config.commit ? `Commit: ${config.commit}.` : config.commitIgnored ? "APLYD_COMMIT is set but is not a commit id (7 to 64 hexadecimal characters); it is ignored. Commit: unknown." : "Commit: unknown (APLYD_COMMIT is not set).");
 
 // The Worker's modules are listed explicitly: Miniflare's own module search stops at the built Worker's dynamic imports.
 const modules = [
@@ -69,10 +77,12 @@ process.removeAllListeners("SIGINT");
 process.removeAllListeners("SIGTERM");
 
 let stopping = false;
+let stopWatchdog = () => {};
 async function stop(code) {
   if (stopping) return;
   stopping = true;
   ready = false;
+  stopWatchdog();
   console.log("Stopping.");
   const force = setTimeout(() => process.exit(code), 10_000);
   force.unref();
@@ -101,6 +111,19 @@ try {
   }
   ready = true;
   console.log("The application is ready.");
+  if (config.watchdog.probes > 0) {
+    // A dead Worker (workerd killed or crashed) leaves the gateway up, answering 503 on /healthz and 502 elsewhere, and nothing else would notice. Exit non-zero
+    // so the container is replaced. It starts only now: while the database is being built the Worker is not expected to answer, and /healthz says "starting".
+    stopWatchdog = watchUpstream({
+      probe: () => probeUpstream("127.0.0.1", config.upstreamPort),
+      probes: config.watchdog.probes,
+      intervalMs: config.watchdog.seconds * 1000,
+      onDead: (failures) => {
+        console.error(`The application has not answered its health check ${failures} times in a row (one probe every ${config.watchdog.seconds} seconds). Exiting with code 1 so that the platform restarts the container.`);
+        void stop(1);
+      },
+    });
+  }
 } catch (error) {
   console.error(`The application did not start: ${error instanceof Error ? error.message : String(error)}`);
   await stop(1);

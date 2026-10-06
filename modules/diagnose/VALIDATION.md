@@ -100,3 +100,103 @@ A decision with no decision in it (a NULL passed the table's shape check) and a 
 - The fingerprint detects a change made to the stored rows outside the application. It does not prevent one, and the fingerprint is stored in the same database as the rows it covers.
 - The page was run in Chromium only, against a local Worker over plain HTTP, with a synthetic sign-in. Accessibility was not checked beyond the browser tests finding fields by their labels.
 - The assessment has not been shown to an owner.
+
+## Slice 10a: the page rebuilt on the shared interface (5 October 2026)
+
+`/diagnose` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner has used the page.
+
+### What was run (real results, on the branch `slice-10a-describe-diagnose`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `static/typecheck` (`tsc --noEmit`) | passed |
+| `diagnose/unit/progress` (new: the state of the sign-off and its sentence, the next idea to decide, an older description, the words for a decision, the score line adding up to the score for every idea of a real result, and where a signed-off assessment points next, using the journey's own `nextStep`) | 7 passed |
+| `diagnose/unit/engine`, `unit/digest`, `unit/pins`, `unit/not-owner` | 20, 3, 3 and 1 passed |
+| `diagnose/static/problems` (every `?problem=` key has a message and every message is sent), `diagnose/static/scope-rules` | 1 passed, 4 passed |
+| `diagnose/browser/diagnose` | 8 passed (48.9 s) |
+| `diagnose/smoke/diagnose` | 8 passed (7.0 s) |
+| `diagnose/integration/diagnose-api` (nothing it covers was touched) | 34 passed (72.7 s) |
+| `platform/static/page-lookups`, `platform/static/source-rules`, `platform/static/conflict-markers` | 2, 8 and 2 passed |
+| `journey/unit/contrast`, `journey/unit/progress` | 8 passed, 22 passed |
+| Suites that walk this page from elsewhere: `journey/browser/journey`, `demo/browser/walk`, `platform/smoke/built-app`, `demo/smoke/demo`, `platform/browser/pages`, `demo/static/script-labels` | 1, 2, 12, 10, 3 and 3 passed |
+| `docs/static/api-sync` | 20 passed, 1 failed: "section 5 lists page /, which posts no form", the home page of the foundation commit; not from this slice |
+| `node scripts/test.mjs --check-catalogue` | clean, 83 suites |
+
+No existing test was changed: every assertion of the eight browser tests and eight smoke tests passes as it was written, including the one that reads the raw HTML of the disabled sign-off button.
+
+### What was looked at
+
+The page was opened in Chromium at 360, 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners A (a confirmed description and nothing made; then an assessment with nothing decided, with two ideas decided, with every idea decided, signed off; then a newer description confirmed, so the assessment is an older one), B (no confirmed description) and C (the finished example, where the owner's turn is a delivery waiting), and with `?problem=undecided`. The script that took them reported no horizontal scroll on any of them. Things found by looking and fixed: the sign-off card, with its three-sentence explanation, was a full screen before the first idea (the explanation is now one tap away until every idea is decided); the four facts took a screen each on a phone with the label above the figure (the label is now beside it, and the first fact, which is long, has the full width); once signed off, the wide layout kept a column for a one-line decision (now one column); the decision was said three times (a tag, the legend and the checked choice; the legend now only asks the question); the arrow on a full-width button was left at the far edge when the label wrapped (a phone gets the words alone). The demonstration's walk failed once for a reason found by looking at the text, not the picture: the tags of an idea had no space between them, so "Uses AI" ran into "Needs something else first" for anything that reads the text, including a screen reader; a space is now between them.
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk.** The forms are plain HTML with real labels; nobody tabbed through the page or listened to it.
+- **Chromium only**, with the synthetic sign-in. No other browser, no real phone, no slow connection.
+- **Not independent**, and **no mutation checks** were run for this slice. The sign-off state, the pointer to the next step and the score line are pinned by their unit test; the wording is pinned only where an existing test names it.
+- **The pointer after a sign-off repeats the next step**: the page's frame already ends with the same card when the owner's turn is on another page, so an owner who has signed off sees the same step twice, once under the sign-off and once at the foot of the page. A shared option to leave the foot out would remove it.
+- **Sentences were added**: "Next:" with the step and its button, "What signing off means" (the old explanation, kept in full, behind a tap until every idea is decided), the heading "The ideas, ranked", the line "How it scored" (the engine's own points for the idea, which the page did not show before; they add up to the score, and a test checks it), "Answers:", "Shown above", "Older version". The ten-owner test is where the wording is checked, and it has not been run.
+
+## Slice 11a: where the factory stands, and what changed since the earlier assessment (6 October 2026)
+
+`/diagnose` gained a gap view (BR-DIAG-08), a comparison with the earlier assessment (BR-DIAG-11) and a plain statement on each idea of where its figures come from (BR-DIAG-02); see [the status page](STATUS.md). The author is an agent; no person has read it and no owner has used it. Branch `slice-11a-diagnose-gap`, started from b741f59. Same environment as above (Node v22.22.0, pnpm 11.25.0, Chromium 141.0.7390.37 through `playwright-core` 1.56.1), run on 6 October 2026 (Asia/Kolkata; the container's own clock was still 5 October in UTC, which is the date the runner wrote into the baseline file).
+
+### What was run (real results, after `pnpm build`, on the final code of the branch unless a note says otherwise)
+
+| Check | Result |
+| --- | --- |
+| `node scripts/test.mjs unit --only diagnose/unit/gaps,diagnose/unit/compare` (new) | gaps 15 passed, compare 11 passed |
+| `node scripts/test.mjs unit --only diagnose/unit/engine,diagnose/unit/digest,diagnose/unit/pins,diagnose/unit/not-owner,diagnose/unit/progress` | 20, 3, 3, 1 and 7 passed |
+| `node scripts/test.mjs unit --only journey/unit/contrast,journey/unit/progress` (the contrast guard; the new styles use only existing tokens, no colour was added and `app/globals.css` is untouched) | 8 passed, 36 passed |
+| `node scripts/test.mjs browser --only diagnose/browser/gaps,diagnose/browser/diagnose` (new: four walks in Chromium; the eight existing ones unchanged) | gaps 4 passed, diagnose 8 passed |
+| `node scripts/test.mjs smoke --only diagnose/smoke/diagnose` | 8 passed |
+| `node scripts/test.mjs browser --only journey/browser/journey,demo/browser/walk` and `smoke --only platform/smoke/built-app,demo/smoke/demo` (suites that walk the Decide page from elsewhere) | 1, 2, 12 and 10 passed |
+| `node scripts/test.mjs static` | 28 of 28 passed (includes typecheck, documentation, traceability, test-docs, migrations, `docs/static/lld-sync`, `diagnose/static/scope-rules` and `diagnose/static/problems`) |
+| `node scripts/test.mjs --check-catalogue` | clean, 98 suites in 5 layers |
+| `node scripts/test.mjs unit browser --only diagnose/unit/gaps,diagnose/unit/compare,diagnose/browser/gaps --update-baseline --reason "..."` | the three new suites recorded in `modules/diagnose/tests/baseline.json` through the runner (15, 11, 4); no other count changed |
+
+The four browser walks are: before any assessment, with a description confirmed (owner A) and without (owner B); one assessment at 390 pixels (the five parts in plain words without the ideas, the ideas' source and "first" lines, the folds, the empty comparison, no sideways scroll, every link, fold and button at least 44 pixels tall, no console errors or failed requests); a second assessment made by changing an answer on Describe and confirming it again (what moved and the answers that caused it, the first assessment still there, the way back to the newest, another company's owner shown none of it); and every idea left out. No existing assertion was changed or weakened. The browser test of the second assessment was extended after the first run with a check of every link, fold and button in the page body, which passes now. The same measure, taken by script before the fix, found three links 20 pixels tall (the new jump link and the two "From version" links in the list of assessments); they were fixed, and the test was not run against the unfixed page.
+
+### Mutation checks
+
+Twenty-five one-line changes were made by hand to `src/gaps.ts` and `src/compare.ts` (a guard removed, a comparison inverted, an order swapped, a case dropped) and the two new unit files were run against each. Three changes survived the first run: the lines in a part sorted by kind before the idea's place, the "ideas held up" count counting lines instead of ideas, and "nothing moved" ignoring ideas that came in or dropped out. A new test and two assertions were added; after that, none of the twenty-five survived, and the files were restored. The script is not in the repository, so the checks are not reproducible by someone else without writing their own; the repository's own tool in `scripts/mutation` was not used. The page file was not mutated: its markup is held only by the browser tests.
+
+### What was looked at
+
+The page was opened in Chromium for owner A with two assessments (the second after changing "How do you keep track of what is being made?" to "In software" and adding quality records) at 390 and 1280 pixels, in the light and the dark scheme: no sideways scroll at either width, nothing under 44 pixels, the text readable in both schemes, no part cut off. A keyboard walk by script (Tab through the page, Enter and Space on a fold) found a visible focus ring on every stop and the folds opening and closing; the headings run h1, then h2 for the assessment, the comparison, the ideas, where the factory stands and the list of assessments, with h3 below them (the sign-off, the groups of changes, each idea, each part). Also seen earlier in the session at 390 pixels: the page was too long with the answers open, so they were folded, the part view was moved below the ideas, and the comparison was put above them.
+
+### What this does not show
+
+- **No owner has read or used it.** Whether "Where your factory stands" and "What changed since the earlier assessment" are understood, and whether an owner can read the parts without the ideas (the acceptance wording of BR-DIAG-08), has not been tested. Passing unit and browser tests are not an accepted case: all 176 acceptance cases remain pending, and BR-DIAG-02, -08 and -11 stay Partial.
+- **The parts are a presentation choice** over a thin SYNTHETIC library, not a measure of any factory. People rests on one question.
+- **No independent review.** The code, the tests and the mutation checks are the author's.
+- **No screen reader, no real phone, Chromium only**, a local Worker over plain HTTP. The keyboard walk was a script, not a person.
+- **Left not run**: `diagnose/integration/diagnose-api` (34; nothing in the API, data layer or migrations changed), `platform/browser/pages` and every suite of other modules apart from those named above, `node scripts/test.mjs pr --guard` and the whole suite (not allowed in this push).
+- **The engine's own sentences contain the word "gap"** (the reason for a left-out idea). They are shown as written, in the comparison and in the existing list of left-out ideas. Changing them needs a new engine version and new pins.
+- **The page is long on a phone** (about 11,000 pixels at 390 pixels wide, two assessments, folds closed).
+- **Sources**: the statement of where figures come from is true because the library cites none. It was checked against the library in the test, not against `docs/sources.md`.
+
+## Wave 2, slice 12c: the Decide page in the order an owner uses it (6 October 2026)
+
+Branch `slice-12c-decide-journey`, run by the agent that wrote it, on 6 October 2026, on a shared two-core machine, after `pnpm build` (exit 0). Not reviewed by a person. What changed is in [STATUS.md](STATUS.md), "Wave 2, slice 12c".
+
+### Run, with results
+
+- `node --test modules/diagnose/tests/unit/*.ts`: 60 passed, 0 failed (nothing in them changed).
+- `node scripts/test.mjs smoke --only diagnose/smoke/diagnose`: 9 passed (8 before). The new test asks for `/diagnose?a=<id>&a=not-an-id` and gets the page for the first value (status 200), finds the sentence under each benefit figure, posts a decision as a form and gets `303` to `/diagnose?a=<id>&saved=<idea>#idea-<idea>`, and finds the "saved" line on that idea's card and "1 of 5 ideas decided".
+- `node scripts/test.mjs integration --only diagnose/integration/diagnose-api`: 34 passed. One assertion was changed, not weakened: the location after a saved decision now ends in `#idea-<idea>` (S5-10).
+- `node scripts/test.mjs static`: 28 of 29 suites passed. `docs/static/lld-sync` failed on `metadata` exported by `app/diagnose/page.tsx`, `app/deliver/page.tsx` and `app/run/page.tsx` and not listed in the LLD file tables, and on the two new journey exports. The diagnose and journey rows were brought up to date; the deliver and run rows are another owner's and still fail that suite.
+- `node scripts/test.mjs browser --only diagnose/browser/diagnose,diagnose/browser/gaps,journey/browser/journey`, first run: diagnose 8 passed, journey 1 passed, gaps 2 passed and 2 failed. The two failures were real: the new "Go to the sign-off" link was 20 px tall (now 2.75rem), and the gaps test still required the comparison above the ideas, which S5-09 moved (the assertion now requires it after the last idea and after the sign-off). After a second `pnpm build`: `diagnose/browser/diagnose` 8 passed, `diagnose/browser/gaps` 4 passed.
+- `node scripts/test.mjs browser --only demo/browser/walk,platform/browser/pages,quality/browser/phone` (on the first build): walk 2 passed, pages 3 passed, phone 3 passed and 2 failed. The phone suite no longer finds the known offender "/diagnose operator a Back" (FND-270, fixed here); its list is not this slice's to edit. Its new faults are on `/deliver` (owner-e, the summary "What a good test looks like"), `/run` (owner-c, the summary "Correct this number") and `/operator` (three "Unlist" buttons clipped); this slice changed none of those pages.
+- `pnpm typecheck`: exit 0.
+
+### Test assertions changed, and why
+
+- `tests/browser/diagnose.test.ts`: the sign-off date reads "6 October 2026" (`formatDate`), so the pattern is `\d{1,2} [A-Z][a-z]+ \d{4}` instead of `\d{4}-\d{2}-\d{2}`. "checked just now: it matches" is now inside a closed "How this is checked", so the test reads the plain sentence ("Nothing in this list has changed since you signed it."), opens the fold, and then still finds "checked just now: it matches". It also checks that the drafting line no longer asks for decisions after sign-off.
+- `tests/browser/gaps.test.ts`: the jump line says the comparison "comes after the ideas and the sign-off", because it moved after them (S5-09).
+- `tests/integration/diagnose-api.test.ts`: the redirect after a decision (above).
+
+### What this does not show
+
+- No owner has used the new order. Whether the count line and the "saved" line on the card are enough, without a sticky bar, has not been tried. No sticky "2 of 5 decided" bar was built.
+- The benefit sentence says the library does not say which way a figure goes, because the library (`Benefit`: measure, unit, low, high, `basis: "assumption"`) holds no direction. Saying "could fall by" needs that field in the library, which is a library change for its owner.
+- Chromium only, a local Worker, synthetic sign-in. No real phone, no screen reader.

@@ -1,12 +1,15 @@
 {
-  "updatedAt": "2026-10-05",
-  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
+  "updatedAt": "2026-10-06",
+  "reason": "slice 12d: price and date parsing and the kept form values (S5-16); the summary when the next step is on another page (S5-06)",
   "suites": {
     "browser/deliver": 3,
     "integration/deliver-api": 32,
     "smoke/deliver": 8,
     "static/rules": 9,
     "unit/state": 7,
-    "unit/reads": 3
+    "unit/reads": 3,
+    "unit/summary": 10,
+    "unit/test-quality": 4,
+    "unit/input": 5
   }
 }

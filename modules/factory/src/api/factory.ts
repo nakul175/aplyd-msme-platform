@@ -4,12 +4,14 @@
 import type { AppEnv } from "../../../platform/src/env.ts";
 import { recordAudit } from "../../../platform/src/db/audit.ts";
 import { readTextWithin } from "../../../platform/src/api/body.ts";
-import { drain, json, redirect } from "../../../platform/src/api/http.ts";
+import { drain, json, notSignedIn } from "../../../platform/src/api/http.ts";
 import { isCrossSite } from "../../../platform/src/identity/cross-site.ts";
 import { resolveIdentity } from "../../../platform/src/identity/resolve.ts";
 import { canReadCompany, canWriteOwnCompany } from "../../../platform/src/identity/scope.ts";
 import type { Identity } from "../../../platform/src/identity/scope.ts";
 import { appendRevision, loadHistory, loadLatest } from "../db/revisions.ts";
+import { draftCookies, draftFromForm, packDraft } from "../draft.ts";
+import type { Draft } from "../draft.ts";
 import { MAX_NOTE_LENGTH, QUESTIONNAIRE_VERSION, REQUIRED_TO_CONFIRM, SECTIONS, answersFromForm, hasControlCharacters, validateAnswers } from "../questionnaire.ts";
 import type { Answers } from "../questionnaire.ts";
 
@@ -20,7 +22,7 @@ const refuse = (db: D1Database, event: string, identity: Identity, requested: st
 export async function handleFactoryRead(request: Request, env: AppEnv, requestedId: string): Promise<Response> {
   if (!env.DB) return json(503, { error: "storage_unavailable" });
   const identity = await resolveIdentity(request, env);
-  if (!identity) return json(401, { error: "not_signed_in" });
+  if (!identity) return notSignedIn(request);
   if (!canReadCompany(identity, requestedId)) {
     await refuse(env.DB, "factory.read.denied", identity, requestedId);
     return json(404, { error: "not_found" });
@@ -31,7 +33,8 @@ export async function handleFactoryRead(request: Request, env: AppEnv, requested
   return json(200, { questionnaireVersion: QUESTIONNAIRE_VERSION, latest, latestConfirmed, history, revisionsSaved: latest?.revision ?? 0 });
 }
 
-type Submission = { answers: unknown; note: string; confirm: boolean; basedOn: unknown; form: boolean };
+// `typed` is what the person typed, as sent, so a refused save can be shown back to them; it is only read from a form (a program gets JSON back).
+type Submission = { answers: unknown; note: string; confirm: boolean; basedOn: unknown; form: boolean; typed: URLSearchParams | null };
 
 /** Larger than any legitimate description (the longest answers add up to about 6 KB). */
 const MAX_BODY_CHARACTERS = 64 * 1024;
@@ -47,7 +50,7 @@ async function readSubmission(request: Request): Promise<Submission | "unsupport
     if (type === "application/x-www-form-urlencoded") {
       const form = new URLSearchParams(text);
       const basedOn = form.get("based_on");
-      return { answers: answersFromForm(form), note: (form.get("note") ?? "").trim(), confirm: form.get("intent") === "confirm", basedOn: basedOn !== null && /^\d{1,9}$/.test(basedOn) ? Number(basedOn) : basedOn, form: true };
+      return { answers: answersFromForm(form), note: (form.get("note") ?? "").trim(), confirm: form.get("intent") === "confirm", basedOn: basedOn !== null && /^\d{1,9}$/.test(basedOn) ? Number(basedOn) : basedOn, form: true, typed: form };
     }
     if (type === "application/json") {
       const b: unknown = JSON.parse(text);
@@ -55,7 +58,7 @@ async function readSubmission(request: Request): Promise<Submission | "unsupport
       const { answers, note, confirm, basedOn } = b as { answers?: unknown; note?: unknown; confirm?: unknown; basedOn?: unknown };
       if (note !== undefined && typeof note !== "string") return null;
       if (confirm !== undefined && typeof confirm !== "boolean") return null;
-      return { answers, note: (note ?? "").trim(), confirm: confirm === true, basedOn, form: false };
+      return { answers, note: (note ?? "").trim(), confirm: confirm === true, basedOn, form: false, typed: null };
     }
   } catch {
     return null;
@@ -83,7 +86,7 @@ export async function handleRevisionCreate(request: Request, env: AppEnv, reques
   const identity = await resolveIdentity(request, env);
   if (!identity) {
     await drain(request);
-    return json(401, { error: "not_signed_in" });
+    return notSignedIn(request);
   }
   if (!canReadCompany(identity, requestedId)) {
     await drain(request);
@@ -103,7 +106,14 @@ export async function handleRevisionCreate(request: Request, env: AppEnv, reques
   }
   if (submission === "too_large") return json(413, { error: "too_large" });
   if (submission === null) return json(400, { error: "bad_request" });
-  const back = (query: string) => redirect(`/factory?${query}`);
+  // A refused or stale save keeps what the person typed, in a short-lived cookie that only /factory receives (draft.ts); a save that went through clears it.
+  const back = (query: string) => {
+    const refused = query.startsWith("problem=") || query.startsWith("stale=");
+    const typed: Draft | null = refused && submission.typed ? draftFromForm(submission.typed, identity.companyId!) : null;
+    const headers = new Headers({ location: `/factory?${query}`, "cache-control": "no-store" });
+    for (const line of draftCookies(typed ? packDraft(typed) : null)) headers.append("set-cookie", line);
+    return new Response(null, { status: 303, headers });
+  };
 
   // A person at a form is sent back to the page with what went wrong, never to a page of JSON; a program gets the JSON.
   const refuseInput = (fields: Record<string, string>, problem: string) => (submission.form ? back(`problem=${problem}`) : json(400, { error: "invalid", fields }));

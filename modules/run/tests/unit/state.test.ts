@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { IN_USE, MAX_NOTE_LENGTH, MAX_VALUE, REVIEW_DAYS, VERDICTS, dueAt, isReviewNo, reviewSlots } from "../../src/state.ts";
+import { IN_USE, MAX_NOTE_LENGTH, MAX_VALUE, REVIEW_DAYS, VERDICTS, baselineBlock, dueAt, isReviewNo, reviewSlots } from "../../src/state.ts";
 
 const FIRST = "2026-10-01T10:00:00.000Z";
 const day = (n: number, extraMs = 0) => new Date(new Date(FIRST).getTime() + n * 86_400_000 + extraMs);
@@ -55,4 +55,15 @@ test("the day counts, the limits and the vocabularies the code states are the on
   assert.match(tables, new RegExp(`in_use. IN \\(${IN_USE.map((v) => `'${v}'`).join(", ")}\\)`));
   assert.match(tables, /review_no. BETWEEN 1 AND 3/);
   assert.equal(REVIEW_DAYS.length, 3);
+});
+
+test("a starting number can be recorded only once, after the plan is agreed, while the engagement is open and before anything is accepted", () => {
+  const at = (o: Partial<{ recorded: boolean; accepted: boolean; closed: boolean; planAgreed: boolean }>) => baselineBlock({ recorded: false, accepted: false, closed: false, planAgreed: true, ...o });
+  assert.equal(at({}), null, "agreed, open, nothing accepted, none recorded: it can be recorded");
+  assert.equal(at({ planAgreed: false }), "no_plan");
+  assert.equal(at({ closed: true }), "closed");
+  assert.equal(at({ closed: true, planAgreed: false }), "closed", "closed before any plan: closed is the reason");
+  assert.equal(at({ accepted: true }), "too_late");
+  assert.equal(at({ accepted: true, closed: true }), "too_late", "after an acceptance it is too late, closed or not, as the database answers");
+  assert.equal(at({ recorded: true, accepted: true, closed: true }), "recorded", "once recorded, that comes first, as the database answers");
 });

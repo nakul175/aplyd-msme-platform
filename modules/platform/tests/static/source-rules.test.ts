@@ -126,3 +126,13 @@ test("the Worker entry adds the security headers to every response it returns", 
   const entry = readFileSync(`${ROOT}worker/index.ts`, "utf8");
   assert.match(entry, /withSecurityHeaders\(\s*await handler\.fetch\(/);
 });
+
+test("a request with no session is refused in one place: no handler writes the 401 itself, so none can show a form's person a page of JSON (BR-UX-06)", () => {
+  const files = git("ls-files", "--cached", "--others", "--exclude-standard", "--", "app", "worker", "modules").filter((f) => /^(app|worker)\/.*\.tsx?$/.test(f) || /^modules\/[^/]+\/src\/.*\.tsx?$/.test(f));
+  const writers = files.filter((f) => /not_signed_in/.test(readFileSync(`${ROOT}${f}`, "utf8")));
+  assert.deepEqual(writers, ["modules/platform/src/api/http.ts"]);
+  // The handlers that need a person call the shared answer, so the files that resolve an identity must use it.
+  for (const f of files.filter((f) => /resolveIdentity\(/.test(readFileSync(`${ROOT}${f}`, "utf8")) && !f.startsWith("modules/platform/src/identity/"))) {
+    assert.match(readFileSync(`${ROOT}${f}`, "utf8"), /notSignedIn\(request\)|identity \? /, `${f} resolves an identity but does not answer a missing one with notSignedIn`);
+  }
+});

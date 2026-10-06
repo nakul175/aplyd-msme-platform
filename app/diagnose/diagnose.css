@@ -1,0 +1,123 @@
+/* What to do about it: the few rules only this page needs. Every class here starts with dg- so nothing collides with another page. */
+
+.dg-synthetic { max-width: none; }
+.dg-synthetic .tag { margin-right: 0.2rem; }
+.dg-date { white-space: nowrap; }
+
+/* The assessment: a heading with what it was made from, then the sign-off, then the ideas. */
+.dg-assessment { display: grid; gap: var(--s-4); min-width: 0; }
+.dg-head { display: grid; gap: var(--s-2); }
+.dg-head > p { max-width: 70ch; }
+.dg-head h2 { font-size: 1.5rem; }
+.dg-problems { color: var(--fg); }
+.dg-ideas-title { margin-top: var(--s-2); }
+
+/* The sign-off sits above the ideas: where the owner stands, and the one thing to do next. */
+.dg-signoff-form { display: grid; gap: var(--s-3); }
+.dg-signoff-form > * + * { margin-top: 0; }
+.dg-signoff-form .question { max-width: 40rem; }
+.dg-signed { display: flex; align-items: center; gap: var(--s-2); font-size: 1.25rem; }
+.dg-tick { width: 1.25em; height: 1.25em; flex: none; padding: 0.2em; border-radius: 50%; background: var(--ok); color: var(--surface); stroke-width: 3; }
+.dg-signoff-card > .help { margin-top: var(--s-3); }
+.dg-onward { display: grid; gap: var(--s-2); border-top: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); padding-top: var(--s-3); }
+.dg-onward > * + * { margin-top: 0; }
+.dg-onward .help { margin: 0; }
+@media (max-width: 40rem) { .dg-onward .actions > a { flex: 1 1 100%; } }
+
+/* One idea. The rank is a round badge at the start of the title; the title keeps its text, "1. Keep every job...", exactly. */
+.dg-idea.card { display: grid; gap: var(--s-4); align-content: start; }
+.dg-idea.card > * + * { margin-top: 0; }
+.dg-idea.card:target { border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent); }
+.dg-body { display: grid; gap: var(--s-3); min-width: 0; align-content: start; }
+.dg-body > * { margin-top: 0; }
+.dg-idea h3 { font-size: 1.1875rem; line-height: 1.3; padding-left: 2.75rem; text-indent: -2.75rem; }
+.dg-rank { text-indent: 0; display: inline-block; width: 2.125rem; height: 2.125rem; line-height: 2.125rem; text-align: center; margin: -0.5rem 0.625rem -0.5rem 0; border-radius: 50%; background: var(--brand); color: var(--brand-fg); font-size: 1rem; font-weight: 750; font-variant-numeric: tabular-nums; vertical-align: middle; text-wrap: nowrap; }
+/* The full stop after the rank is read out and kept in the text; it is not drawn inside the badge. */
+.dg-stop { font-size: 0; }
+.dg-tags { display: flex; flex-wrap: wrap; gap: var(--s-2); max-width: none; }
+.dg-tagtick { width: 0.95em; height: 0.95em; flex: none; }
+.dg-summary { font-size: 1.0625rem; }
+.dg-answers { max-width: none; }
+.dg-facts { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--s-3) var(--s-4); row-gap: var(--s-2); }
+/* On a phone the label stays beside its figure (the shared rule stacks them), so four facts do not take a screen. */
+@media (max-width: 30rem) { .dg-facts { grid-template-columns: 7.25rem minmax(0, 1fr); gap: var(--s-2) var(--s-3); padding: var(--s-3); } .dg-facts dt { font-size: 0.875rem; } .dg-facts dd { margin-bottom: 0; } .dg-facts dt:first-child, .dg-facts dt:first-child + dd { grid-column: 1 / -1; } .dg-facts dt:first-child + dd { margin-top: calc(var(--s-2) * -1); } }
+.dg-first { border-left: 4px solid var(--brand); background: var(--brand-tint); border-radius: 0 var(--r-sm) var(--r-sm) 0; padding: var(--s-3) var(--s-4); display: grid; gap: var(--s-2); }
+.dg-first > * + * { margin-top: 0; }
+.dg-notes { display: grid; gap: var(--s-2); font-size: 0.9375rem; }
+.dg-notes > * + * { margin-top: 0; }
+.dg-more > summary { cursor: pointer; font-weight: 650; color: var(--brand); min-height: 2.75rem; display: flex; align-items: center; gap: var(--s-2); list-style: none; border-radius: var(--r-sm); }
+.dg-more > summary::-webkit-details-marker { display: none; }
+.dg-more > summary::before { content: ""; width: 0.5rem; height: 0.5rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 120ms ease; flex: none; }
+.dg-more[open] > summary::before { transform: rotate(45deg); }
+.dg-more > p { margin-left: 1.25rem; }
+.dg-more > p + p { margin-top: var(--s-1); }
+
+/* The owner's decision: three choices, a note, and the save button. Under the idea on a phone; beside it on a wide screen. */
+.dg-decide { display: grid; gap: var(--s-3); border-top: 1px solid var(--line); padding-top: var(--s-4); align-content: start; }
+.dg-decide > * + * { margin-top: 0; }
+.dg-decide fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.dg-decide legend { padding: 0; margin: 0 0 var(--s-2); font-weight: 650; }
+.dg-decide .actions > button { text-wrap: balance; }
+@media (max-width: 40rem) { .dg-decide .actions > button { width: 100%; } }
+.dg-decision { border-top: 1px solid var(--line); padding-top: var(--s-4); max-width: none; align-self: start; }
+/* A phone gives the ideas the width: less padding inside the card. */
+@media (max-width: 40rem) { .dg-idea.card { padding: var(--s-4); } }
+@media (min-width: 62rem) {
+  .dg-idea.card { grid-template-columns: minmax(0, 1fr) 19rem; gap: var(--s-6); }
+  .dg-decide, .dg-decision { border-top: 0; padding-top: 0; border-left: 1px solid var(--line); padding-left: var(--s-5); }
+  .dg-decide { position: sticky; top: var(--s-4); }
+  /* Once signed off there is no form: the decision is one line under the idea, not a column of its own. */
+  .dg-idea.dg-fixed.card { grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
+  .dg-fixed .dg-decision { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: var(--s-4); }
+}
+
+/* The list of assessments, and making one again. */
+.dg-list { list-style: none; padding: 0; display: grid; }
+.dg-list li { margin: 0; padding: var(--s-3) 0; border-top: 1px solid var(--line); }
+.dg-list li:first-child { border-top: 0; padding-top: 0; }
+.dg-list li + li { margin-top: 0; }
+.dg-list a[aria-current="page"] { font-weight: 750; }
+.dg-make { display: grid; gap: var(--s-3); border-top: 1px solid var(--line); padding-top: var(--s-4); }
+.dg-make > * + * { margin-top: 0; }
+.dg-make .help { margin: 0; }
+/* The big make button, the first thing an owner does here: full width on a phone, with its explanation clear of it. */
+.dg-make-card > .help { margin-top: var(--s-3); }
+@media (max-width: 40rem) { .dg-make-card .actions > button { flex: 1 1 100%; } }
+/* A long label that has to wrap would leave its arrow stranded at the far edge of a full-width button, so a phone gets the words alone. */
+@media (max-width: 28rem) { .dg-make-card button .icon { display: none; } }
+.dg-make button, .dg-make-card button, .dg-signoff-form button { text-wrap: balance; }
+
+/* Where your factory stands, and what changed since the earlier assessment: two cards above the ideas. Plain lists, no table, so a phone needs no sideways scroll. */
+.dg-stand, .dg-compare { display: grid; gap: var(--s-4); min-width: 0; overflow-wrap: anywhere; }
+.dg-stand > *, .dg-compare > * { margin-top: 0; }
+.dg-stand > p, .dg-compare > p { max-width: 70ch; }
+.dg-areas { display: grid; gap: var(--s-4); }
+@media (min-width: 62rem) { .dg-areas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dg-area { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); padding: var(--s-4); display: grid; gap: var(--s-3); align-content: start; min-width: 0; }
+.dg-area > * { margin-top: 0; }
+.dg-area h3 { font-size: 1.0625rem; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.dg-about { font-size: 0.9375rem; }
+.dg-stand-facts { row-gap: var(--s-2); }
+.dg-sub { font-weight: 650; }
+.dg-between, .dg-changes, .dg-by-idea { list-style: none; padding: 0; display: grid; gap: var(--s-2); }
+.dg-between li, .dg-changes li, .dg-by-idea li { margin: 0; }
+.dg-between > li { border-left: 4px solid var(--brand); padding-left: var(--s-3); }
+.dg-changes > li { border-left: 4px solid var(--brand); padding-left: var(--s-3); }
+.dg-by-idea { gap: var(--s-4); margin-top: var(--s-2); }
+.dg-by-idea ul { margin-top: var(--s-2); }
+.dg-compare h3 { font-size: 1.0625rem; margin-top: var(--s-2); }
+.dg-answer-next { display: grid; gap: var(--s-3); border-top: 1px solid var(--line); padding-top: var(--s-4); }
+.dg-answer-next > * { margin-top: 0; }
+.dg-stand .btn, .dg-compare .btn { justify-self: start; min-height: 2.75rem; }
+@media (max-width: 30rem) { .dg-stand .btn, .dg-compare .btn { justify-self: stretch; } }
+.dg-stand-answers > .facts { margin-left: 1.25rem; margin-top: var(--s-2); }
+/* A link a finger has to hit: at least 44 pixels tall, and still part of its sentence. */
+.dg-jump a, .dg-list a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+
+/* 6 October 2026: the count of decided ideas under the heading, the saved line on the card that changed, and what a benefit figure means. */
+.dg-count { font-weight: 600; }
+.dg-saved-here { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-3); font-weight: 600; }
+.dg-saved-here a { min-height: 2.75rem; display: inline-flex; align-items: center; }
+.dg-benefit-means { display: block; margin-top: var(--s-1); }
+.dg-idea { scroll-margin-top: var(--s-4); }
+.dg-count a { display: inline-flex; align-items: center; min-height: 2.75rem; }

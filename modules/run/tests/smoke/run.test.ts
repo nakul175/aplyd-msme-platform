@@ -55,7 +55,7 @@ test("set-up: a provider is listed, the owner signs off an assessment, makes a r
   assert.equal((await form(op, "/api/operator/listing-terms", [["feeInr", String(FEE)], ["note", "SYNTHETIC test value, not a proposal"]])).status, 303);
   assert.equal((await form(op, "/api/operator/providers", [["name", "Alpha Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", KIND], ["cluster", CLUSTER]])).status, 303);
   const providerId = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string }[] }).providers[0].id;
-  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location"), "/operator?listed=1");
+  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location")?.split("#")[0], "/operator?listed=1");
 
   const a = await signIn("owner-a@synthetic.invalid");
   const made = await form(a, `/api/companies/${A}/assessments`);
@@ -101,8 +101,11 @@ test("the starting number: a bad one is sent back with a message, a good one is 
   const path = `/api/companies/${A}/engagements/${engagementId}/outcomes`;
   const bad = await form(a, path, [["kind", "baseline"], ["value", "lots"]]);
   assert.equal(bad.status, 303);
-  assert.equal(bad.headers.get("location"), "/run?problem=invalid");
-  assert.match(await page(a, "/run?problem=invalid"), /Give a whole number from 0 to 1,00,00,00,000/);
+  assert.equal(bad.headers.get("location"), "/run?problem=baseline_invalid", "a starting number gets its own refusal");
+  const refused = await page(a, "/run?problem=baseline_invalid");
+  assert.match(refused, /The starting number box takes a number only, in (percent|days|rupees a year): for example 42, not “42 late orders”\. Give a whole number from 0 to 1,00,00,00,000\./, "the unit of the measure, and no word about reviews");
+  assert.ok(!/review/i.test(refused.slice(refused.indexOf('data-testid="problem"'), refused.indexOf("</div>", refused.indexOf('data-testid="problem"')))), "the refusal does not talk about reviews");
+  assert.equal((await form(a, path, [["kind", "baseline"], ["value", "42 late orders"]])).headers.get("location"), "/run?problem=baseline_invalid");
   const good = await form(a, path, [["kind", "baseline"], ["value", "42"], ["note", "From the sheets of September"]]);
   assert.equal(good.headers.get("location"), "/run?saved=baseline");
   const html = await page(a, "/run?saved=baseline");
@@ -120,6 +123,9 @@ test("after the first acceptance the page says when each review opens, offers no
   const a = await signIn("owner-a@synthetic.invalid");
   const events = `/api/companies/${A}/engagements/${engagementId}/events`;
   assert.equal((await form(a, events, [["kind", "delivered"], ["milestone", milestoneId]])).headers.get("location"), "/deliver?saved=delivered");
+  const deliver = await page(a, "/deliver?saved=delivered");
+  assert.match(deliver, /Accept milestone 1/);
+  assert.ok(!deliver.includes("You have not recorded your starting number"), "the starting number is recorded, so Delivery does not warn beside Accept");
   assert.equal((await form(a, events, [["kind", "accepted"], ["milestone", milestoneId]])).headers.get("location"), "/deliver?saved=accepted");
   firstAccepted = ((await getJson(a, `/api/companies/${A}/engagements/${engagementId}/outcomes`)) as { firstAcceptedAt: string }).firstAcceptedAt;
   assert.match(firstAccepted, /^\d{4}-\d\d-\d\dT/);

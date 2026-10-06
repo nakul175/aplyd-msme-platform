@@ -1,10 +1,10 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "Slice 9: demonstration suites (unit, static, smoke, browser) and the import-following exemption test in platform source-rules",
+  "reason": "Slice 11d polish (6 October 2026): session expiry on a form post, page titles, withdrawn counts, date helper, contrast tokens, phone layout, empty states",
   "suites": {
-    "integration/platform-api": 26,
+    "integration/platform-api": 29,
     "smoke/built-app": 12,
-    "static/source-rules": 8,
+    "static/source-rules": 9,
     "unit/cross-site": 8,
     "unit/scope": 7,
     "unit/session": 10,
@@ -19,6 +19,9 @@
     "unit/body": 7,
     "integration/append-only-keys": 2,
     "static/conflict-markers": 2,
-    "static/page-lookups": 2
+    "static/page-lookups": 2,
+    "unit/refusal": 5,
+    "smoke/session-expiry": 3,
+    "browser/session-expired": 3
   }
 }

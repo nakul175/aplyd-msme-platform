@@ -99,3 +99,93 @@ The review's M2 (the tables did not hold whole-number amounts, real dates, non-b
 - **Chromium only**, against a local Worker with a synthetic sign-in.
 - **Nothing here is evidence that an owner would use it.** The plan, the test and the price are the owner's own words about a provider the operator entered by hand. The ten-owner worksheet ([docs/ten-owner-test.md](../../docs/ten-owner-test.md)) exists because this slice was built before that test was run.
 - **The pull request's CI result** was not read when this page was written.
+
+## Slice 10c: the page rebuilt on the shared interface (5 October 2026)
+
+`/deliver` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner has used the page.
+
+### What was run (real results, on the branch `slice-10c-deliver-run`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | clean |
+| `deliver/unit/summary` (new: the words under the bar, the sentence at the top, the main button, the first delivery waiting) | 8 passed |
+| `deliver/unit/state`, `deliver/unit/reads` | 7 passed, 3 passed |
+| `deliver/static/rules` (no fee in any statement or column, the data layer is the only reader) | 9 passed |
+| `platform/static/page-lookups` (every message looked up with `Object.hasOwn`), `platform/static/source-rules` | 2 passed, 8 passed |
+| `journey/unit/contrast`, `journey/unit/progress` | 8 passed, 22 passed |
+| `deliver/browser/deliver` | 3 passed (29.3 s) |
+| `deliver/smoke/deliver` | 8 passed. One run of the three smoke suites together reported this suite failed; its output was not kept. It passed on the next six runs, alone and with the others, so the cause is not known; the machine is shared with other agents' runs, which may be the reason, but that was not shown |
+| Other suites that walk this page: `run/browser/run`, `demo/browser/walk`, `journey/browser/journey`, `platform/smoke/built-app`, `demo/smoke/demo` | 4, 2, 1, 12 and 10 passed |
+| The whole static layer | 21 of 23 suites passed; the two failures are not from this slice: `docs/static/api-sync` ("section 5 lists page /, which posts no form", the home page of the foundation commit; the check of the forms on this page passes) and `static/documentation` (links to documents not written yet) |
+| `node scripts/test.mjs --check-catalogue` | clean, 83 suites |
+
+No existing test was changed: every assertion of the three browser tests and eight smoke tests passes as it was written. The integration suite (`deliver/integration/deliver-api`, 32 tests) was not run, because nothing it covers was touched.
+
+### What was looked at
+
+The page was opened in Chromium at 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners C (the finished example: one milestone paid, one delivered and waiting), D (a plan agreed, nothing delivered), E (a provider chosen, no plan) and A (no engagement), as a visitor and as the operator; and, in a throwaway Worker started by the browser-test harness, in each state a form can reach: planning with no milestone, with one and with two, `?problem=invalid`, the plan agreed, a milestone rejected and delivered again, accepted with the payment form, every milestone paid, and closed (Complete). The script that took them reported no horizontal scroll on any page. Things found by looking and fixed: the line down the left of the plan took about 45 pixels of a phone's width (now a card per milestone with a short line between cards); the totals sat in the header panel (now one line under the plan); the second button of the decision was not as wide as the first on a phone; a global rule put a large gap between the questions of a form (reset on this page); the price label wrapped to two lines and put the two fields of a row out of line (the limit moved to the help line); two lines drawn one above the other over the close form; two main buttons at once in one engagement (the `primaryAction` rule); and the decision that waits was a screen and a half below the top of a phone's page (the "Go to milestone N" link). A date in a history line broke at its hyphen on a phone (now kept together).
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk.** The forms are plain HTML with real labels, and the browser tests click and fill them; nobody tabbed through the page or listened to it.
+- **Chromium only**, with the synthetic sign-in. No other browser, no real phone, no slow connection.
+- **Not independent**, and **no mutation checks** were run for this slice: the page's wording is pinned by the existing tests and by the unit test of `src/summary.ts`, which is a small set. Whether the browser tests would notice the main button on the wrong form is not tested.
+- **The wording is unproven with owners.** Nobody who owns a factory has read the sentences (the ten-owner test is where that is checked). The sentences added are listed in the status page.
+- **The collapsed-section choice was tested only one way.** The SYNTHETIC and no-money sentences stay visible because a browser test reads the visible text; whether they would be missed at the foot of a long page is not known.
+
+## Slice 11b: the warning beside Accept and the acceptance-test flag (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 11b". The author is an agent; no person has read it and no separate agent has reviewed it. The API, the data layer and the migrations of this module were not changed; the page reads the run module's `listOutcomes`.
+
+### What was run (real results, branch `slice-11b-deliver-run`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `deliver/unit/summary` (new test: `acceptEndsBaseline` is true only while the engagement is open, nothing is accepted and no starting number is recorded) | 9 passed |
+| `deliver/unit/test-quality` (new suite: an empty test, a test with no number, no unit or neither, nine tests with both in digits, words and symbols, and the sentence) | 4 passed |
+| `deliver/unit/reads`, `deliver/unit/state`, `deliver/static/rules` | 3, 7 and 9 passed |
+| `deliver/integration/deliver-api` | 32 passed (94 s) |
+| `pnpm build`, then `deliver/smoke/deliver` (new assertions: the warning and its link after the first delivery, no warning once something is accepted; the worked example in the add form; a test with no number flagged and saved, a test with a number and a unit not flagged) | 8 passed |
+| `deliver/browser/deliver` (new assertions: the warning beside "Accept milestone 1" and its link to `/run#bl-...`) | 3 passed |
+| `run/smoke/run` (new assertion: no warning on Delivery once the starting number is recorded) | 7 passed |
+| `journey/browser/journey`, `journey/integration/facts` | 1 and 7 passed |
+| `node scripts/test.mjs static` (with `static/typecheck`) | 27 of 28 suites pass, typecheck among them; the run module's record says which one fails on this branch and why (a figure pinned in the docs module's test) |
+
+The baselines of `deliver/unit/summary` (8 to 9) and the new `deliver/unit/test-quality` (4) were recorded with `--update-baseline`, after the runs above.
+
+### What this does not show
+
+- **The flag reads words, not meaning.** The word lists of `testQuality` are assumptions written for this check; a sensible test can be flagged and a useless one can pass. Nobody who owns a factory has read the example or the sentence.
+- **An empty test is still refused**, not flagged, because the database requires the text; the BRD row asks for a flag (see the status page).
+- **No mutation checks** were run for the page or `src/test-quality.ts`. An agent looked at the page at 390 pixels wide in Chromium (the warning beside Accept for the demonstration's owner D, the worked example open for owner E; no sideways scroll); not in the dark scheme or at desktop width. The new CSS uses only existing tokens; `journey/unit/contrast` passes (8) and was not changed.
+- **The warning is shown only in the decision form.** An owner who accepts through the JSON interface is not warned; the database still refuses a late starting number.
+
+## Slice 12d (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 12d". The author is an agent; no person has read it and no separate agent has reviewed it.
+
+### What was run (branch `slice-12d-deliver-measure`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `deliver/unit/input` (new: prices with commas, ₹, Rs, INR and "/-"; refused prices; dates from the box and day first; a day that does not exist; the boxes sentence; the cookie's attributes, round trip, foreign or malformed cookie, values cut to the box's limit) | 5 passed |
+| `deliver/unit/summary` (new: the sentence when the next step is on another page) | 10 passed |
+| `deliver/unit/reads`, `deliver/unit/state`, `deliver/unit/test-quality`, `deliver/static/rules` | 3, 7, 4 and 9 passed |
+| `deliver/integration/deliver-api` | 32 passed (87 s) |
+| `pnpm typecheck` | no error |
+| `pnpm build`, then `deliver/smoke/deliver` (changed: no Accept and the notice before the starting number, Accept after it, the shared card at the top before the engagements with the right rule and link, no "Nothing needs your decision", the contact sentence, the eyebrow; the refused milestone names "Due date" and "Price" and keeps the values from the cookie, the address carries none; a day-first date and "₹1,25,000" are saved; the cookie is cleared by the save; at the delivery cap Reject is offered and Accept is not) | 8 passed |
+
+The browser suite and the shared suites are recorded in the run module's record for this slice.
+
+### Tests changed, and why
+
+- `smoke/deliver` and `browser/deliver` accepted milestone 1 with no starting number. The page no longer offers that (S5-03, the sponsor's brief), so the smoke test now asserts its absence and records a number first, and the browser test follows the notice's link to Results, records 42 and comes back. The cap case asserts Reject instead of Accept.
+- `browser/deliver` typed "2026-02-30" into the due date. A date box cannot hold a day that does not exist, so the refused value is now the price ("1000 rupees"); the test also checks the values are kept. Its title, and the row TC-DEPL-26 in `docs/test/TEST-CASES.md`, say so.
+- `browser/deliver` pressed "Close this engagement"; it now opens the fold and presses "Close this engagement now".
+
+### What this does not show
+
+- No person who owns a factory has used the new card, notice or form. No mutation checks were run.
+- The cookie is not cleared on read. A refused form, then a visit to `/deliver?problem=invalid` within five minutes, shows the values again.
+- A date typed into the date box in a browser without date support is read day first; a browser that sends month-first text is not handled (none of the supported browsers does).

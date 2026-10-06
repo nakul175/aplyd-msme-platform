@@ -1,11 +1,12 @@
 {
-  "updatedAt": "2026-10-05",
-  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
+  "updatedAt": "2026-10-06",
+  "reason": "slice 12d: price and date parsing and the kept form values (S5-16); the summary when the next step is on another page (S5-06)",
   "suites": {
     "browser/run": 4,
-    "integration/run-api": 29,
+    "integration/run-api": 36,
     "smoke/run": 7,
-    "static/rules": 8,
-    "unit/state": 6
+    "static/rules": 10,
+    "unit/state": 7,
+    "unit/view": 10
   }
 }

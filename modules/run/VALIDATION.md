@@ -102,3 +102,120 @@ After the review, three tests were added (a withdrawn requirement, the SYNTHETIC
 - The number is the owner's own word and the expected range is invented (STATUS limits 1 and 2): no test here can say anything about whether the review is useful to an owner.
 - The reviewer read one commit; the changes after it (and the tests added for its findings) have had no second reading.
 - The mutation checks are a sample chosen by the agent that wrote the code.
+
+## Slice 10c: the page rebuilt on the shared interface (5 October 2026)
+
+`/run` was rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The page after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner has used the page.
+
+### What was run (real results, on the branch `slice-10c-deliver-run`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | clean |
+| `run/unit/view` (new: the tag of each review state, the latest recorded review, the sentence at the top, the first open review, where the owner's turn is) | 9 passed |
+| `run/unit/state` | 6 passed |
+| `run/static/rules` (no fee, the data layer is the only reader) | 8 passed |
+| `platform/static/page-lookups`, `platform/static/source-rules` | 2 passed, 8 passed |
+| `journey/unit/contrast`, `journey/unit/progress` | 8 passed, 22 passed |
+| `run/browser/run` | 4 passed (38.8 s) |
+| `run/smoke/run` | 7 passed (in each of six runs with the other smoke suites; see `deliver/VALIDATION.md` for the one unexplained failure of a neighbouring suite) |
+| Other suites that walk this page: `demo/browser/walk`, `journey/browser/journey`, `platform/smoke/built-app`, `demo/smoke/demo` | 2, 1, 12 and 10 passed |
+| The whole static layer | 21 of 23 suites passed; the two failures are not from this slice (`docs/static/api-sync` for the home page of the foundation commit, `static/documentation` for links to documents not written yet) |
+| `node scripts/test.mjs --check-catalogue` | clean, 83 suites |
+
+No existing test was changed: every assertion of the four browser tests and seven smoke tests passes as it was written. The integration suite (`run/integration/run-api`, 29 tests) was not run, because nothing it covers was touched.
+
+### What was looked at
+
+The page was opened in Chromium at 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners C (a starting number recorded, three reviews not yet open), E (nothing accepted yet, the starting number to record) and A (no engagement, with `?problem=not_due`), as a visitor and as the operator; and, in a throwaway Worker started by the browser-test harness with an acceptance dated in the past, with the starting-number form, `?problem=invalid`, a review open with its form, a review recorded (the three tiles, the sentence about better or worse), and no starting number with two reviews open and one then recorded. The script that took them reported no horizontal scroll on any page. Things found by looking and fixed: the line down the left of the three parts took width from the forms on a phone (now three blocks, each with a numbered circle); the three reviews as columns left a lone card when one was open (now a column of cards, one tidy row each when waiting); the three tiles left one alone on a phone (the last now spans the row); "Up to date" on the tag at the top when the owner's next step was elsewhere (now "Nothing to do now"); two main buttons when two reviews are open (now the first only); and a recorded date breaking at its hyphen on a phone (now kept together). A date in "You first accepted a milestone on ..." and "Opens on ..." can still break at a hyphen on a narrow screen: wrapping them would break the smoke tests that read that text in the page's HTML.
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk**, **Chromium only**, **not independent**, and **no mutation checks** were run for this slice, as for the Delivery page.
+- **The wording is unproven with owners**, and the sentences added (the tags on the three blocks, "Go to ...", the labels of the tiles, "Nothing needs you today. ...") are not checked by a test of their own, apart from the unit test of `src/view.ts`.
+- **A review that is open was seen only in a database with an acceptance dated in the past**, because the page's clock cannot be moved; the demonstration shows the dates only.
+- **The tiles show numbers and a signed change and nothing else**, on purpose: whether a higher number is better is not known to the page.
+
+## Slice 11b: the starting number only on an agreed, open engagement; corrections; migration 0015 (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 11b". The author is an agent; no person has read it and no separate agent has reviewed it. Protected path: migration 0015 (one new table, seven new triggers; no earlier migration, table or trigger changed).
+
+### What was run (real results, branch `slice-11b-deliver-run`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `run/unit/state` (new test: `baselineBlock`, in the database's order of answers) | 7 passed |
+| `run/unit/view` | 9 passed |
+| `run/static/rules` (two new tests: `outcome_corrections` is append-only, read only bound to the company, written by one INSERT that checks the corrected row is this engagement's and company's in the same statement, touched only by the data layer; its column list holds nothing about money. The `saved` words are now `baseline`, `correction` and `review`) | 10 passed |
+| `run/integration/run-api` (seven new tests: a baseline refused for no agreed plan, for a closed engagement and for one closed before any plan, by JSON and by form, nothing written or audited; a recorded and a late baseline keep their own reasons after a close; the two new triggers by direct SQL, with the fraction and "once" and "too late" answered as before; a correction is the current value and both stay, the change uses it, a correction of a correction, the original rows unchanged, three audit rows; the field checks of a correction and its form answers; another engagement's number, a missing number and another company refused with 404 and nothing written; the table's rules by direct SQL) | 36 passed (98 s, the run that recorded the baseline; an earlier run of the same file also passed 36) |
+| `deliver/integration/deliver-api`, `platform/integration/append-only-keys` (the new table's only unique key, the id, is looked at by its no_replace trigger) | 32 and 2 passed |
+| `pnpm build`, then `run/smoke/run`, `run/browser/run` (new browser steps: a starting number corrected from the page, the corrected number shown, the first one struck through with the reason) | 7 and 4 passed |
+| `journey/integration/facts`, `journey/browser/journey`, `journey/unit/progress`, `journey/unit/contrast` | 7, 1, 36 and 8 passed |
+| Other suites that walk the two pages: `demo/browser/walk`, `demo/smoke/demo`, `platform/smoke/built-app` | 2, 10 and 12 passed |
+| `docs/static/dictionary-sync`, `docs/static/api-sync`, `docs/static/lld-sync` after this slice's rows were written | 30 of 31, 21 and 6 passed (the one failure is below) |
+| `platform/unit/migrations` (new test, added to the platform's migration tests as the brief asks: 0015 is in the journal, is read as at least eight statements, and drops, alters and rebuilds nothing, with one CREATE TABLE and seven triggers) | 3 passed. The platform's baseline (2) was not changed: it is not this module's |
+| `platform/unit/guards` | **fails, 2 of 3**: the guard list in `modules/platform/src/db/guards.ts` does not name the seven triggers of 0015. That file is the platform module's; this slice did not change it. The exact entries are in the slice's report |
+| `docs/static/dictionary-sync`, last test | **fails**: it pins 16 tables, 15 migrations and 91 triggers; the database now has 17, 16 and 98. The test is the docs module's; this slice did not change it |
+| `node scripts/test.mjs static` (with `static/typecheck`), last run after every commit of this slice | 27 of 28 suites pass, typecheck, documentation, traceability, test-docs and migrations among them; the one failing suite is `docs/static/dictionary-sync`, for the pinned figures above only (30 of 31). An earlier run failed two more tests because this slice's sections were inserted into the middle of the two STATUS pages (the dictionary's section 9 reads `modules/deliver/STATUS.md` by line number) and their "Last updated" lines were changed (the documentation index gives 5 October 2026); the sections were moved to the end and the lines restored |
+
+The baselines of `run/unit/state` (6 to 7), `run/static/rules` (8 to 10) and `run/integration/run-api` (29 to 36) were recorded with `--update-baseline`, after the runs above.
+
+### Fail before, pass after
+
+The new integration tests were not run against the code before this slice (it has no `baselineBlocked`, `listCorrections` or `recordCorrection`, so the file would not load). Read from the code: before this slice a baseline posted on a closed engagement, or before the plan was agreed, was answered 201 and written, which the first assertion of each new baseline test refuses. The mutation checks below are the evidence that the tests notice each new rule going.
+
+### Mutation checks
+
+Run by `scripts/mutation/mutate.py` on a copy of the tree (`git archive` of the branch), each break against `run/integration/run-api`; the list is `modules/run/mutations/slice-11b.json`. **6 written, 6 caught**, 6 October 2026.
+
+| Break | Result |
+| --- | --- |
+| Trigger 0015: a baseline on a closed engagement let through | caught |
+| Trigger 0015: a baseline before the plan is agreed let through | caught |
+| The presenter offers the form as before this slice (closed and unagreed ignored) | caught |
+| The first correction read as the current value, not the latest | caught |
+| The correction's insert not bound to the company (`? IS NOT NULL` for `company_id = ?`) | caught |
+| Trigger 0015: a correction of another engagement's number let through | caught |
+
+Not written: removing the handler's own check of a closed or unagreed engagement. With the triggers in place that break is equivalent from outside (the data layer gives the same named reason from the trigger's message), so it would survive; the handler's check is there to answer before the database is asked.
+
+### What was looked at
+
+The built application was run locally with the demonstration cast (`APLYD_DEMO=true`) and opened in Chromium at 390 pixels wide: owner E (a provider chosen, no plan) sees "Agree the plan on Delivery first ..." on Results and no form; owner D, after recording a delivery from the page, sees the warning and its link beside "Accept milestone 1"; owner C corrected the starting number 42 to 40 from the page and saw 40 as the starting number, 42 struck through with the tag "Corrected", and the reason; the add-milestone form with "What a good test looks like" open. No page scrolled sideways (the document was 390 pixels wide each time). Not looked at: the dark scheme, a desktop width, a keyboard-only walk.
+
+### What this does not show
+
+- **No separate review**, and the wording is unproven with owners ("Correct this number", "The right number", "Why the first number was wrong", the two notices that replace the form).
+- **Only the number is corrected.** A wrong verdict or answer on use stays; a note on a later review is still the only remedy for those.
+- **The health check does not yet know the new triggers** (STATUS limit 20).
+- **The drizzle snapshot chain** had a stale CHECK text for `outcome_events`; the rebuild drizzle-kit wrote was removed by hand (STATUS limit 21). `static/migrations` (`drizzle-kit check`) passes, which checks the chain, not the SQL.
+- **Two Workers racing** a correction and a close, or a baseline and a close, were not run; the handler reads the engagement and the trigger decides the rest.
+
+## Slice 12d (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 12d", and in the deliver module's record for the same slice. The author is an agent; no person has read it and no separate agent has reviewed it.
+
+### What was run (branch `slice-12d-deliver-measure`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `run/unit/view` (new: the sentence when the next step is on another page; this page's own turn still comes first) | 10 passed |
+| `run/unit/state`, `run/static/rules` (the new key `baseline_invalid` is sent by the API and has a message on `/run`) | 7 and 10 passed |
+| `platform/static/page-lookups` (the problem text is looked up with `Object.hasOwn`) | 2 passed |
+| `run/integration/run-api` (changed: an empty or worded starting number goes to `baseline_invalid`; a baseline with a review field keeps `invalid`) | 36 passed (96 s) |
+| `pnpm build`, then `run/smoke/run` (changed: the refusal names the unit, gives the example and does not mention reviews; "42 late orders" is refused) and `demo/smoke/interface` | 7 and 5 passed |
+| `journey/unit/contrast` | 8 passed |
+| `node scripts/test.mjs static` | 28 of 29 suites pass; `docs/static/lld-sync` fails only on `app/diagnose/page.tsx` exporting `metadata` (a row this slice does not own; the Delivery and Results rows were corrected) |
+| `run/browser/run` (changed: the refused starting number goes to `baseline_invalid`, names the unit and does not mention reviews). First run failed on the old `?problem=invalid` wait; fixed, rebuilt, then | 4 passed |
+| `deliver/browser/deliver` (both runs) | 3 passed |
+| `platform/browser/pages`, `demo/browser/walk`, `demo/browser/phone`, `journey/browser/journey`, `quality/browser/accessibility` (once, first build) | 3, 2, 2, 1 and 5 passed |
+| `quality/browser/phone` (once, first build) | 3 passed, 2 failed. (1) The list of known offenders is now stale: every `tap-target` entry for "APLYD home" and "Skip to the page" (all pages, all personas) is no longer found, because both are now at least 44 pixels high (FND-270). The offender file belongs to the quality module and was not edited. (2) Three new `clipped-control` faults on `/operator` ("Unlist SYNTHETIC Provider 1" to "3"), a page this slice does not touch; not investigated further |
+| By hand, the demonstration's owner D on a local server (`APLYD_DEMO=true`): `/deliver` opens with the card "Write down your starting number" at the top and no "Nothing needs your decision"; after "delivered" there is no "Accept milestone 1", only Reject and the link; "42 late orders" is refused with the percent message; after 42 is recorded "Accept milestone 1" is offered and the card becomes "A delivery is waiting for your decision" | as described |
+
+The unit baselines of `deliver/unit/summary` (9 to 10), the new `deliver/unit/input` (5) and `run/unit/view` (9 to 10) were recorded with `--update-baseline` after the runs above.
+
+### What this does not show
+
+- No person who owns a factory has read the new card, the refusal or the summary sentence. No mutation checks were run.
+- The card's place depends on the journey's `nextStep` priority; when it fires a rule for another page (for example "Agree a plan" while a starting number could also be recorded on Results), Results keeps its own summary and the card is at the foot.
+- Dates on Results are still ISO (see the status page).

@@ -100,3 +100,87 @@ The review's L4 (a service could be added to a listed provider by a direct inser
 - **The pool floor is a rule about publication, not a privacy guarantee.** Differencing at the boundary is possible and is limit 2 in the status page.
 - **Every figure on the pages is a placeholder**: three invented clusters, no real provider, no real fee. Nothing here is evidence about whether owners or providers want this (see the ten-owner worksheet).
 - **The pull request's CI result** was not read when this page was written.
+
+## Slice 10b: the two pages rebuilt on the shared interface (5 October 2026)
+
+`/procure` and `/operator` were rebuilt on the design system of slice 10 (see [the status page](STATUS.md), "The two pages after the interface rebuild"). The change is to presentation, structure and wording; the API, the data layer and the migrations were not touched. The author is an agent; no person has read it, and no owner or operator has used the pages.
+
+### What was run (real results, on the branch `slice-10b-procure-operator`, after `pnpm build`)
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | clean |
+| `procure/unit/view` (new: 15 tests of the state sentences, tags, counts, the operator's summary, fee count, service grouping) | 15 passed |
+| `procure/unit/clusters`, `procure/unit/pool` | 2 passed, 5 passed |
+| `procure/static/problems`, `procure/static/rules` | 2 passed, 10 passed (the second pins that the page prints a pool only as a lower bound) |
+| `platform/static/page-lookups` (every message looked up with `Object.hasOwn`) | 2 passed |
+| `journey/unit/contrast`, `journey/unit/progress` (the colour pairs and the step wording the pages are built from) | 8 passed, 22 passed |
+| `procure/browser/procure` | 3 passed (43.6 s) |
+| `procure/smoke/procure` | 6 passed (12.4 s) |
+| Other suites that walk these two pages: `deliver/smoke/deliver`, `platform/smoke/built-app`, `demo/smoke/demo`, `deliver/browser/deliver`, `journey/browser/journey`, `demo/browser/walk` | 8, 12, 10, 3, 1 and 2 passed |
+| The whole static layer | 21 of 23 suites passed; the two failures are not from this slice: `docs/static/api-sync` ("section 5 lists page /, which posts no form", the home page of the foundation commit) and `static/documentation` (links to documents not written yet) |
+| `node scripts/test.mjs --check-catalogue` | clean, 82 suites |
+
+No existing test was changed: every assertion of the three procure browser tests and six smoke tests passes as it was written. The integration suite (`procure/integration/procure-api`, 34 tests) was not run, because nothing it covers was touched.
+
+### What was looked at
+
+Both pages were opened in Chromium at 390 and 1280 pixels wide, in the light and the dark scheme, as the demonstration's owners A (described only, so the first visit), C (the finished example, a provider chosen), D (a provider chosen and a second requirement with no provider yet), F (two requirements, none with a provider chosen), G (four ideas ready to ask for, one requirement with providers to choose from) and as the operator, with a fee set, with none and no providers (a server without the demonstration), after adding a provider (the Not listed row), and with `?problem=` and `?listed=1`. The script that took them reported no horizontal scroll on any page. Things found by looking and fixed: the cluster explanation repeated on every idea card (now once, above them); a "turn" colour on ideas that were only optional once a requirement existed (`readyTone`); two primary buttons to the same page on a requirement with a provider chosen (the one in the card is now plain); the List and Unlist buttons wrapping over three lines (now one word, with the provider's name as the accessible name); a date breaking at its hyphen on a phone; a cluster name breaking onto a new line; a lede ending in a one-word line.
+
+### What this does not show
+
+- **No keyboard-only or screen-reader walk.** The forms are plain HTML with real labels, and the browser tests click and fill them; nobody tabbed through the pages or listened to them.
+- **Chromium only**, with the synthetic sign-in. No other browser, no real phone, no slow connection.
+- **Not independent**, and **no mutation checks** were run for this slice: the pages' wording is pinned by the existing tests and by the unit test of `src/view.ts`, which is a small set.
+- **The wording is unproven with owners.** The sentences were written for a person who has never seen the service, but nobody who owns a factory has read them (the ten-owner test is where that is checked).
+- **Two sentences were added** next to buttons (the provider cannot be changed afterwards; the cluster cannot be changed after a requirement is made). Each restates a limit already in this module's and the deliver module's status pages; neither is checked by a test of its own.
+
+## Slice 11d: polish (6 October 2026, branch `slice-11d-polish`)
+
+The author is an agent; no person has read this. Real results, after `pnpm build` of the tree that commit cbfd34f holds.
+
+| Check | Result |
+| --- | --- |
+| `procure/unit/view` | 17 passed (2 more than the baseline of 15: the counts and words with a withdrawn requirement, and the sentence when nothing is left to ask for; the older tests were given the new field `withdrawnAsked` and are otherwise as they were) |
+| `procure/unit/clusters`, `procure/unit/pool` | 2 and 5 passed |
+| `procure/static/rules`, `procure/static/problems` | 10 and 2 passed |
+| `procure/integration/procure-api` | 34 passed, unchanged |
+| `procure/smoke/procure` | 6 passed (one assertion changed, see below) |
+| `procure/browser/procure` | 3 passed (the test that withdraws a requirement now also checks that the bar reads "0 of N accepted ideas asked for. 1 withdrawn, which is not made again.", that the withdrawn idea is listed as withdrawn, and that there is no "Already asked for" list when nothing is open) |
+| `demo/smoke/interface` | 5 passed: the operator with no fee, no provider and no pool reads "... Set it below, and listing opens.", "None yet. Add one in the form below, then list it so owners can choose it." and "No pool has reached five companies yet. A pool shows here once five or more companies ask for the same idea in the same cluster."; owner B's Choose page says why it is empty and where to go; a visitor is given a "Sign in" link |
+| `demo/browser/phone` | 2 passed: `/procure` and `/operator` at 390 px do not scroll sideways for any person of the cast or a visitor; the providers table keeps `table`, `table-header-group`, `table-row` and `table-cell` display, is wider than the box, and scrolling the box does not move the page |
+
+**One existing assertion was changed, and why.** `procure/smoke/procure` matched the assessment date as ISO text; the page now writes "4 October 2026" and the assertion matches that. Nothing was weakened: it still names the same date.
+
+**Mutation checks (the unit tests only).** `asked` counting a withdrawn requirement, `ready` counting it as ready, and the label never saying "withdrawn" each made `procure/unit/view` fail; restored afterwards. The browser and smoke tests were not mutated. A measurement script, not a test, found the 109 px page overflow of the first version of the table box (see STATUS): the page was 499 px wide on a 390 px screen. The phone test measures the page width and should catch it, but it was written after the fix and was not run against the broken build.
+
+**What this does not show.** Chromium only; 390 px only; no real phone, no screen reader, no keyboard walk of the table box. The owner's wording ("1 withdrawn, which is not made again") has not been read by an owner. The date is the UTC date.
+
+## Slice 12b: Choose and the operator's page for a first-time owner (6 October 2026, branch `slice-12b-choose-operator`)
+
+The author is an agent; no person has read this. Results are from the tree at the commits of this branch, after `pnpm build` on 6 October 2026 (about 06:54 IST). It answers S5-04, S5-05, S5-10, S5-14, S5-15 and S5-19 of the first-time walkthrough and FND-270 and FND-278.
+
+| Check | Result |
+| --- | --- |
+| `procure/unit/view` | 19 passed (2 more: `askState`, and the tags for ideas with something first, including the old call with none held back) |
+| `procure/unit/clusters`, `procure/unit/pool` | 2 and 5 passed |
+| `procure/static/rules`, `procure/static/problems` | 10 and 2 passed (whole static layer run once, 6 October, about 06:25 IST) |
+| `procure/integration/procure-api` | 36 passed: 34, plus the withdrawal note (open requirement, withdrawn with a note, withdrawn without one) and a refused add that keeps what was typed (an assertion added to the existing form-post test). Existing expected redirects were changed (see below) |
+| `procure/smoke/procure` | 6 passed against the built application |
+| `procure/browser/procure` | 3 passed (the unlist step now opens the question first and presses "Yes, unlist"; it checks that opening the question unlists nothing and that the address then names the row) |
+| `demo/smoke/interface`, `demo/smoke/demo` | 6 and 10 passed |
+| `demo/browser/phone`, `demo/browser/walk`, `journey/browser/journey` | 2, 2 and 1 passed |
+| `quality/browser/phone` | 4 passed, 1 failed, and the failure is the list of known offenders being out of date, not a fault of these pages: 19 known offenders are gone (listed under "Known offenders removed"), and two faults are new and are on pages this slice does not own (`/deliver` owner E, `summary "What a good test looks like"`; `/run` owner C, `summary "Correct this number"`) |
+| `static/typecheck` | passed, run again after the last edit to a test (6 October 2026, about 07:00 IST) |
+| `node scripts/check-documentation.mjs`, `check-traceability.mjs`, `check-test-docs.mjs`, `test.mjs --check-catalogue` | passed |
+| Whole static layer, once, before the last commits | 27 of 29 suites passed. The two that failed are not about these pages' behaviour: `docs/static/findings` (FND-271's evidence, `role="note"` in `app/demo/page.tsx`, is gone because it was fixed; the register row needs updating) and `docs/static/lld-sync` (`app/run/page.tsx exports metadata, which is not listed`, a file this branch did not touch) |
+
+**Known offenders removed** (`modules/quality/tests/support/known-offenders/phone.json`, not edited here): `/procure` "Back to your assessment" for owners A to G (7), "Home" for A to G (7), "Jump to your requirements" for D to G (4), and `/operator` "Home" for the operator (1). The file needs `QUALITY_UPDATE_BASELINE=1` run once by the integrator, after reading its diff.
+
+**Existing assertions that were changed, and why.** Each pinned wording or an address that the brief asked to change, and each still asserts the new value: three assertions of "The fee has not been decided (OQ-11), so no provider can be listed" (`procure/smoke`, `procure/browser`, `demo/smoke/interface`) now match the sentence without the code; four expected redirects (`/operator?made=`, `/operator?listed=1`, `/procure?made=`, `/procure?withdrawn=1`, and `/operator?fee=1`) now carry the `#card` part, in `procure/smoke` and `procure/integration`. The query keys are unchanged. Nothing was weakened or deleted.
+
+**Mutation checks (unit only).** Making `askState` ignore what must come first made `procure/unit/view` fail (1 of 19); restored. The smoke and browser tests were not mutated.
+
+**Looked at.** The Choose page for owner G (four ideas to ask for, three with something first, one requirement with two providers) at 1000 px, as a screenshot: requirements first, the pool line, the sentence about contacting the provider before the provider list and under the button, "Do first" on three cards, "Ready to ask for" on one. That screenshot was taken from the build before the operator table's columns were reordered; the operator page was checked afterwards only by `quality/browser/phone`, which no longer reports a clipped control on it, and by `demo/browser/phone` (no sideways scroll, still a table).
+
+**What this does not show.** Chromium only. No keyboard-only walk of the "Unlist" disclosure, no screen reader. The page at 390 px was not looked at as a picture after the change. Nobody who owns a factory has read the new sentences, so whether "a group of factories, in one place or in one association" tells an owner how to choose is unproven (and with three invented clusters it cannot be more than a start). The sentence about contacting the provider is on Choose; the delivery page that follows it was not changed. The export does not yet carry the withdrawal note (the portability module needs one line).

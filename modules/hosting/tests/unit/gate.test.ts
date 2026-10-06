@@ -2,7 +2,7 @@
 // which headers reach the application.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_PROXY_BODY_BYTES, MIN_PASSWORD_CHARACTERS, parseConfig, passesGate, upstreamHeaders } from "../../src/gate.ts";
+import { DEFAULT_WATCHDOG_PROBES, DEFAULT_WATCHDOG_SECONDS, MAX_PROXY_BODY_BYTES, MAX_WATCHDOG_PROBES, MAX_WATCHDOG_SECONDS, MIN_PASSWORD_CHARACTERS, PLACEHOLDER, parseConfig, passesGate, upstreamHeaders } from "../../src/gate.ts";
 
 const SECRET = "k3Jx9mQ2vL8sT5wZ1bN7cR4dF6gH0yPa";
 const PASSWORD = "twelve-chars-or-more";
@@ -22,6 +22,9 @@ test("a complete synthetic configuration is accepted and takes its defaults", ()
   assert.equal(result.config.upstreamPort, 8787);
   assert.equal(result.config.environment, "synthetic");
   assert.equal(result.config.demo, false);
+  assert.equal(result.config.commit, null);
+  assert.equal(result.config.commitIgnored, false);
+  assert.deepEqual(result.config.watchdog, { probes: 6, seconds: 5 });
   assert.deepEqual(result.config.access, { kind: "password", user: "demo", password: PASSWORD });
 });
 
@@ -41,6 +44,34 @@ test("the session secret must be long enough and not one repeated character, and
   assert.ok(parseConfig({ ...good, SESSION_SECRET: "é".repeat(15) + "ee" }).ok);
   assert.match(problemsOf({ ...good, SESSION_SECRET: "é".repeat(15) + "e" }).join("\n"), /at least 32 bytes/);
   for (const bad of ["short", "a".repeat(40)]) assert.ok(!problemsOf({ ...good, SESSION_SECRET: bad }).join("\n").includes(bad), "a refused secret is not echoed");
+});
+
+test("the spec's placeholder is refused in each of the three secrets, alone, and the message names the one that is wrong (S3-05)", () => {
+  assert.equal(PLACEHOLDER, "REPLACE_ME");
+  for (const name of ["SESSION_SECRET", "DEMO_USER", "DEMO_PASSWORD"] as const) {
+    const problems = problemsOf({ ...good, [name]: PLACEHOLDER });
+    assert.equal(problems.length, 1, `${name} alone: ${problems.join(" | ")}`);
+    assert.match(problems[0], new RegExp(`^${name} is still the placeholder REPLACE_ME`), name);
+    // White space round the value does not make it a real one.
+    assert.match(problemsOf({ ...good, [name]: ` ${PLACEHOLDER}\n` }).join("\n"), /still the placeholder/, `${name} with white space`);
+  }
+});
+
+test("the placeholder is refused whatever the other two secrets are, and is listed with every other problem", () => {
+  const all = problemsOf({ SESSION_SECRET: PLACEHOLDER, DEMO_USER: PLACEHOLDER, DEMO_PASSWORD: PLACEHOLDER });
+  assert.equal(all.length, 3, all.join(" | "));
+  for (const name of ["SESSION_SECRET", "DEMO_USER", "DEMO_PASSWORD"]) assert.ok(all.some((p) => p.startsWith(`${name} is still the placeholder`)), name);
+  // Open access does not excuse a placeholder secret, or a placeholder gate value (which would also be "choose one").
+  assert.match(problemsOf({ SESSION_SECRET: PLACEHOLDER, DEMO_ACCESS: "open" }).join("\n"), /SESSION_SECRET is still the placeholder/);
+  assert.match(problemsOf({ SESSION_SECRET: SECRET, DEMO_ACCESS: "open", DEMO_USER: PLACEHOLDER }).join("\n"), /DEMO_USER is still the placeholder/);
+  assert.match(problemsOf({ ...good, APLYD_ENV: "production", DEMO_USER: PLACEHOLDER }).join("\n"), /synthetic environments only[\s\S]*DEMO_USER is still the placeholder/);
+});
+
+test("only the whole placeholder is refused: a real value that contains the word, or another case of it, is not", () => {
+  assert.ok(parseConfig({ ...good, DEMO_USER: "replace_me" }).ok, "the user is case-sensitive, like the gate's own comparison");
+  assert.ok(parseConfig({ ...good, DEMO_USER: "REPLACE_ME_NOT" }).ok);
+  assert.ok(parseConfig({ ...good, DEMO_PASSWORD: "REPLACE_ME-and-more" }).ok);
+  assert.ok(parseConfig({ ...good, SESSION_SECRET: `${PLACEHOLDER}-${SECRET}` }).ok);
 });
 
 test("the launcher does not start without a gate, and open access has to be asked for in so many words", () => {
@@ -82,6 +113,19 @@ test("public hosts are optional, lower-cased, and refused when they are not host
   }
 });
 
+test("the watchdog's settings take their defaults, can be changed, can be turned off with 0 probes, and refuse nonsense", () => {
+  assert.equal(DEFAULT_WATCHDOG_PROBES, 6);
+  assert.equal(DEFAULT_WATCHDOG_SECONDS, 5);
+  const set = parseConfig({ ...good, APLYD_WATCHDOG_PROBES: "3", APLYD_WATCHDOG_SECONDS: "1" });
+  assert.ok(set.ok && set.config.watchdog.probes === 3 && set.config.watchdog.seconds === 1);
+  const off = parseConfig({ ...good, APLYD_WATCHDOG_PROBES: "0" });
+  assert.ok(off.ok && off.config.watchdog.probes === 0);
+  const empty = parseConfig({ ...good, APLYD_WATCHDOG_PROBES: "", APLYD_WATCHDOG_SECONDS: "" });
+  assert.ok(empty.ok && empty.config.watchdog.probes === 6 && empty.config.watchdog.seconds === 5, "an empty value is the same as not set");
+  for (const bad of ["abc", "-1", "1.5", " 6", String(MAX_WATCHDOG_PROBES + 1)]) assert.match(problemsOf({ ...good, APLYD_WATCHDOG_PROBES: bad }).join("\n"), /APLYD_WATCHDOG_PROBES must be/, bad);
+  for (const bad of ["abc", "0", "-1", "2.5", String(MAX_WATCHDOG_SECONDS + 1)]) assert.match(problemsOf({ ...good, APLYD_WATCHDOG_SECONDS: bad }).join("\n"), /APLYD_WATCHDOG_SECONDS must be/, bad);
+});
+
 test("every problem is reported at once, so one launch shows all of them", () => {
   const problems = problemsOf({ APLYD_ENV: "production", SESSION_SECRET: "short", PORT: "0" });
   assert.ok(problems.length >= 4, problems.join(" | "));
@@ -92,6 +136,18 @@ test("demonstration mode is on only for the exact word true", () => {
     const result = parseConfig({ ...good, APLYD_DEMO: value });
     assert.ok(result.ok);
     if (result.ok) assert.equal(result.config.demo, expected, String(value));
+  }
+});
+
+test("the commit is taken only when it is a commit id, and anything else is ignored and never stops the launch", () => {
+  const sha = "034320ce8a21db0818b9b4a39315d0d4b2f976c4";
+  for (const [value, expected] of [[sha, sha], [sha.toUpperCase(), sha], [`  ${sha}\n`, sha], ["034320c", "034320c"], ["a".repeat(64), "a".repeat(64)], ["034320", null], ["a".repeat(65), null], ["", null], [undefined, null], ["unknown", null], ["${_self.COMMIT_HASH}", null], ["034320c; rm -rf /", null], ["034320c\ncommit evil", null], ["g34320c", null]] as const) {
+    const result = parseConfig({ ...good, APLYD_COMMIT: value });
+    assert.ok(result.ok, `a commit of ${JSON.stringify(value)} must not stop the launch`);
+    if (result.ok) {
+      assert.equal(result.config.commit, expected, String(value));
+      assert.equal(result.config.commitIgnored, expected === null && (value ?? "").trim() !== "", `commitIgnored for ${JSON.stringify(value)}`);
+    }
   }
 });
 
@@ -131,6 +187,26 @@ test("the gate's own credentials are not handed to the application", () => {
   const out = upstreamHeaders({ host: "demo.example", authorization: basic("demo", PASSWORD), cookie: "aplyd_session=abc" });
   assert.equal(out.authorization, undefined);
   assert.equal(out.cookie, "aplyd_session=abc");
+});
+
+test("Miniflare's own control headers are not handed to the application, in any case, and ordinary headers still are (S3-04)", () => {
+  const out = upstreamHeaders({
+    host: "demo.example",
+    "mf-original-url": "http://x.example/api/anything",
+    "MF-CF-Blob": "{}",
+    "Mf-Route-Override": "x",
+    "mf-": "bare prefix",
+    "x-mf-not-a-prefix": "kept",
+    mfx: "kept: the prefix is `mf-`, with the hyphen",
+    "x-kept": "yes",
+    cookie: "aplyd_session=abc",
+  });
+  assert.deepEqual(Object.keys(out).sort(), ["cookie", "host", "mfx", "x-kept", "x-mf-not-a-prefix"]);
+  // The Origin rewrite still happens beside them, and the caller's own object is not changed.
+  const input = { host: "demo.example", origin: "https://demo.example", "mf-original-url": "http://x.example/" };
+  assert.equal(upstreamHeaders(input).origin, "http://demo.example");
+  assert.equal(upstreamHeaders(input)["mf-original-url"], undefined);
+  assert.equal(input["mf-original-url"], "http://x.example/", "the input is left as it was");
 });
 
 test("an Origin that is this site's own is rewritten to the origin the application sees, whatever scheme the browser used", () => {

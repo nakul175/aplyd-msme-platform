@@ -71,6 +71,14 @@ test("an owner follows the link from the home page, makes a requirement in a clu
     const gone = page.getByTestId("requirement-digital_job_log");
     assert.ok(await gone.getByText("Withdrawn", { exact: true }).isVisible());
     assert.equal(await gone.getByRole("button", { name: /^Withdraw/ }).count(), 0);
+    // FND-255: the bar and the words beside it do not count a withdrawn requirement as asked for, and the idea is listed apart, as withdrawn.
+    const accepted = await page.locator("[data-testid^='accepted-']").count();
+    assert.ok(accepted >= 2, `the other ideas are still on the page (${accepted})`);
+    const bar = await page.getByTestId("procure-state").innerText();
+    assert.match(bar, new RegExp(`0 of ${accepted} accepted ideas asked for\\. 1 withdrawn, which is not made again\\.`));
+    assert.ok(!/1 of \d+ accepted ideas? asked for/.test(bar), "the withdrawn requirement is not counted");
+    assert.match(await page.getByTestId("accepted").innerText(), /withdrawn\s+Keep every job[\s\S]*Requirement recorded for SYNTHETIC cluster 2, then withdrawn/i);
+    assert.equal(await page.getByTestId("accepted").getByText("Already asked for", { exact: true }).count(), 0, "nothing is open, so there is no list of open ones");
     assert.deepEqual(problems, [], "no page errors, console errors or failed requests");
     assert.deepEqual(h.blockedRequests, []);
   });
@@ -83,7 +91,7 @@ test("the operator sets one fee, adds a provider and lists it; the owner then se
     await signInAsOperator(op);
     await op.getByRole("link", { name: "Providers and the listing fee" }).click();
     await op.waitForURL((u) => u.pathname === "/operator");
-    assert.match(await op.getByTestId("fee-now").innerText(), /The fee has not been decided \(OQ-11\)/);
+    assert.match(await op.getByTestId("fee-now").innerText(), /The fee has not been decided, so no provider can be listed/);
 
     await op.getByLabel("Set the fee, in rupees").fill("1500");
     await Promise.all([op.waitForURL((u) => u.searchParams.get("fee") === "1"), op.getByRole("button", { name: "Save as a new version" }).click()]);
@@ -133,7 +141,12 @@ test("the operator sets one fee, adds a provider and lists it; the owner then se
     assert.deepEqual(h.blockedRequests, []);
 
     // The operator can unlist: the owner's view no longer shows the provider.
-    await Promise.all([op.waitForURL((u) => u.searchParams.get("unlisted") === "1"), op.getByRole("button", { name: "Unlist Alpha Works" }).click()]);
+    // "Unlist" asks first (S5-19): opening it changes nothing; the second button acts, and the page lands on the row that changed (S5-10).
+    await op.getByLabel("Unlist Alpha Works", { exact: true }).click();
+    assert.equal(new URL(op.url()).searchParams.get("unlisted"), null, "opening the question unlists nothing");
+    assert.match(await op.getByTestId("provider-Alpha Works").innerText(), /Listed/);
+    await Promise.all([op.waitForURL((u) => u.searchParams.get("unlisted") === "1"), op.getByRole("button", { name: "Yes, unlist Alpha Works" }).click()]);
+    assert.match(new URL(op.url()).hash, /^#provider-[0-9a-f-]{36}$/, "the address names the row that changed");
     await owner.reload();
     assert.match(await owner.getByTestId("requirement-digital_job_log").getByTestId("providers").innerText(), /No provider is listed for this in your cluster yet/);
   });

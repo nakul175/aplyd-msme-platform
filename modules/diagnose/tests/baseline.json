@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "review fixes (migration 0014 hardening, own-property page lookups) and slice 7 journey",
+  "reason": "slice 11a: gap view and compare view on the Decide page; unit/gaps (15), unit/compare (11) and browser/gaps (4) added",
   "suites": {
     "browser/diagnose": 8,
     "integration/diagnose-api": 34,
@@ -10,6 +10,10 @@
     "unit/engine": 20,
     "static/problems": 1,
     "unit/not-owner": 1,
-    "unit/pins": 3
+    "unit/pins": 3,
+    "unit/progress": 7,
+    "browser/gaps": 4,
+    "unit/compare": 11,
+    "unit/gaps": 15
   }
 }

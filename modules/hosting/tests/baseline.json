@@ -1,10 +1,10 @@
 {
-  "updatedAt": "2026-10-05",
-  "reason": "Slice 8: hosting launcher suites (unit, integration, static, smoke) and the header-rule exemption test in platform source-rules",
+  "updatedAt": "2026-10-06",
+  "reason": "Hosting fixes (6 October 2026, wave 2): placeholder refused in each secret, mf- headers dropped, build context, watchdog; new tests in all four suites",
   "suites": {
-    "integration/gateway": 14,
-    "smoke/serve": 6,
-    "static/deploy-files": 6,
-    "unit/gate": 17
+    "integration/gateway": 19,
+    "smoke/serve": 10,
+    "static/deploy-files": 10,
+    "unit/gate": 23
   }
 }

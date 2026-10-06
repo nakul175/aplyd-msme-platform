@@ -19,3 +19,7 @@ jobs:
           node-version: 22
       - name: Links, identifiers and source checksums
         run: node scripts/check-documentation.mjs
+      - name: Requirements, functional requirements and test cases
+        run: |
+          node scripts/check-traceability.mjs
+          node scripts/check-test-docs.mjs

@@ -1,6 +1,6 @@
 # Builds and runs the application for a host that runs containers (DigitalOcean App Platform, a Droplet, anything with Docker).
-# SYNTHETIC demonstration host only: the database lives in memory and is rebuilt at every start (scripts/serve.mjs).
-# Not built or run in the session that wrote it: there was no container daemon there. See modules/hosting/STATUS.md.
+# SYNTHETIC demonstration host only: the database is a SQLite file in the container's temporary directory, built again at every start, so a restart is a reset (scripts/serve.mjs).
+# Built on DigitalOcean App Platform on 5 October 2026 (the sponsor's report). Its steps were also run without Docker in a clean copy on 6 October 2026. See modules/hosting/STATUS.md and VALIDATION.md.
 FROM node:22.22.0-bookworm-slim
 
 WORKDIR /app
@@ -12,6 +12,12 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 RUN pnpm build
+
+# The git commit this image was made from, shown by /healthz so a live address can be matched to a commit. App Platform does not pass its commit
+# to a Dockerfile build, so on App Platform the same name is set at run time instead (.do/app.yaml, ${_self.COMMIT_HASH}) and overrides this.
+# For any other build: docker build --build-arg APLYD_COMMIT=$(git rev-parse HEAD) .  Declared after the build so a new commit does not redo the install and the build.
+ARG APLYD_COMMIT=""
+ENV APLYD_COMMIT=$APLYD_COMMIT
 
 # Set after the install and the build: with NODE_ENV=production the install above would skip the packages the build and the Worker host need.
 ENV NODE_ENV=production

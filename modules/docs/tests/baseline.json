@@ -1,0 +1,27 @@
+{
+  "updatedAt": "2026-10-05",
+  "reason": "Documentation set: readers and sync checks for the BRD, FSD, data dictionary, API reference, test documents, wireframes, glossary, documentation index, findings register and low-level design; identifier checks",
+  "suites": {
+    "static/api-sync": 21,
+    "static/brd": 5,
+    "static/dictionary-sync": 31,
+    "static/fsd": 3,
+    "static/ids": 1,
+    "static/testdocs": 14,
+    "unit/api": 18,
+    "unit/brd": 7,
+    "unit/dictionary": 26,
+    "unit/fsd": 4,
+    "unit/ids": 5,
+    "unit/testdocs": 21,
+    "static/docindex": 10,
+    "static/findings": 7,
+    "static/glossary": 8,
+    "static/lld-sync": 6,
+    "static/wireframes": 3,
+    "unit/docindex": 23,
+    "unit/findings": 15,
+    "unit/glossary": 16,
+    "unit/lld": 10
+  }
+}

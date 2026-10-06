@@ -15,6 +15,8 @@ export type GatewayOptions = {
   ready: () => boolean;
   upstreamHost?: string;
   maxBodyBytes?: number;
+  /** The commit this build was made from, or "unknown". When given, /healthz adds a second line `commit <id>` to every answer, so a live address can be matched to a commit. Left out when not given. A commit id or "unknown" only: the launcher validates it (gate.ts parseCommit). */
+  commit?: string;
   /** One line per refused or failed request. Never receives a header, a body or a credential. */
   log?: (line: string) => void;
 };
@@ -34,6 +36,62 @@ function reply(res: ServerResponse, status: number, text: string, extra: Record<
   res.end(`${text}\n`);
 }
 
+/** Whether the application on loopback answers its own health route (/api/health) with 200 within `timeoutMs`. Never throws; an unreachable application is `false`. */
+export function probeUpstream(host: string, port: number, timeoutMs: number = HEALTH_TIMEOUT_MS): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get({ host, port, path: "/api/health", timeout: timeoutMs }, (r) => {
+      r.resume();
+      resolve(r.statusCode === 200);
+    });
+    req.on("timeout", () => req.destroy());
+    req.on("error", () => resolve(false));
+  });
+}
+
+export type WatchdogOptions = {
+  /** Asked once per round. True means the application answered its health route. */
+  probe: () => Promise<boolean>;
+  /** How many failed probes in a row make the application count as dead. */
+  probes: number;
+  /** Milliseconds between the end of one probe and the start of the next. */
+  intervalMs: number;
+  /** Called once, with the number of failures, when `probes` in a row have failed. The watchdog has stopped by then. */
+  onDead: (failures: number) => void;
+};
+
+/**
+ * Asks the application whether it is alive, again and again, and says so once if it has not been for `probes` probes in a row. One answer is enough
+ * to start the count again from zero, so a slow moment is forgiven and only a run of failures counts. It decides nothing about what to do: the launcher
+ * exits, and the platform restarts the container. Returns a function that stops it (safe to call twice, and after it has fired).
+ */
+export function watchUpstream(options: WatchdogOptions): () => void {
+  if (options.probes < 1) return () => {};
+  let stopped = false;
+  let failures = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const round = async () => {
+    let healthy = false;
+    try {
+      healthy = await options.probe();
+    } catch {
+      healthy = false;
+    }
+    if (stopped) return;
+    failures = healthy ? 0 : failures + 1;
+    if (failures >= options.probes) {
+      stopped = true;
+      options.onDead(failures);
+      return;
+    }
+    timer = setTimeout(() => void round(), options.intervalMs);
+  };
+  timer = setTimeout(() => void round(), options.intervalMs);
+  return () => {
+    stopped = true;
+    if (timer !== undefined) clearTimeout(timer);
+  };
+}
+
 export function createGateway(options: GatewayOptions): http.Server {
   const host = options.upstreamHost ?? "127.0.0.1";
   const maxBody = options.maxBodyBytes ?? MAX_PROXY_BODY_BYTES;
@@ -42,27 +100,20 @@ export function createGateway(options: GatewayOptions): http.Server {
   let healthy = false;
 
   /** Whether the application itself answers its own health route. Asked at most once every two seconds, whoever is asking. */
-  const probe = (): Promise<boolean> =>
-    new Promise((resolve) => {
-      const req = http.get({ host, port: options.upstreamPort, path: "/api/health", timeout: HEALTH_TIMEOUT_MS }, (r) => {
-        r.resume();
-        resolve(r.statusCode === 200);
-      });
-      req.on("timeout", () => req.destroy());
-      req.on("error", () => resolve(false));
-    });
+  const probe = (): Promise<boolean> => probeUpstream(host, options.upstreamPort);
 
   const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const path = (req.url ?? "/").split("?")[0];
 
-    // The platform's health check cannot present the gate's password, so this one route is answered before the gate. It says only ok or not.
+    // The platform's health check cannot present the gate's password, so this one route is answered before the gate. It says ok or not, and which commit is running.
     if (path === "/healthz" && (req.method === "GET" || req.method === "HEAD")) {
-      if (!options.ready()) return reply(res, 503, "starting");
+      const commitLine = options.commit === undefined ? "" : `\ncommit ${options.commit}`;
+      if (!options.ready()) return reply(res, 503, `starting${commitLine}`);
       if (Date.now() - healthAt > HEALTH_CACHE_MS) {
         healthy = await probe();
         healthAt = Date.now();
       }
-      return reply(res, healthy ? 200 : 503, healthy ? "ok" : "application not answering");
+      return reply(res, healthy ? 200 : 503, `${healthy ? "ok" : "application not answering"}${commitLine}`);
     }
 
     if (!passesGate(req.headers.authorization, options.access)) {

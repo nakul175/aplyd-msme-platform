@@ -556,7 +556,7 @@ test("form posts for a decision and a sign-off redirect back to the page with wh
 
   const saved = await decideForm([["opportunity", item], ["decision", "accept"], ["note", "ok"]]);
   assert.equal(saved.status, 303);
-  assert.equal(saved.headers.get("location"), `/diagnose?a=${id}&saved=${item}`);
+  assert.equal(saved.headers.get("location"), `/diagnose?a=${id}&saved=${item}#idea-${item}`, "the page lands on the card that changed (S5-10)");
   assert.equal((await decideForm([["opportunity", item], ["decision", "maybe"]])).headers.get("location"), `/diagnose?a=${id}&problem=decision`);
   assert.equal((await signForm([])).headers.get("location"), `/diagnose?a=${id}&problem=undecided`);
   for (const i of detail.result.items.slice(1)) await decideForm([["opportunity", i.opportunityId], ["decision", "defer"]]);

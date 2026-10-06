@@ -10,6 +10,7 @@ import { handleAssessmentCreate, handleAssessmentRead, handleDecisionCreate, han
 import type { Result } from "../../../diagnose/src/engine.ts";
 import { handlePools, handleOperatorProviders, handlePublicProviders, handleProviderCreate, handleProviderList, handleProviderUnlist, handleTermsRead, handleTermsSet } from "../../src/api/providers.ts";
 import { handleRequirementCreate, handleRequirementList, handleRequirementWithdraw } from "../../src/api/requirements.ts";
+import { listRequirements } from "../../src/db/requirements.ts";
 
 let env: AppEnv;
 let db: D1Database;
@@ -775,7 +776,7 @@ test("a form post that cannot be done goes back to the page with a message, neve
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${B}/requirements/${id}/withdraw`, b), env, B, id)), "/procure?problem=missing", "another company's requirement looks like a missing one");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${"x".repeat(65)}/withdraw`, a), env, A, "x".repeat(65))), "/procure?problem=missing");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a, [["note", "x".repeat(501)]]), env, A, id)), "/procure?problem=note");
-  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a), env, A, id)), "/procure?withdrawn=1");
+  assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a), env, A, id)), `/procure?withdrawn=1#requirement-${id}`, "a done withdrawal lands on the card that changed (S5-10); the ?withdrawn=1 contract is kept");
   assert.equal(await go(handleRequirementWithdraw(procure(`/api/companies/${A}/requirements/${id}/withdraw`, a), env, A, id)), "/procure?problem=withdrawn");
   assert.equal(await go(handleRequirementCreate(procure(`/api/companies/${A}/requirements`, a, [["assessment", detail.id], ["opportunity", KIND], ["cluster", CLUSTER]]), env, A)), "/procure?problem=previously_withdrawn", "a withdrawn requirement is not 'recorded' again");
 
@@ -788,8 +789,12 @@ test("a form post that cannot be done goes back to the page with a message, neve
   assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?problem=fee_undecided");
   assert.equal(await go(handleProviderUnlist(procure(`/api/operator/providers/${pid}/unlist`, op), env, pid)), "/operator?problem=not_listed");
   await setFee(op, { feeInr: 50 });
-  assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?listed=1");
+  assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), `/operator?listed=1#provider-${pid}`, "lands on the row that changed (S5-10)");
   assert.equal(await go(handleProviderList(procure(`/api/operator/providers/${pid}/list`, op), env, pid)), "/operator?problem=already_listed");
+  // a refused add keeps what was typed (S5-19), and says nothing about a box that was empty
+  assert.equal(await go(handleProviderCreate(procure("/api/operator/providers", op, [["name", " Typed & Name "], ["summary", "a line"]]), env)), "/operator?problem=provider&name=Typed%20%26%20Name&summary=a%20line", "no idea or cluster was chosen");
+  assert.equal(await go(handleProviderCreate(procure("/api/operator/providers", op, [["opportunity", KIND]]), env)), "/operator?problem=provider", "nothing typed, nothing kept");
+  assert.equal(await go(handleProviderCreate(procure("/api/operator/providers", op, [["name", "N".repeat(150)], ["opportunity", KIND], ["cluster", CLUSTER]]), env)), `/operator?problem=provider&name=${"N".repeat(100)}`, "a name that is too long comes back cut to the limit");
 });
 
 // --- Rules the database now keeps for itself (migration 0014)
@@ -850,4 +855,24 @@ test("a note is at most 500 characters in each table that has one in the buying 
   assert.equal(await count("listing_terms"), 2);
   assert.equal(await count("provider_events"), 1);
   assert.equal(await count("requirement_events"), 1);
+});
+
+test("the note written with a withdrawal is returned by listRequirements, for the export (FND-278), and an open requirement or a withdrawal without a note has none", async () => {
+  const a = await ownerA();
+  const detail = await signedOff(A, a);
+  const { id } = (await (await makeReq(A, a, body(detail))).json()) as { id: string };
+  assert.equal((await listRequirements(db, A))[0].withdrawnNote, null, "open: no note");
+  assert.equal((await withdraw(A, id, a, { note: "  changed our minds  " })).status, 201);
+  const [row] = await listRequirements(db, A);
+  assert.equal(row.withdrawnNote, "changed our minds", "the note as stored: trimmed, as the endpoint stores it");
+  assert.ok(row.withdrawnAt);
+  assert.ok(!("withdrawnNote" in (await requirementsOf(A, a))[0]), "the answer of the endpoint does not change: the note is not added to it");
+});
+
+test("a withdrawal written without a note reads as no note", async () => {
+  const a = await ownerA();
+  const detail = await signedOff(A, a);
+  const { id } = (await (await makeReq(A, a, body(detail))).json()) as { id: string };
+  assert.equal((await withdraw(A, id, a)).status, 201);
+  assert.equal((await listRequirements(db, A))[0].withdrawnNote, null);
 });

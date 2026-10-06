@@ -3,7 +3,7 @@ import { recordAudit } from "../db/audit.ts";
 import { loadOwnCompany } from "../db/companies.ts";
 import { resolveIdentity } from "../identity/resolve.ts";
 import { canReadCompany } from "../identity/scope.ts";
-import { json } from "./http.ts";
+import { json, notSignedIn } from "./http.ts";
 
 /**
  * GET one company record. The scope rule is enforced here, on the server.
@@ -13,7 +13,7 @@ import { json } from "./http.ts";
 export async function handleCompanyRead(request: Request, env: AppEnv, requestedId: string): Promise<Response> {
   if (!env.DB) return json(503, { error: "storage_unavailable" });
   const identity = await resolveIdentity(request, env);
-  if (!identity) return json(401, { error: "not_signed_in" });
+  if (!identity) return notSignedIn(request);
 
   if (!canReadCompany(identity, requestedId)) {
     await recordAudit(env.DB, "company.read.denied", {

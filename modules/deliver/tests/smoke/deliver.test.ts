@@ -61,7 +61,7 @@ test("set-up: the operator sets a fee and lists a provider; an owner signs off a
   assert.equal((await form(op, "/api/operator/listing-terms", [["feeInr", String(FEE)], ["note", "SYNTHETIC test value, not a proposal"]])).status, 303);
   assert.equal((await form(op, "/api/operator/providers", [["name", "Alpha Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", KIND], ["cluster", CLUSTER]])).status, 303);
   providerId = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string }[] }).providers[0].id;
-  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location"), "/operator?listed=1");
+  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location")?.split("#")[0], "/operator?listed=1");
 
   const a = await signIn("owner-a@synthetic.invalid");
   const made = await form(a, `/api/companies/${A}/assessments`);
@@ -125,19 +125,36 @@ test("the plan: a bad milestone and an empty plan are sent back with a message; 
 
   assert.equal((await events([["kind", "plan_agreed"]])).headers.get("location"), "/deliver?problem=no_milestones");
   assert.match(await page(a, "/deliver?problem=no_milestones"), /Add at least one milestone before you agree the plan/);
-  const invalid = await add([["title", "First part"], ["test", "Check it"], ["due", "2026-02-30"], ["amount", "1000"]]);
-  assert.equal(invalid.headers.get("location"), "/deliver?problem=invalid");
-  assert.match(await page(a, "/deliver?problem=invalid"), /a date written YYYY-MM-DD/);
+  const invalid = await add([["title", "First part"], ["test", "Check it"], ["due", "2026-02-30"], ["amount", "50 thousand"]]);
+  assert.equal(invalid.headers.get("location"), "/deliver?problem=invalid", "nothing typed is put in the address");
+  assert.match(await page(a, "/deliver?problem=invalid"), /a real date, and a whole number of rupees/);
+  // S5-16: the page names the boxes that failed and shows what was typed again, from a short-lived cookie only the Delivery page receives.
+  const draft = invalid.headers.get("set-cookie") ?? "";
+  assert.match(draft, /^aplyd_milestone_draft=.*; HttpOnly; Secure; SameSite=Strict; Path=\/deliver; Max-Age=300$/);
+  const kept = await page(`${a}; ${draft.split(";")[0]}`, "/deliver?problem=invalid");
+  assert.match(kept, /Check these boxes: “Due date” and “Price”\. What you typed is still in the boxes\./);
+  assert.match(kept, /value="First part"/);
+  assert.match(kept, /value="50 thousand"/);
+  assert.match(kept, /aria-invalid="true"/);
+  assert.match(kept, /type="date"/, "the due date has the date picker");
 
-  assert.equal((await add([["title", "Job log set up on the shop floor"], ["test", "Ten real jobs entered and found again by a supervisor"], ["due", "2026-12-15"], ["amount", "125000"]])).headers.get("location"), "/deliver?saved=milestone");
+  const saved = await add([["title", "Job log set up on the shop floor"], ["test", "Ten real jobs entered and found again by a supervisor"], ["due", "15/12/2026"], ["amount", "₹1,25,000"]]);
+  assert.equal(saved.headers.get("location"), "/deliver?saved=milestone", "a date written day first and a price with ₹ and commas are read");
+  assert.match(saved.headers.get("set-cookie") ?? "", /^aplyd_milestone_draft=; .*Max-Age=0$/, "the kept values are cleared by the next save");
   assert.equal((await add([["title", "Supervisors trained"], ["test", "Every supervisor enters a job unaided"], ["due", "2027-01-31"], ["amount", "80000"]])).headers.get("location"), "/deliver?saved=milestone");
   let html = await page(a, "/deliver?saved=milestone");
   assert.match(html, /The milestone was added to the plan/);
   assert.match(html, /1\. Job log set up on the shop floor/);
   assert.match(html, /2\. Supervisors trained/);
   assert.match(html, /Price ₹1,25,000/, "Indian digit grouping");
+  assert.match(html, /Due 15 December 2026/, "the date as an owner reads it");
   assert.match(html, /Plan total ₹2,05,000/);
   assert.match(html, /How you will check it:<\/strong> Ten real jobs entered/);
+  assert.match(html, /What a good test looks like/, "the add form shows what a good test looks like");
+  assert.match(html, /What is measured<\/dt><dd>the time from order to dispatch<\/dd><dt>The unit<\/dt><dd>days<\/dd><dt>What counts as done<\/dt>/);
+  assert.ok(!html.includes('data-testid="test-flag-1"'), "a test with a number and a unit is not flagged");
+  assert.ok(html.includes('data-testid="test-flag-2"'), "a test with no number is flagged");
+  assert.match(html, /This test has no number, so someone else could not tell whether it was met\./, "flagged, and it was saved all the same");
   assert.match(html, /Agree this plan/);
   assert.ok(!html.includes("Record that milestone"), "nothing can be delivered before the plan is agreed");
 
@@ -163,8 +180,25 @@ test("a milestone is delivered, accepted against the owner's test and paid; anot
   assert.match(html, /Recorded: delivered, as the provider told you/);
   assert.match(html, /Delivered, waiting for you/);
   assert.match(html, /Provider says it is live/);
-  assert.match(html, /Accept milestone 1/);
+  // S5-03: while no starting number is written down, the page offers no Accept (accepting would lose the number for good); it says why,
+  // links to where the number is written, and the card at the top of the page says the same. Reject stays: it loses nothing.
+  assert.ok(!html.includes("Accept milestone 1"), "no Accept before the starting number");
   assert.match(html, /Reject milestone 1/);
+  assert.match(html, /You have not recorded your starting number\. Once you accept a milestone, it can no longer be recorded, so Accept is shown here only after it is written down\./);
+  assert.ok(html.includes(`href="/run#bl-${engagementId}"`), "with a link to the place on Results where it is recorded");
+  assert.match(html, />Write down your starting number first<\/a>/);
+  assert.match(html, /data-testid="your-turn" data-key="record_baseline"/, "the shared card, at the top");
+  assert.ok(html.indexOf('data-testid="your-turn"') < html.indexOf('data-testid="engagements"'), "before the engagements");
+  assert.ok(!html.includes("Nothing needs your decision"), "the head does not contradict the card");
+  assert.match(html, /APLYD does not put you in touch with the provider\. You will have to contact them yourself\./);
+  assert.match(html, /Step 4 of 5: Deliver/);
+  assert.equal((await form(a, `/api/companies/${A}/engagements/${engagementId}/outcomes`, [["kind", "baseline"], ["value", "42"]])).headers.get("location"), "/run?saved=baseline");
+  html = await page(a, "/deliver");
+  assert.match(html, /Accept milestone 1/, "Accept is offered once the starting number is written down");
+  assert.ok(!html.includes("You have not recorded your starting number"));
+  assert.match(html, /data-testid="your-turn" data-key="judge_delivery"/);
+  assert.ok(html.includes(`href="#ms-${m1.id}"`), "the card's button lands on the milestone to decide");
+  assert.ok(!html.includes('data-testid="summary"'), "the page's own summary is not drawn when the card says the same");
   assert.equal((await record([["kind", "delivered"], ["milestone", m1.id]])).headers.get("location"), "/deliver?problem=wrong_state", "delivered once");
   assert.equal((await record([["kind", "accepted"], ["milestone", m1.id], ["note", "All ten jobs found"]])).headers.get("location"), "/deliver?saved=accepted");
   assert.equal((await record([["kind", "payment_recorded"], ["milestone", m1.id], ["amount", "125000"], ["note", "Bank transfer"]])).headers.get("location"), "/deliver?saved=payment_recorded");
@@ -175,6 +209,9 @@ test("a milestone is delivered, accepted against the owner's test and paid; anot
   assert.match(html, /Payments you have recorded: ₹1,25,000/);
 
   assert.equal((await record([["kind", "delivered"], ["milestone", m2.id]])).headers.get("location"), "/deliver?saved=delivered");
+  html = await page(a, "/deliver?saved=delivered");
+  assert.match(html, /Accept milestone 2/);
+  assert.ok(!html.includes("You have not recorded your starting number"), "once a milestone is accepted the starting number is already out of reach, so there is nothing to warn about");
   assert.equal((await record([["kind", "rejected"], ["milestone", m2.id], ["note", "Two supervisors could not enter a job"]])).headers.get("location"), "/deliver?saved=rejected");
   html = await page(a, "/deliver?saved=rejected");
   assert.match(html, /Recorded: you rejected it\. It can be delivered again/);
@@ -239,7 +276,7 @@ test("at the delivery cap the page stops offering a delivery and says why: the m
   const op = await signIn("operator@synthetic.invalid");
   assert.equal((await form(op, "/api/operator/providers", [["name", "Beta Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", secondIdea], ["cluster", CLUSTER]])).status, 303);
   const beta = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string; name: string }[] }).providers.find((p) => p.name === "Beta Works")!.id;
-  assert.equal((await form(op, `/api/operator/providers/${beta}/list`)).headers.get("location"), "/operator?listed=1");
+  assert.equal((await form(op, `/api/operator/providers/${beta}/list`)).headers.get("location")?.split("#")[0], "/operator?listed=1");
   assert.equal((await form(a, `/api/companies/${A}/requirements`, [["assessment", assessmentId], ["opportunity", secondIdea], ["cluster", CLUSTER]])).status, 303);
   const requirements = ((await getJson(a, `/api/companies/${A}/requirements`)) as { requirements: { id: string; opportunityId: string }[] }).requirements;
   const second = requirements.find((r) => r.opportunityId === secondIdea)!.id;
@@ -253,7 +290,8 @@ test("at the delivery cap the page stops offering a delivery and says why: the m
     assert.equal((await form(a, `${path}/events`, [["kind", "delivered"], ["milestone", m]])).headers.get("location"), "/deliver?saved=delivered", `delivery ${n}`);
     if (n === 14) {
       const waiting = await page(a, "/deliver");
-      assert.match(waiting, /Accept milestone 1/, "the last delivery can still be decided");
+      assert.match(waiting, /Reject milestone 1/, "the last delivery can still be decided");
+      assert.ok(!waiting.includes("Accept milestone 1"), "not accepted while this engagement has no starting number (S5-03)");
     }
     assert.equal((await form(a, `${path}/events`, [["kind", "rejected"], ["milestone", m]])).headers.get("location"), "/deliver?saved=rejected", `rejection ${n}`);
   }

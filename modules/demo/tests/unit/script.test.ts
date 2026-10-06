@@ -45,3 +45,19 @@ test("the script never claims what the application does not do", () => {
   assert.match(DOES_NOT_SHOW.join(" "), /ten-owner test/);
   assert.match(RESET_NOTE, /restart/i);
 });
+
+test("the figures the script tells the presenter to type fit the boxes that take them (S5-11)", () => {
+  const results = STEPS.find((s) => s.title === "Results")!;
+  const text = results.do.join(" ");
+  // The box takes a whole number of percent; a count of orders is refused, and words are refused.
+  assert.ok(!/late orders/i.test(text), "a count of late orders does not go in a box that takes a percent");
+  assert.match(text, /percent/);
+  assert.match(text, /type 40/);
+  assert.match(text, /whole number/);
+  // The delivery form wants the date year first and the price in digits.
+  const plan = STEPS.find((s) => s.title === "Choose a provider and agree a plan")!.do.join(" ");
+  assert.match(plan, /2026-12-15/);
+  assert.match(plan, /50000/);
+  // What the Choose step says the platform does not do is said where the owner reads it.
+  assert.match(plan, /does not put the owner in touch with the provider/);
+});

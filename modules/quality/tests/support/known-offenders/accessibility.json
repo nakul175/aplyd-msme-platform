@@ -1,0 +1,7 @@
+{
+  "about": "Faults found by browser/accessibility.test.ts on a 390x844 screen in demonstration mode. One line per fault: the check, the page, the element, and the people who have it. The test fails on a fault not listed and on a listed fault that is gone. Not a WCAG audit.",
+  "recordedOn": "2026-10-06",
+  "entries": [
+    {"check":"tab-to-first-field","page":"/procure","key":"the first form control is not reached within 10 Tab presses","personas":["owner-c"],"detail":"it takes 11 presses"}
+  ]
+}

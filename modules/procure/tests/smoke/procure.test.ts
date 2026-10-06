@@ -53,11 +53,20 @@ test("before anything is signed off the owner is told what is needed; the operat
 test("the operator sees that no fee is set, and nothing can be listed until it is", async () => {
   const op = await signIn("operator@synthetic.invalid");
   const html = await page(op, "/operator");
-  assert.match(html, /The fee has not been decided \(OQ-11\), so no provider can be listed/);
+  assert.match(html, /The fee has not been decided, so no provider can be listed/);
+  assert.ok(!/\((C-\d\d|D-\d\d|OQ-\d\d)\)/.test(html), "no internal code appears in the operator page's text (S5-19)");
   assert.match(html, /No pool has reached five companies/);
   const added = await form(op, "/api/operator/providers", [["name", "Alpha Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", KIND], ["cluster", CLUSTER], ["cluster", "synthetic-cluster-2"]]);
   assert.equal(added.status, 303);
-  assert.match(added.headers.get("location")!, /^\/operator\?made=[0-9a-f-]{36}$/);
+  assert.match(added.headers.get("location")!, /^\/operator\?made=[0-9a-f-]{36}#provider-[0-9a-f-]{36}$/, "the redirect lands on the row that was added (S5-10)");
+  // A refused add comes back with what was typed (S5-19): the name and the summary stay in their boxes.
+  const kept = await form(op, "/api/operator/providers", [["name", "Kept Name & Co"], ["summary", "kept summary"]]);
+  assert.equal(kept.headers.get("location"), "/operator?problem=provider&name=Kept%20Name%20%26%20Co&summary=kept%20summary");
+  const keptPage = await page(op, kept.headers.get("location")!);
+  assert.match(keptPage, /That provider could not be added/);
+  assert.match(keptPage, /id="provider-name"[^>]*value="Kept Name &amp; Co"|value="Kept Name &amp; Co"[^>]*id="provider-name"/);
+  assert.match(keptPage, /value="kept summary"/);
+  assert.ok(!/value="Stray Name"/.test(await page(op, "/operator?name=Stray%20Name")), "a name in the address fills the box only after a refusal of that form");
   const listing = (await getJson(op, "/api/operator/providers")) as { providers: { id: string; services: unknown[]; listed: boolean }[]; terms: unknown };
   assert.equal(listing.terms, null);
   assert.equal(listing.providers[0].services.length, 2, "one idea in two clusters");
@@ -84,12 +93,31 @@ test("an owner signs off an assessment, accepts an idea, and makes a requirement
   const noCluster = await form(a, `/api/companies/${A}/requirements`, [["assessment", detail.id], ["opportunity", KIND]]);
   assert.equal(noCluster.status, 303);
   assert.equal(noCluster.headers.get("location"), "/procure?problem=request");
+  // Before any requirement the ideas come first, and the page explains the cluster before the owner has to pick one (S5-04).
+  assert.ok(html.indexOf('id="pr-ideas"') < html.indexOf('id="pr-requirements"'), "no requirement yet: the ideas come first");
+  assert.match(html, /A cluster is a group of factories, in one place or in one association\./);
+  assert.match(html, /Check the cluster before you press the button\. It cannot be changed afterwards\./);
+  assert.ok(!/A pool is the companies in one cluster/.test(html), "the pool line belongs to the requirements, which do not exist yet");
+  // Only an idea with nothing to do or check first is "Ready to ask for"; any other carries the line Decide shows (S5-14).
+  const cards = [...html.matchAll(/<li [^>]*data-ask="(ready|check_first|do_first)"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => ({ ask: m[1], body: m[2] }));
+  assert.ok(cards.length >= 1, "the cards carry their state");
+  for (const c of cards) {
+    assert.equal(/Ready to ask for/.test(c.body), c.ask === "ready", `${c.ask}: the tag`);
+    assert.equal(/<strong>Do first:<\/strong>/.test(c.body), c.ask === "do_first", `${c.ask}: the Do first line`);
+    assert.equal(/Needs something else first/.test(c.body), c.ask === "do_first");
+  }
   const res = await form(a, `/api/companies/${A}/requirements`, [["assessment", detail.id], ["opportunity", KIND], ["cluster", CLUSTER]]);
   assert.equal(res.status, 303);
-  assert.match(res.headers.get("location")!, /^\/procure\?made=[0-9a-f-]{36}$/);
+  assert.match(res.headers.get("location")!, /^\/procure\?made=[0-9a-f-]{36}#requirement-[0-9a-f-]{36}$/, "the redirect lands on the card that was made (S5-10)");
 
   const after = await page(a, res.headers.get("location")!);
   assert.match(after, /Your requirement was recorded/);
+  assert.equal((after.match(/data-testid="made"/g) ?? []).length, 1, "the confirmation is shown once");
+  const madeId = /\?made=([0-9a-f-]{36})/.exec(res.headers.get("location")!)![1];
+  assert.ok(after.includes(`id="requirement-${madeId}"`), "the card the redirect lands on has that id");
+  assert.ok(after.indexOf('id="pr-requirements"') < after.indexOf('id="pr-ideas"'), "once a requirement exists it comes before the ideas (S5-15)");
+  assert.match(after, /A pool is the companies in one cluster that asked for the same idea\. It shows you that others want the same thing\. It is only a count: nothing is shared between companies/);
+  assert.match(after, /APLYD does not put you in touch with the provider\. You will have to contact them yourself\./);
   assert.match(after, /Requirement recorded<\/strong> for SYNTHETIC cluster 1/);
   assert.match(after, /Fewer than 5 companies have asked for this in your cluster, so the number is not shown to anyone/);
   assert.ok(!/companies in this cluster have asked for the same thing/.test(after), "no count is shown");
@@ -106,15 +134,19 @@ test("the operator sets the fee and lists the provider; the owner then sees it f
   assert.equal(bad.headers.get("location"), "/operator?problem=fee");
   const set = await form(op, "/api/operator/listing-terms", [["feeInr", "1,234".replace(",", "")], ["note", "SYNTHETIC test value, not a proposal"]]);
   assert.equal(set.status, 303);
-  assert.equal(set.headers.get("location"), "/operator?fee=1");
+  assert.equal(set.headers.get("location"), "/operator?fee=1#op-terms");
   assert.match(await page(op, "/operator?fee=1"), /In force: <strong>₹1,234<\/strong>/);
   const providers = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string }[] }).providers;
   const listed = await form(op, `/api/operator/providers/${providers[0].id}/list`);
-  assert.equal(listed.headers.get("location"), "/operator?listed=1");
+  assert.match(listed.headers.get("location")!, new RegExp(`^/operator\\?listed=1#provider-${providers[0].id}$`));
   const html = await page(op, "/operator?listed=1");
   assert.match(html, /The provider is listed, at the fee in force/);
   assert.match(html, /Fee ₹1,234/);
   assert.match(html, /Unlist Alpha Works/);
+  // "Unlist" asks first: the button that acts is the second one, inside the disclosure (S5-19).
+  assert.match(html, /<details class="op-confirm"[^>]*><summary aria-label="Unlist Alpha Works">Unlist<\/summary><form action="\/api\/operator\/providers\/[0-9a-f-]{36}\/unlist" method="post"><p>Unlist Alpha Works\? Owners will no longer be offered it\./);
+  assert.match(html, /aria-label="Yes, unlist Alpha Works"/);
+  assert.ok(!/<form action="\/api\/operator\/providers\/[0-9a-f-]{36}\/unlist" method="post"><button/.test(html), "no form unlists with one press");
 
   const a = await signIn("owner-a@synthetic.invalid");
   const owner = await page(a, "/procure");
@@ -158,10 +190,11 @@ test("withdrawing a requirement takes it out of the page's open list and leaves 
   const mine = ((await getJson(a, `/api/companies/${A}/requirements`)) as { requirements: { id: string }[] }).requirements[0];
   const res = await form(a, `/api/companies/${A}/requirements/${mine.id}/withdraw`, [["note", "not now"]]);
   assert.equal(res.status, 303);
-  assert.equal(res.headers.get("location"), "/procure?withdrawn=1");
+  assert.equal(res.headers.get("location"), `/procure?withdrawn=1#requirement-${mine.id}`);
   const html = await page(a, "/procure?withdrawn=1");
   assert.match(html, /Your requirement was withdrawn/);
-  assert.match(html, /Withdrawn on \d{4}-\d{2}-\d{2}\. It no longer counts in any pool/);
+  assert.match(html, /Withdrawn on \d{1,2} [A-Z][a-z]+ \d{4}\. It no longer counts in any pool/, "the date is written as an owner reads it (30 October 2026)");
+  assert.ok(!/Withdrawn on \d{4}-\d{2}/.test(html), "and not as an ISO date");
   assert.ok(!html.includes("Withdraw Keep every job"), "no withdraw button on a withdrawn requirement");
   const again = await form(a, `/api/companies/${A}/requirements/${mine.id}/withdraw`);
   assert.equal(again.headers.get("location"), "/procure?problem=withdrawn");
