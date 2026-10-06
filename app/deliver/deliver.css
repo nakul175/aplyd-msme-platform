@@ -39,14 +39,14 @@
 /* the line between two cards: a short stroke, in the colour of the card above it once that is accepted */
 .dl-ms + .dl-ms::before { content: ""; position: absolute; left: calc(var(--s-4) + 0.875rem - 1px); top: calc(var(--s-5) * -1 - 1px); height: var(--s-5); width: 2px; background: var(--line-strong); border-radius: 2px; }
 .dl-ms:is([data-state="accepted"], [data-state="paid"]) + .dl-ms::before { background: var(--brand); }
-.dl-ms[data-state="delivered"] { border-color: var(--turn-edge); box-shadow: 0 0 0 3px color-mix(in srgb, var(--turn) 25%, transparent); background: var(--surface); }
-.dl-ms[data-state="rejected"] { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+.dl-ms[data-state="delivered"] { border-color: var(--turn-edge); box-shadow: 0 0 0 3px var(--turn-tint); box-shadow: 0 0 0 3px color-mix(in srgb, var(--turn) 25%, transparent); background: var(--surface); }
+.dl-ms[data-state="rejected"] { border-color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
 .dl-ms-head { display: flex; align-items: flex-start; gap: var(--s-3); }
 .dl-ms-id { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); min-width: 0; flex: 1 1 auto; padding-top: 0.15rem; }
 .dl-ms-id h4 { font-size: 1.0625rem; margin: 0; min-width: 0; flex: 1 1 11rem; overflow-wrap: anywhere; }
 .dl-dot { width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--surface); display: grid; place-items: center; flex: none; position: relative; z-index: 1; }
 .dl-dot svg { width: 0.95rem; height: 0.95rem; }
-.dl-ms[data-state="delivered"] .dl-dot { background: var(--turn); border-color: var(--turn-edge); box-shadow: 0 0 0 4px color-mix(in srgb, var(--turn) 28%, transparent); }
+.dl-ms[data-state="delivered"] .dl-dot { background: var(--turn); border-color: var(--turn-edge); box-shadow: 0 0 0 4px var(--turn-tint); box-shadow: 0 0 0 4px color-mix(in srgb, var(--turn) 28%, transparent); }
 .dl-ms[data-state="accepted"] .dl-dot { background: var(--brand); border-color: var(--brand); color: var(--brand-fg); }
 .dl-ms[data-state="paid"] .dl-dot { background: var(--ok); border-color: var(--ok); color: var(--surface); }
 .dl-ms[data-state="rejected"] .dl-dot { border-color: var(--danger); background: var(--danger-tint); }
@@ -91,6 +91,11 @@
 .dl-close { max-width: 46rem; display: grid; gap: var(--s-3); padding-top: var(--s-2); }
 .dl-close > * + * { margin-top: 0; }
 .dl-close h3 { font-size: 1rem; color: var(--muted); }
+/* Closing is folded away at the foot of the engagement: the first press opens it, the button inside is the second. */
+.dl-close > summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--muted-tint); font-weight: 600; }
+.dl-close[open] > summary { color: var(--fg); }
+.dl-close form { display: grid; gap: var(--s-3); }
+.dl-close form > * + * { margin-top: 0; }
 .dl-close .help { margin: 0; }
 .dl-close-row { display: grid; gap: var(--s-3); }
 .dl-close-row > * + * { margin-top: 0; }

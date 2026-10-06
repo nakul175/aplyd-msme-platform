@@ -6,11 +6,15 @@ import type { EngagementStatus, EventKind, MilestoneState } from "../../modules/
 import { acceptEndsBaseline, acceptedCount, acceptedLabel, deliverySummary, firstWaitingDecision, primaryAction } from "../../modules/deliver/src/summary.ts";
 import { listOutcomes } from "../../modules/run/src/db/outcomes.ts";
 import { testFlagSentence, testQuality } from "../../modules/deliver/src/test-quality.ts";
+import { boxesToFix, readDraft } from "../../modules/deliver/src/input.ts";
+import { nextStep } from "../../modules/journey/src/progress.ts";
+import type { NextStep } from "../../modules/journey/src/progress.ts";
 import { clusterLabel } from "../../modules/procure/src/clusters.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
+import { formatDate } from "../_ui/dates.ts";
 import { Check, Lock } from "../_ui/icons.tsx";
-import { Meter, NotOwner, Notice, Page, SignedOut, Tag } from "../_ui/parts.tsx";
+import { Meter, NotOwner, Notice, Page, SignedOut, Tag, ownerFacts, turnPlace } from "../_ui/parts.tsx";
 import "./deliver.css";
 
 export const metadata = { title: "Deliver" };
@@ -19,7 +23,7 @@ export const dynamic = "force-dynamic";
 type Search = { made?: string; saved?: string; problem?: string };
 
 const PROBLEMS: Record<string, string> = {
-  invalid: "That could not be saved. Check each box: a name, how you will check it, a date written YYYY-MM-DD, and a whole number of rupees.",
+  invalid: "That could not be saved. Each box needs something: a name, how you will check it, a real date, and a whole number of rupees (1,25,000 or ₹1,25,000 is fine).",
   plan_locked: "The plan is agreed, so no milestone can be added to it.",
   too_many: `A plan holds at most ${MAX_MILESTONES} milestones.`,
   closed: "This engagement is closed, so nothing more can be recorded on it.",
@@ -49,7 +53,8 @@ const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 export default async function Deliver({ searchParams }: { searchParams: Promise<Search> }) {
   const e = env as unknown as AppEnv;
   const q = await searchParams;
-  const identity = await resolveIdentityFromCookieHeader((await headers()).get("cookie"), e);
+  const cookieHeader = (await headers()).get("cookie");
+  const identity = await resolveIdentityFromCookieHeader(cookieHeader, e);
 
   if (!identity) return <SignedOut title="Delivery" reason="to see your engagements." />;
   if (!identity.companyId || identity.role !== "owner" || !e.DB) return <NotOwner title="Delivery" hasCompany={identity.companyId !== null} />;
@@ -60,12 +65,44 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
   const db = e.DB;
   const withBaseline = new Set((await Promise.all(engagements.map(async (g) => ((await listOutcomes(db, companyId, g.id)).some((o) => o.kind === "baseline") ? g.id : null)))).filter((id) => id !== null));
   const base = (id: string) => `/api/companies/${companyId}/engagements/${id}`;
-  const summary = deliverySummary(engagements.map((g) => ({ status: g.status, states: g.milestones.map((m) => m.state) })));
   const waiting = firstWaitingDecision(engagements);
   const waitingIn = waiting ? engagements.find((g) => g.id === waiting.engagementId) : undefined;
+  // What the owner typed into a refused "Add a milestone", shown again in the same boxes (only right after the refusal).
+  const draft = q.problem === "invalid" ? readDraft(cookieHeader) : null;
+
+  // The owner's turn, read from the same rule as the home page. When it is done on this page, the card at the top links to the form that
+  // does it, and the page's own summary is not drawn (the card says the same thing). Writing down the starting number belongs to Results,
+  // but it must come before Accept here, so its card is at the top of this page too.
+  const facts = await ownerFacts(identity);
+  const next = facts ? nextStep(facts, new Date()) : null;
+  const here: Partial<Record<NextStep["key"], string>> = {};
+  if (waiting) here.judge_delivery = `#ms-${waiting.milestoneId}`;
+  const planning = engagements.find((g) => g.closedAt === null && g.planAgreedAt === null);
+  if (planning) here.agree_plan = `#plan-${planning.id}`;
+  const finished = engagements.find((g) => g.closedAt === null && g.planAgreedAt !== null && g.milestones.length > 0 && g.milestones.every((m) => m.state === "accepted" || m.state === "paid"));
+  if (finished) here.close_engagement = `#close-${finished.id}`;
+  const noNumber = engagements.find((g) => g.closedAt === null && g.planAgreedAt !== null && !withBaseline.has(g.id) && acceptedCount(g.milestones.map((m) => m.state)) === 0);
+  if (noNumber) here.record_baseline = `/run#bl-${noNumber.id}`;
+  const place = turnPlace(next, "deliver", here);
+  const summary = deliverySummary(
+    engagements.map((g) => ({ status: g.status, states: g.milestones.map((m) => m.state) })),
+    place === "foot" && next ? next.title : null,
+  );
 
   return (
-    <Page stage="deliver" identity={identity} title="Delivery" lede="Write the plan, record each delivery, accept or reject it against your test, and note what you paid.">
+    <Page
+      stage="deliver"
+      identity={identity}
+      facts={facts}
+      here={here}
+      title="Delivery"
+      lede={
+        <>
+          <p>Write the plan, record each delivery, accept or reject it against your test, and note what you paid.</p>
+          <p data-testid="contact-yourself">APLYD does not put you in touch with the provider. You will have to contact them yourself.</p>
+        </>
+      }
+    >
       {q.made ? (
         <Notice role="status" tone="success" data-testid="made">
           You chose a provider. Write the plan below.
@@ -79,6 +116,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
       {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
         <Notice role="alert" tone="danger" data-testid="problem">
           {PROBLEMS[q.problem]}
+          {draft && draft.failed.length > 0 ? ` ${boxesToFix(draft.failed)} What you typed is still in the boxes.` : ""}
         </Notice>
       ) : null}
 
@@ -90,6 +128,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
         </div>
       ) : (
         <>
+          {place === "top" ? null : (
           <section className="card tint dl-summary" aria-label="Where things stand" data-testid="summary">
             <div className="dl-tags">
               {summary.yourTurn ? <Tag tone="turn">Your turn</Tag> : summary.withProvider > 0 ? <Tag>Waiting for the provider</Tag> : summary.open > 0 ? <Tag tone="ok">Nothing to do now</Tag> : <Tag>All closed</Tag>}
@@ -104,6 +143,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
               </div>
             ) : null}
           </section>
+          )}
 
           <ul className="items" data-testid="engagements">
             {engagements.map((g) => {
@@ -111,8 +151,10 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
               const states = g.milestones.map((m) => m.state);
               const main = open ? primaryAction(g.milestones) : null;
               const warnBaseline = acceptEndsBaseline({ closed: !open, baselineRecorded: withBaseline.has(g.id), states });
+              const typed = draft && draft.engagementId === g.id ? draft : null;
+              const bad = (box: "title" | "test" | "due" | "amount") => (typed?.failed.includes(box) ? true : undefined);
               return (
-                <li key={g.id} className="card item dl-eng" data-testid={`engagement-${g.requirementId}`}>
+                <li key={g.id} id={`eng-${g.id}`} className="card item dl-eng" data-testid={`engagement-${g.requirementId}`}>
                   <div className="dl-head">
                     <div className="dl-id">
                       <div className="dl-title">
@@ -127,8 +169,8 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                     </div>
                     <div className="dl-progress">
                       <Meter done={acceptedCount(states)} of={g.milestones.length} label={acceptedLabel(states)} />
-                      {g.planAgreedAt ? <p className="muted">You agreed the plan on {g.planAgreedAt.slice(0, 10)}.</p> : null}
-                      {g.closedAt ? <p className="muted">Closed on {g.closedAt.slice(0, 10)}.</p> : null}
+                      {g.planAgreedAt ? <p className="muted">You agreed the plan on {formatDate(g.planAgreedAt)}.</p> : null}
+                      {g.closedAt ? <p className="muted">Closed on {formatDate(g.closedAt)}.</p> : null}
                     </div>
                   </div>
 
@@ -161,7 +203,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                               </div>
                             </div>
                             <p className="dl-meta">
-                              <span>Due {m.dueOn}</span>
+                              <span>Due {formatDate(m.dueOn)}</span>
                               <span className="num">{`Price ${rupees(m.agreedInr)}`}</span>
                             </p>
                             <p className="dl-check">
@@ -182,7 +224,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                               <ul className="dl-history" data-testid="history" aria-label="Recorded on this milestone">
                                 {m.history.map((h, i) => (
                                   <li key={i}>
-                                    <span className="num dl-when">{h.at.slice(0, 10)}</span> {EVENT[h.kind]}
+                                    <span className="num dl-when">{formatDate(h.at)}</span> {EVENT[h.kind]}
                                     {h.note ? `: ${h.note}` : ""}
                                   </li>
                                 ))}
@@ -194,7 +236,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                                 <p className="dl-act-title">Check it against the test above, then decide.</p>
                                 {warnBaseline ? (
                                   <Notice tone="warn" data-testid={`baseline-warning-${m.seq}`}>
-                                    You have not recorded your starting number. Once you accept a milestone, it can no longer be recorded. <a href={`/run#bl-${g.id}`}>Record the starting number first</a>.
+                                    You have not recorded your starting number. Once you accept a milestone, it can no longer be recorded, so Accept is shown here only after it is written down. <a href={`/run#bl-${g.id}`}>Write down your starting number first</a>.
                                   </Notice>
                                 ) : null}
                                 <div className="question">
@@ -204,14 +246,16 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                                   <input id={`note-decision-${m.id}`} name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
                                 </div>
                                 <div className="actions">
-                                  <button type="submit" name="kind" value="accepted" className={main?.seq === m.seq && main.kind === "accepted" ? "primary" : undefined}>
-                                    Accept milestone {m.seq}
-                                  </button>
+                                  {warnBaseline ? null : (
+                                    <button type="submit" name="kind" value="accepted" className={main?.seq === m.seq && main.kind === "accepted" ? "primary" : undefined}>
+                                      Accept milestone {m.seq}
+                                    </button>
+                                  )}
                                   <button type="submit" name="kind" value="rejected">
                                     Reject milestone {m.seq}
                                   </button>
                                 </div>
-                                <p className="help">Accept it if it passes the test you wrote. Reject it if it does not: it can then be delivered again. Your answer is recorded and stays on record.</p>
+                                <p className="help">{warnBaseline ? "Reject it if it does not pass the test you wrote: it can then be delivered again. Your answer is recorded and stays on record." : "Accept it if it passes the test you wrote. Reject it if it does not: it can then be delivered again. Your answer is recorded and stays on record."}</p>
                               </form>
                             ) : null}
                             {m.next
@@ -227,9 +271,9 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                                         Amount you paid, in rupees
                                       </label>
                                       <p className="help" id={`amount-help-${m.id}`}>
-                                        It starts as the agreed price. Change it to what you actually paid. Whole rupees, digits only.
+                                        It starts as the agreed price. Change it to what you actually paid. Whole rupees; 1,25,000 or ₹1,25,000 is fine.
                                       </p>
-                                      <input id={`amount-${m.id}`} name="amount" type="text" inputMode="numeric" required defaultValue={String(m.agreedInr)} maxLength={9} aria-describedby={`amount-help-${m.id}`} />
+                                      <input id={`amount-${m.id}`} name="amount" type="text" inputMode="numeric" required defaultValue={String(m.agreedInr)} maxLength={20} aria-describedby={`amount-help-${m.id}`} />
                                     </div>
                                   ) : null}
                                   <div className="question">
@@ -265,7 +309,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                   </section>
 
                   {g.planAgreedAt === null && open ? (
-                    <div className="dl-steps-plan">
+                    <div className="dl-steps-plan" id={`plan-${g.id}`}>
                       {g.milestones.length < MAX_MILESTONES ? (
                         <form method="post" action={`${base(g.id)}/milestones`} className="dl-step" data-testid="add-milestone">
                           <span className="dl-step-n" aria-hidden>
@@ -278,7 +322,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                                 What is delivered
                               </label>
                               <p className="help">What the provider hands over for this part of the work.</p>
-                              <input id={`title-${g.id}`} name="title" type="text" required maxLength={MAX_TITLE_LENGTH} />
+                              <input id={`title-${g.id}`} name="title" type="text" required maxLength={MAX_TITLE_LENGTH} defaultValue={typed?.values.title} aria-invalid={bad("title")} />
                             </div>
                             <div className="question">
                               <label htmlFor={`test-${g.id}`} className="label">
@@ -287,7 +331,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                               <p className="help" id={`test-help-${g.id}`}>
                                 Write the test now, before any work starts. You accept or reject the work against it. Write it so that someone else could check it: what is measured, the number that counts as done and its unit, who checks it, and by when.
                               </p>
-                              <input id={`test-${g.id}`} name="test" type="text" required maxLength={MAX_TEST_LENGTH} aria-describedby={`test-help-${g.id}`} />
+                              <input id={`test-${g.id}`} name="test" type="text" required maxLength={MAX_TEST_LENGTH} aria-describedby={`test-help-${g.id}`} defaultValue={typed?.values.test} aria-invalid={bad("test")} />
                               <details className="dl-example" data-testid="test-example">
                                 <summary>What a good test looks like</summary>
                                 <p>
@@ -312,17 +356,17 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                             <div className="field-row two">
                               <div className="question">
                                 <label htmlFor={`due-${g.id}`} className="label">
-                                  Due date (YYYY-MM-DD)
+                                  Due date<span className="sr"> (YYYY-MM-DD)</span>
                                 </label>
-                                <p className="help">A real date, written like 2026-12-15.</p>
-                                <input id={`due-${g.id}`} name="due" type="text" required placeholder="2026-12-15" maxLength={10} />
+                                <p className="help">Pick the day from the calendar, or type it day first.</p>
+                                <input id={`due-${g.id}`} name="due" type="date" required min="2000-01-01" max="2100-12-31" defaultValue={typed?.values.due} aria-invalid={bad("due")} />
                               </div>
                               <div className="question">
                                 <label htmlFor={`price-${g.id}`} className="label">
                                   Price for this milestone, in rupees
                                 </label>
-                                <p className="help">{`Whole rupees, digits only, up to ${rupees(MAX_AMOUNT_INR)}.`}</p>
-                                <input id={`price-${g.id}`} name="amount" type="text" inputMode="numeric" required maxLength={9} />
+                                <p className="help">{`Whole rupees, up to ${rupees(MAX_AMOUNT_INR)}. You can write 125000, 1,25,000 or ₹1,25,000.`}</p>
+                                <input id={`price-${g.id}`} name="amount" type="text" inputMode="numeric" required maxLength={20} defaultValue={typed?.values.amount} aria-invalid={bad("amount")} />
                               </div>
                             </div>
                             <div className="actions">
@@ -357,20 +401,24 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
                   ) : null}
 
                   {open ? (
-                    <form method="post" action={`${base(g.id)}/events`} className="dl-close" data-testid="close">
-                      <input type="hidden" name="kind" value="closed" />
-                      <h3>Done with this engagement?</h3>
-                      <div className="dl-close-row">
-                        <div className="question">
-                          <label htmlFor={`close-note-${g.id}`} className="label">
-                            Why you are closing it (optional)
-                          </label>
-                          <input id={`close-note-${g.id}`} name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
+                    <details className="dl-close" id={`close-${g.id}`}>
+                      <summary>Close this engagement</summary>
+                      <form method="post" action={`${base(g.id)}/events`} data-testid="close">
+                        <input type="hidden" name="kind" value="closed" />
+                        <p>Closing ends the engagement: nothing more can be recorded on it, not a delivery, an acceptance or a payment. Everything stays on record. Close it only when you have nothing more to record.</p>
+                        <div className="dl-close-row">
+                          <div className="question">
+                            <label htmlFor={`close-note-${g.id}`} className="label">
+                              Why you are closing it (optional)
+                            </label>
+                            <input id={`close-note-${g.id}`} name="note" type="text" maxLength={MAX_NOTE_LENGTH} />
+                          </div>
+                          <button type="submit" className="danger">
+                            Close this engagement now
+                          </button>
                         </div>
-                        <button type="submit">Close this engagement</button>
-                      </div>
-                      <p className="help">Closing ends the engagement: nothing more can be recorded on it. Everything stays on record.</p>
-                    </form>
+                      </form>
+                    </details>
                   ) : null}
                 </li>
               );

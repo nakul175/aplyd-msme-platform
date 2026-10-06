@@ -4,7 +4,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { env } from "cloudflare:workers";
 import { loadFacts } from "../../modules/journey/src/facts.ts";
 import { STAGES, STAGE_IDS, isOwnersTurn, nextStep, stageById, stageStatuses } from "../../modules/journey/src/progress.ts";
-import type { Facts, StageId, StageStatus } from "../../modules/journey/src/progress.ts";
+import type { Facts, NextStep, StageId, StageStatus } from "../../modules/journey/src/progress.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import type { Identity } from "../../modules/platform/src/identity/scope.ts";
 import { Arrow, Check } from "./icons.tsx";
@@ -50,7 +50,7 @@ export function PageHead({ stage, title, lede }: { stage?: StageId; title: strin
     <header className="page-head">
       {s ? (
         <p className="eyebrow">
-          Step {s.n} of {STAGES.length} · {s.short}
+          Step {s.n} of {STAGES.length}: {s.short}
         </p>
       ) : null}
       <h1>{title}</h1>
@@ -81,17 +81,17 @@ export function NotOwner({ title, hasCompany = false }: { title: string; hasComp
       <div className="card">
         <p className="muted">{hasCompany ? "This page is for the owner of your company. You can see your company's record on the home page." : "This page is for the owner of a company. Your account is not linked to one."}</p>
         <p>
-          <a href="/">Back</a>
+          <a className="tap" href="/">
+            Back
+          </a>
         </p>
       </div>
     </>
   );
 }
 
-/** One line at the foot of an owner's page: what is the owner's turn, when it is not this page's own stage. */
-function NextUp({ facts, stage }: { facts: Facts; stage: StageId }) {
-  const next = nextStep(facts, new Date());
-  if (next.stage === stage || !isOwnersTurn(next)) return null;
+/** One line at the foot of an owner's page: what is the owner's turn, when it is somewhere else and not shown at the top. */
+function NextUp({ next }: { next: NextStep }) {
   return (
     <aside className="card tint" aria-label="What is next" data-testid="next-up">
       <p className="eyebrow">Your next step</p>
@@ -105,6 +105,50 @@ function NextUp({ facts, stage }: { facts: Facts; stage: StageId }) {
       </p>
     </aside>
   );
+}
+
+/**
+ * The owner's turn, shown first, directly under the page head, when it is done on this page (or the page says it belongs here). The button
+ * goes to the form on this page that does it, so the one thing to do is on the first screen. It reads the same `nextStep` as the home page
+ * and the foot card, so the head and the foot of a page never say different things.
+ */
+function YourTurn({ next, href }: { next: NextStep; href: string }) {
+  return (
+    <section className="card tint your-turn" aria-label="Your turn" data-testid="your-turn" data-key={next.key}>
+      <p className="eyebrow">Your turn</p>
+      <h2>{next.title}</h2>
+      <p>{next.body}</p>
+      <p>
+        <a className="btn primary" href={href}>
+          {next.cta}
+          <Arrow className="icon" />
+        </a>
+      </p>
+    </section>
+  );
+}
+
+/** The facts the steps are worked out from, for a signed-in owner; null for anyone else, or when they cannot be read (the page still opens). */
+export async function ownerFacts(identity: Identity | null): Promise<Facts | null> {
+  const e = env as unknown as AppEnv;
+  if (!identity?.companyId || identity.role !== "owner" || !e.DB) return null;
+  try {
+    return await loadFacts(e.DB, identity.companyId);
+  } catch (err) {
+    console.error("journey.facts_failed", err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+/**
+ * Where the owner's turn is shown on a page, or null when nothing is the owner's turn. A page that passes `here` has a place for it: the
+ * card goes at the top when it is this page's stage or the page names its rule in `here`. A page that does not pass `here` keeps the card
+ * at the foot, and only when the turn is on another stage.
+ */
+export function turnPlace(next: NextStep | null, stage: StageId, here?: Partial<Record<NextStep["key"], string>>): "top" | "foot" | null {
+  if (!next || !isOwnersTurn(next)) return null;
+  if (here && (next.stage === stage || Object.hasOwn(here, next.key))) return "top";
+  return next.stage === stage ? null : "foot";
 }
 
 const SAYS: Record<StageStatus, string> = { done: "done", current: "your turn", todo: "not started" };
@@ -131,26 +175,44 @@ export function Strip({ status, current }: { status: Record<StageId, StageStatus
 }
 
 /**
- * The frame of an owner's page: the five steps, this page's head, the page, and what to do next if that is somewhere else. A visitor or a
- * person who is not an owner gets the page's own content without the steps (the page decides what to show them before it gets here).
+ * The frame of an owner's page: the five steps, this page's head, the owner's turn when it is on this page, the page, and the owner's turn
+ * at the foot when it is somewhere else. A visitor or a person who is not an owner gets the page's own content without the steps (the page
+ * decides what to show them before it gets here). A page that has already read the facts passes them, so they are read once.
  */
-export async function Page({ stage, identity, title, lede, hideNext, children }: { stage: StageId; identity: Identity | null; title: string; lede?: ReactNode; /** The page already points to the next step itself. */ hideNext?: boolean; children: ReactNode }) {
-  const e = env as unknown as AppEnv;
+export async function Page({
+  stage,
+  identity,
+  title,
+  lede,
+  hideNext,
+  facts: given,
+  here,
+  children,
+}: {
+  stage: StageId;
+  identity: Identity | null;
+  title: string;
+  lede?: ReactNode;
+  /** The page already points to the next step itself. */
+  hideNext?: boolean;
+  /** The facts, if the page has read them already (`ownerFacts`). */
+  facts?: Facts | null;
+  /** In-page places for the owner's turn, by the rule that fired: the card at the top links there instead of to the stage's page. */
+  here?: Partial<Record<NextStep["key"], string>>;
+  children: ReactNode;
+}) {
   // The steps and the next step are an aid. If reading them fails, the page itself still opens.
-  let facts: Facts | null = null;
-  if (identity?.companyId && identity.role === "owner" && e.DB) {
-    try {
-      facts = await loadFacts(e.DB, identity.companyId);
-    } catch (err) {
-      console.error("journey.facts_failed", err instanceof Error ? err.message : String(err));
-    }
-  }
+  const facts = given === undefined ? await ownerFacts(identity) : given;
+  const now = new Date();
+  const next = facts ? nextStep(facts, now) : null;
+  const place = hideNext ? null : turnPlace(next, stage, here);
   return (
     <>
-      {facts ? <Strip status={stageStatuses(facts, new Date())} current={stage} /> : null}
+      {facts ? <Strip status={stageStatuses(facts, now)} current={stage} /> : null}
       <PageHead stage={stage} title={title} lede={lede} />
+      {next && place === "top" ? <YourTurn next={next} href={here?.[next.key] ?? next.href} /> : null}
       {children}
-      {facts && !hideNext ? <NextUp facts={facts} stage={stage} /> : null}
+      {next && place === "foot" ? <NextUp next={next} /> : null}
     </>
   );
 }

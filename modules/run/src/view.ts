@@ -35,8 +35,11 @@ export type ResultsSummary = {
   sentence: string;
 };
 
-/** The state of the whole page in one sentence. */
-export function resultsSummary(list: readonly ResultsView[]): ResultsSummary {
+/**
+ * The state of the whole page in one sentence. `elsewhere` is the title of the owner's next step when it is on another page (the shared
+ * `nextStep`); the sentence then says so instead of "Nothing needs you today", so the head of the page never contradicts its foot.
+ */
+export function resultsSummary(list: readonly ResultsView[], elsewhere: string | null = null): ResultsSummary {
   const reviews = list.flatMap((g) => g.reviews);
   const open = reviews.filter((r) => r.state === "due").length;
   const baselineToRecord = list.filter((g) => g.canRecordBaseline).length;
@@ -48,6 +51,7 @@ export function resultsSummary(list: readonly ResultsView[]): ResultsSummary {
   let sentence: string;
   if (open > 0) sentence = `${plural(open, "review is", "reviews are")} open now.`;
   else if (baselineToRecord > 0) sentence = "Write down your starting number before the first milestone is accepted.";
+  else if (elsewhere) sentence = `Nothing on this page needs you today. Your next step is on another page: “${elsewhere}”, at the foot of this page.`;
   else if (nextOpens) sentence = `Nothing needs you today. The next review opens on ${nextOpens}.`;
   else if (reviews.length > 0 && reviews.every((r) => r.state === "recorded")) sentence = "Every review is recorded.";
   else sentence = "Nothing needs you today. The reviews are counted from the day you accept your first milestone.";

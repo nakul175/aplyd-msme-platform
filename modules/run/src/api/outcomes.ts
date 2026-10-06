@@ -127,7 +127,9 @@ export async function handleOutcomeRecord(request: Request, env: AppEnv, request
   } else if (kind === "baseline") {
     for (const [name, raw] of [["reviewNo", reviewRaw], ["verdict", verdict], ["inUse", inUse]] as const) if (raw !== undefined && raw !== null && raw !== "") fields[name] = "A baseline has no review number, verdict or use.";
   }
-  if (Object.keys(fields).length) return form ? redirect("/run?problem=invalid") : json(400, { error: "invalid", fields });
+  // A starting number refused only for its number gets its own message, which does not talk about reviews.
+  const baselineValueOnly = kind === "baseline" && Object.keys(fields).length === 1 && fields.value !== undefined;
+  if (Object.keys(fields).length) return form ? redirect(baselineValueOnly ? "/run?problem=baseline_invalid" : "/run?problem=invalid") : json(400, { error: "invalid", fields });
   if (engagementId.length === 0 || engagementId.length > 64) return form ? redirect("/run?problem=missing") : json(404, { error: "not_found" });
 
   if (kind === "baseline") {

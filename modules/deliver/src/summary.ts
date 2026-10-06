@@ -31,8 +31,12 @@ export type DeliverySummary = {
 
 const isOpen = (g: { status: EngagementStatus }) => g.status === "planning" || g.status === "in_progress";
 
-/** The state of the whole page in one sentence: what waits for the owner, and what waits for somebody else. */
-export function deliverySummary(list: readonly EngagementView[]): DeliverySummary {
+/**
+ * The state of the whole page in one sentence: what waits for the owner, and what waits for somebody else. `elsewhere` is the title of the
+ * owner's next step when it is on another page (the shared `nextStep`); the sentence then says so instead of "Nothing needs your decision",
+ * so the head of the page never contradicts the card at its foot.
+ */
+export function deliverySummary(list: readonly EngagementView[], elsewhere: string | null = null): DeliverySummary {
   const open = list.filter(isOpen);
   const decide = open.reduce((n, g) => n + g.states.filter((s) => s === "delivered").length, 0);
   const withProvider = open.filter((g) => g.status === "in_progress").reduce((n, g) => n + g.states.filter((s) => s === "planned" || s === "rejected").length, 0);
@@ -41,6 +45,7 @@ export function deliverySummary(list: readonly EngagementView[]): DeliverySummar
   if (decide > 0) sentence = `${plural(decide, "milestone is", "milestones are")} waiting for your decision.`;
   else if (plansToAgree > 0) sentence = "Write your plan and agree it. Nothing can be delivered, accepted or paid before then.";
   else if (open.length === 0) sentence = "Every engagement here is closed. Everything stays on record.";
+  else if (elsewhere) sentence = `Nothing on this page needs your decision right now. Your next step is on another page: “${elsewhere}”, at the foot of this page.`;
   else if (withProvider > 0) sentence = `Nothing needs your decision right now. ${plural(withProvider, "milestone is", "milestones are")} waiting to be delivered.`;
   else sentence = "Nothing needs your decision right now.";
   return { decide, withProvider, plansToAgree, open: open.length, yourTurn: decide > 0 || plansToAgree > 0, sentence };

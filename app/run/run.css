@@ -37,7 +37,7 @@
 .ru-block[data-done="yes"] > .ru-block-head > .ru-dot { background: var(--brand); border-color: var(--brand); color: var(--brand-fg); }
 
 /* what was expected */
-.ru-expected { padding: var(--s-3) var(--s-4); background: var(--brand-tint); border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); border-radius: var(--r); }
+.ru-expected { padding: var(--s-3) var(--s-4); background: var(--brand-tint); border: 1px solid var(--line); border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); border-radius: var(--r); }
 .ru-expected p { font-size: 1.0625rem; margin: 0; max-width: none; }
 
 /* before the work: the recorded number is the figure */
@@ -69,14 +69,14 @@
 .ru-review > * + * { margin-top: 0; }
 .ru-review + .ru-review::before { content: ""; position: absolute; left: calc(var(--s-4) + 0.875rem - 1px); top: calc(var(--s-5) * -1 - 1px); height: var(--s-5); width: 2px; background: var(--line-strong); border-radius: 2px; }
 .ru-review[data-state="recorded"] + .ru-review::before { background: var(--brand); }
-.ru-review[data-state="due"] { background: var(--surface); border-color: var(--turn-edge); box-shadow: 0 0 0 3px color-mix(in srgb, var(--turn) 25%, transparent); }
-.ru-review[data-state="recorded"] { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.ru-review[data-state="due"] { background: var(--surface); border-color: var(--turn-edge); box-shadow: 0 0 0 3px var(--turn-tint); box-shadow: 0 0 0 3px color-mix(in srgb, var(--turn) 25%, transparent); }
+.ru-review[data-state="recorded"] { border-color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
 .ru-review[data-state="due"] .ru-form { padding: 0; background: transparent; border: 0; }
 .ru-review-head { display: flex; align-items: flex-start; gap: var(--s-3); }
 .ru-review-head .ru-dot { width: 1.75rem; height: 1.75rem; }
 .ru-review-id { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); min-width: 0; padding-top: 0.15rem; }
 .ru-review-id h4 { font-size: 1rem; margin: 0; }
-.ru-review[data-state="due"] .ru-dot { background: var(--turn); border-color: var(--turn-edge); box-shadow: 0 0 0 4px color-mix(in srgb, var(--turn) 28%, transparent); }
+.ru-review[data-state="due"] .ru-dot { background: var(--turn); border-color: var(--turn-edge); box-shadow: 0 0 0 4px var(--turn-tint); box-shadow: 0 0 0 4px color-mix(in srgb, var(--turn) 28%, transparent); }
 .ru-review[data-state="recorded"] .ru-dot { background: var(--ok); border-color: var(--ok); color: var(--surface); }
 .ru-review > p { margin: 0; max-width: none; }
 .ru-record { display: block; overflow-wrap: anywhere; }
@@ -88,7 +88,7 @@
 }
 
 /* what comes next in the owner's plan */
-.ru-next { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); background: var(--brand-tint); border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); border-radius: var(--r); }
+.ru-next { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); background: var(--brand-tint); border: 1px solid var(--line); border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line)); border-radius: var(--r); }
 .ru-next svg { width: 1.25rem; height: 1.25rem; color: var(--brand); flex: none; }
 .ru-next p { margin: 0; }
 
@@ -102,3 +102,4 @@
 .ru-corrections { list-style: none; margin: var(--s-1) 0 0; padding: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
 .ru-correct { margin-top: var(--s-2); }
 .ru-correct summary { cursor: pointer; font-weight: 700; }
+.ru-expected, .ru-next { --muted: var(--muted-tint); }
