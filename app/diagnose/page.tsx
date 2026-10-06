@@ -504,7 +504,7 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
             </p>
             {total > 0 ? (
               <p className="dg-count" data-testid="decided-count">
-                {decided} of {total} ideas decided.{" "}
+                {decided} of {total} {total === 1 ? "idea" : "ideas"} decided.{" "}
                 {signed ? "Signed off." : <a href="#signoff">Go to the sign-off</a>}
                 {signed ? null : ", which comes after the last idea."}
               </p>
