@@ -21,7 +21,8 @@ test("an owner picks themselves on the sign-in page, submits, and lands signed i
   const { page, who } = await signedInPage();
   assert.equal(who.displayName, "SYNTHETIC Owner A", "the first owner on the page");
   assert.equal(new URL(page.url()).pathname, "/");
-  assert.match(await page.locator("main").innerText(), /Signed in as SYNTHETIC Owner A\s+owner/);
+  // The owner's home page no longer repeats the name under the card (S5-22); the header says who is signed in.
+  assert.match(await page.locator("header").first().innerText(), /SYNTHETIC Owner A/);
   assert.equal(await page.getByText("You are not signed in.").count(), 0);
   assert.ok(await page.getByRole("button", { name: "Sign out" }).isVisible());
 });
@@ -58,7 +59,7 @@ test("a script on the page cannot read the session cookie or replace it", { time
   }, SESSION_COOKIE);
   assert.equal((await sessionCookie(context))?.value, original.value, "a script cannot overwrite an HttpOnly cookie");
   const home = await page.goto("/");
-  assert.match(await page.locator("main").innerText(), /Signed in as SYNTHETIC Owner A/, `still signed in after the attempt (${home?.status()})`);
+  assert.match(await page.locator("header").first().innerText(), /SYNTHETIC Owner A/, `still signed in after the attempt (${home?.status()})`);
 });
 
 test("the signed-in person's own company record is on the home page and reachable, and shows its SYNTHETIC name", { timeout: TEST_TIMEOUT_MS }, async () => {

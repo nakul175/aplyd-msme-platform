@@ -482,3 +482,69 @@ test("a form post from the Describe page with no session, a tampered one or one 
   assert.equal((await formPost(A, cookie, fields)).status, 303);
   assert.equal(await count(), before + 1);
 });
+
+// ------------------------------------------------------------------------------------ slice 12a: a refused save gives back what was typed (S5-02, BR-DESC-03, FR-DESC-15)
+
+/** The pieces of the typed-answers cookie a response sets (the cleared ones have no value). */
+const keptPieces = (res: Response) => res.headers.getSetCookie().filter((c) => c.startsWith("aplyd_describe_draft_")).map((c) => ({ name: c.split("=")[0]!, value: c.slice(c.indexOf("=") + 1, c.indexOf(";")), line: c }));
+
+test("S5-02: a refused form keeps what was typed in a short-lived cookie for /factory; nothing typed is in the address; nothing is saved", async () => {
+  const cookie = await ownerB();
+  const typed: [string, string][] = [["based_on", "0"], ["intent", "save"], ["a.products", "SYNTHETIC wire harnesses"], ["a.problems", "rejects_rework"], ["a.problems", "late_deliveries"], ["a.problems", "breakdowns"], ["a.problems", "energy_cost"], ["note", "typed by hand"]];
+  const res = await formPost(B, cookie, typed);
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), "/factory?problem=invalid&fields=problems", "the address is what it was: no typed word in it");
+  assert.ok(!decodeURIComponent(res.headers.get("location")!).includes("harnesses"));
+  const kept = keptPieces(res);
+  assert.deepEqual(kept.map((k) => k.name), ["aplyd_describe_draft_0", "aplyd_describe_draft_1", "aplyd_describe_draft_2"]);
+  assert.ok(kept[0]!.value.length > 0 && kept[1]!.value === "" && kept[2]!.value === "", "one piece holds it; the other two are cleared");
+  for (const k of kept) assert.match(k.line, /; HttpOnly; Secure; SameSite=Strict; Path=\/factory; Max-Age=\d+$/);
+  assert.match(kept[0]!.line, /Max-Age=120$/);
+  assert.match(kept[1]!.line, /Max-Age=0$/);
+  // what the page will read back: this company's typed answers, as sent, and not another company's
+  const { readDraft, draftAnswers } = await import("../../src/draft.ts");
+  const header = `${kept[0]!.name}=${kept[0]!.value}`;
+  assert.deepEqual(draftAnswers(readDraft(header, B)!).problems, ["rejects_rework", "late_deliveries", "breakdowns", "energy_cost"]);
+  assert.equal(readDraft(header, A), null, "company A's owner on the same browser does not get company B's typed answers");
+  assert.equal(await count(B), 0, "nothing was saved");
+  assert.equal((await audits("factory.revision.created")).filter((a) => a.company_id === B).length, 0);
+  // the same refusal sent twice leaves the record as it was
+  await formPost(B, cookie, typed);
+  assert.equal(await count(B), 0);
+});
+
+test("S5-02: a stale form keeps what was typed too, writes nothing, and a form that is saved clears the cookie", async () => {
+  const cookie = await ownerB();
+  const first = await formPost(B, cookie, [["based_on", "0"], ["intent", "save"], ["a.sector", "pharma"]]);
+  assert.equal(new URL(first.headers.get("location")!, ORIGIN).searchParams.get("saved"), "1");
+  assert.ok(keptPieces(first).every((k) => k.value === "" && /Max-Age=0$/.test(k.line)), "a save that went through clears any earlier typed answers");
+  const stale = await formPost(B, cookie, [["based_on", "0"], ["intent", "save"], ["a.products", "SYNTHETIC cables"], ["a.sector", "electronics"]]);
+  assert.equal(stale.headers.get("location"), "/factory?stale=1");
+  assert.ok(keptPieces(stale)[0]!.value.length > 0, "the typed answers are kept");
+  assert.equal(await count(B), 1, "nothing was written");
+  const { readDraft } = await import("../../src/draft.ts");
+  const back = readDraft(`${keptPieces(stale)[0]!.name}=${keptPieces(stale)[0]!.value}`, B)!;
+  assert.deepEqual(back.fields, { products: ["SYNTHETIC cables"], sector: ["electronics"] });
+  const again = await formPost(B, cookie, [["based_on", "1"], ["intent", "save"], ["a.products", "SYNTHETIC cables"]]);
+  assert.equal(new URL(again.headers.get("location")!, ORIGIN).searchParams.get("saved"), "2");
+  assert.ok(keptPieces(again).every((k) => k.value === ""), "cleared once saved");
+});
+
+test("S5-02: a form with nothing typed sets no answers; a program that sends JSON gets JSON and no cookie", async () => {
+  const cookie = await ownerB();
+  const empty = await formPost(B, cookie, [["based_on", "0"], ["intent", "save"], ["a.products", "  "]]);
+  assert.equal(empty.headers.get("location"), "/factory?problem=invalid");
+  assert.ok(keptPieces(empty).every((k) => k.value === ""), "nothing typed, nothing kept");
+  const json = await save(B, cookie, { basedOn: 0, answers: { problems: ["a", "b", "c", "d"] } });
+  assert.equal(json.status, 400);
+  assert.equal(json.headers.getSetCookie().length, 0, "no cookie on a JSON answer");
+  assert.equal(await count(B), 0);
+});
+
+test("S5-02: answers too long to fit in the cookie are not kept and the refusal still goes back to the page", async () => {
+  const cookie = await ownerB();
+  const res = await formPost(B, cookie, [["based_on", "0"], ["intent", "save"], ["a.problems", "x"], ["a.own_words", "सर्".repeat(1200)]]);
+  assert.equal(res.status, 303);
+  assert.ok(keptPieces(res).every((k) => k.value === ""), "too long to keep, so nothing is kept and nothing broken is sent");
+  assert.equal(await count(B), 0);
+});
