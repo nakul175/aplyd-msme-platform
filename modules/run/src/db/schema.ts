@@ -39,3 +39,35 @@ export const outcomeEvents = sqliteTable(
     ),
   ],
 );
+
+// A correction of a number the owner recorded (BR-RUN-09): a new row that names the baseline or review it corrects, the number it should
+// have been and why. The original row is never changed; both stay visible, and the page reads the latest correction of a row as its
+// current value. A later correction of the same row supersedes an earlier one, which also stays. Only the number is corrected: a
+// review's verdict and its answer on use are not. Triggers (drizzle/0015_run_corrections.sql) refuse UPDATE, DELETE and any INSERT that
+// would replace a row, a figure that is not a whole number, and a correction that names a row of another engagement or company.
+export const outcomeCorrections = sqliteTable(
+  "outcome_corrections",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    outcomeId: integer("outcome_id")
+      .notNull()
+      .references(() => outcomeEvents.id),
+    engagementId: text("engagement_id").notNull(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    at: text("at").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    value: integer("value").notNull(),
+    reason: text("reason").notNull(),
+  },
+  (t) => [
+    index("outcome_corrections_engagement").on(t.engagementId),
+    foreignKey({ name: "outcome_corrections_engagement_fk", columns: [t.engagementId, t.companyId], foreignColumns: [engagements.id, engagements.companyId] }),
+    check("outcome_corrections_value", sql`${t.value} BETWEEN 0 AND 1000000000`),
+    // The reason is counted in characters and in bytes, because length() stops at a NUL character (FND-039).
+    check("outcome_corrections_reason", sql`length(${t.reason}) BETWEEN 1 AND 500 AND length(CAST(${t.reason} AS BLOB)) <= 2000`),
+  ],
+);

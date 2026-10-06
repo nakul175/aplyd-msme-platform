@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-10-05",
-  "reason": "slice 10c: the Delivery and Results pages redesigned on the interface foundation; pure functions for the words each page says about where things stand, the main button, and the link to the owner's turn (unit suites)",
+  "reason": "slice 11b: the warning beside Accept, the acceptance-test flag (BR-DEPL-08), no starting number on a closed or unagreed engagement (FND-253), corrections (BR-RUN-09)",
   "suites": {
     "browser/deliver": 3,
     "integration/deliver-api": 32,
@@ -8,6 +8,7 @@
     "static/rules": 9,
     "unit/state": 7,
     "unit/reads": 3,
-    "unit/summary": 8
+    "unit/summary": 9,
+    "unit/test-quality": 4
   }
 }

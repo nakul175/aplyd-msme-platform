@@ -138,6 +138,11 @@ test("the plan: a bad milestone and an empty plan are sent back with a message; 
   assert.match(html, /Price ₹1,25,000/, "Indian digit grouping");
   assert.match(html, /Plan total ₹2,05,000/);
   assert.match(html, /How you will check it:<\/strong> Ten real jobs entered/);
+  assert.match(html, /What a good test looks like/, "the add form shows what a good test looks like");
+  assert.match(html, /What is measured<\/dt><dd>the time from order to dispatch<\/dd><dt>The unit<\/dt><dd>days<\/dd><dt>What counts as done<\/dt>/);
+  assert.ok(!html.includes('data-testid="test-flag-1"'), "a test with a number and a unit is not flagged");
+  assert.ok(html.includes('data-testid="test-flag-2"'), "a test with no number is flagged");
+  assert.match(html, /This test has no number, so someone else could not tell whether it was met\./, "flagged, and it was saved all the same");
   assert.match(html, /Agree this plan/);
   assert.ok(!html.includes("Record that milestone"), "nothing can be delivered before the plan is agreed");
 
@@ -165,6 +170,8 @@ test("a milestone is delivered, accepted against the owner's test and paid; anot
   assert.match(html, /Provider says it is live/);
   assert.match(html, /Accept milestone 1/);
   assert.match(html, /Reject milestone 1/);
+  assert.match(html, /You have not recorded your starting number\. Once you accept a milestone, it can no longer be recorded\./, "beside Accept: accepting now ends the chance to record the starting number");
+  assert.ok(html.includes(`href="/run#bl-${engagementId}"`), "with a link to the place on Results where it is recorded");
   assert.equal((await record([["kind", "delivered"], ["milestone", m1.id]])).headers.get("location"), "/deliver?problem=wrong_state", "delivered once");
   assert.equal((await record([["kind", "accepted"], ["milestone", m1.id], ["note", "All ten jobs found"]])).headers.get("location"), "/deliver?saved=accepted");
   assert.equal((await record([["kind", "payment_recorded"], ["milestone", m1.id], ["amount", "125000"], ["note", "Bank transfer"]])).headers.get("location"), "/deliver?saved=payment_recorded");
@@ -175,6 +182,9 @@ test("a milestone is delivered, accepted against the owner's test and paid; anot
   assert.match(html, /Payments you have recorded: ₹1,25,000/);
 
   assert.equal((await record([["kind", "delivered"], ["milestone", m2.id]])).headers.get("location"), "/deliver?saved=delivered");
+  html = await page(a, "/deliver?saved=delivered");
+  assert.match(html, /Accept milestone 2/);
+  assert.ok(!html.includes("You have not recorded your starting number"), "once a milestone is accepted the starting number is already out of reach, so there is nothing to warn about");
   assert.equal((await record([["kind", "rejected"], ["milestone", m2.id], ["note", "Two supervisors could not enter a job"]])).headers.get("location"), "/deliver?saved=rejected");
   html = await page(a, "/deliver?saved=rejected");
   assert.match(html, /Recorded: you rejected it\. It can be delivered again/);

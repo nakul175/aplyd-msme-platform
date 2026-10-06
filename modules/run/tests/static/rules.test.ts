@@ -78,6 +78,30 @@ test("every ?problem= key the run API redirects with has a message on /run, and 
 
 test("every ?saved= word the page can show is one the API sends", () => {
   const block = /const SAVED: Record<string, string> = \{([\s\S]*?)\n\};/.exec(read("app/run/page.tsx"))?.[1] ?? "";
-  assert.deepEqual([...block.matchAll(/^\s{2}(\w+):/gm)].map((m) => m[1]).sort(), ["baseline", "review"]);
+  assert.deepEqual([...block.matchAll(/^\s{2}(\w+):/gm)].map((m) => m[1]).sort(), ["baseline", "correction", "review"]);
   assert.match(read(API), /saved=\$\{kind\}/);
+  assert.match(read(API), /\/run\?saved=correction"/);
+});
+
+// ---- corrections (BR-RUN-09)
+
+test("outcome_corrections is append-only, read only bound to the company, written by one INSERT that checks the corrected number is this engagement's and this company's, and touched only by the run data layer", () => {
+  const all = applicationFiles();
+  assert.deepEqual(all.flatMap((f) => changes(f, "outcome_corrections").map((m) => `${f}:${m.line}`)), []);
+  assert.deepEqual(all.flatMap((f) => problemsWith(f, read(f), "outcome_corrections")), []);
+  for (const f of all) if (f !== DATA_LAYER) assert.deepEqual(queries(f, "outcome_corrections"), [], f);
+  const reads = queries(DATA_LAYER, "outcome_corrections").filter((m) => /^\s*SELECT/i.test(m.sql));
+  assert.equal(reads.length, 1, "one read");
+  assert.match(reads[0].sql.replace(/\s+/g, " "), /WHERE company_id = \? AND engagement_id = \?/);
+  const inserts = queries(DATA_LAYER, "outcome_corrections").filter((m) => /^\s*INSERT INTO\s+outcome_corrections\b/i.test(m.sql));
+  assert.equal(inserts.length, 1, "one INSERT, and no other");
+  assert.match(inserts[0].sql.replace(/\s+/g, " "), /WHERE EXISTS \(SELECT 1 FROM outcome_events WHERE id = \? AND engagement_id = \? AND company_id = \?\)$/);
+});
+
+test("the correction table holds a number and a reason and nothing about money", () => {
+  const sql = readdirSync(`${ROOT}drizzle`).filter((f) => f.endsWith(".sql")).sort().map((f) => readFileSync(`${ROOT}drizzle/${f}`, "utf8")).join("\n");
+  const body = /CREATE TABLE `outcome_corrections` \(([\s\S]*?)\n\);/.exec(sql)?.[1] ?? "";
+  const columns = [...body.split("\n").flatMap((l) => /^\s*`(\w+)`\s+(text|integer|real|blob|numeric)\b/i.exec(l)?.[1] ?? [])];
+  assert.deepEqual(columns, ["id", "outcome_id", "engagement_id", "company_id", "at", "user_id", "value", "reason"]);
+  assert.doesNotMatch(body, /fee|commission|price|amount|rupee|inr|payment/i);
 });

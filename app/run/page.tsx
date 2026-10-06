@@ -20,19 +20,73 @@ const PROBLEMS: Record<string, string> = {
   invalid: `That could not be saved. Give a whole number from 0 to ${MAX_VALUE.toLocaleString("en-IN")}, and for a review say whether it did what was expected and whether it is still in use.`,
   baseline_exists: "You have already recorded the starting number for this. It is recorded once.",
   baseline_too_late: "The starting number has to be taken before the first milestone is accepted. It cannot be recorded afterwards.",
+  baseline_closed: "This engagement is closed, so a starting number cannot be recorded for it.",
+  baseline_no_plan: "Agree the plan on Delivery first. The starting number is recorded after the plan is agreed and before the first milestone is accepted.",
   review_exists: "That review is already recorded. Each review is recorded once.",
   nothing_accepted: "A review needs an accepted milestone. Accept one on Delivery first.",
   not_due: "That review is not due yet. It opens on the date shown.",
   missing: "That engagement could not be found.",
+  correction_invalid: `That correction could not be saved. Give the right number, a whole number from 0 to ${MAX_VALUE.toLocaleString("en-IN")}, and say in a few words why the first one was wrong.`,
 };
 const SAVED: Record<string, string> = {
   baseline: "The starting number is recorded.",
   review: "The review is recorded.",
+  correction: "The correction is recorded. The number it corrects stays on record, marked as corrected.",
 };
 const VERDICT: Record<Verdict, string> = { met: "Did what the assessment expected", partly: "Did part of it", not_met: "Did not do what was expected" };
 const USE: Record<InUse, string> = { yes: "Yes, still in use", no: "No, no longer in use" };
 const num = (n: number) => n.toLocaleString("en-IN");
 const signed = (n: number) => (n > 0 ? `+${num(n)}` : n < 0 ? `−${num(-n)}` : "0");
+
+type Fixed = { recorded: number; corrections: readonly { at: string; value: number; reason: string }[] };
+
+/** The number first recorded, struck through, and every correction in order; the last one is the current value. Drawn only when there is a correction. */
+function Corrections({ item, unit, testId }: { item: Fixed; unit: string; testId: string }) {
+  if (item.corrections.length === 0) return null;
+  const last = item.corrections.length - 1;
+  return (
+    <ul className="ru-corrections" data-testid={testId} aria-label="Corrections">
+      <li>
+        <Tag>Corrected</Tag> First recorded: <s>{num(item.recorded)}</s> {unit}.
+      </li>
+      {item.corrections.map((c, i) => (
+        <li key={i}>
+          Corrected on <span className="ru-nw">{c.at.slice(0, 10)}</span> to {i === last ? <strong>{num(c.value)}</strong> : <s>{num(c.value)}</s>} {unit}
+          {i === last ? "" : ", corrected again later"}. Why: {c.reason}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A collapsed form to correct a number already recorded. It posts a new record; the one it corrects is not changed. */
+function CorrectForm({ companyId, engagementId, outcomeId, idPrefix, unit, testId }: { companyId: string; engagementId: string; outcomeId: number; idPrefix: string; unit: string; testId: string }) {
+  return (
+    <details className="ru-correct">
+      <summary>Correct this number</summary>
+      <form method="post" action={`/api/companies/${companyId}/engagements/${engagementId}/outcomes`} className="ru-form" data-testid={testId}>
+        <input type="hidden" name="kind" value="correction" />
+        <input type="hidden" name="outcome" value={String(outcomeId)} />
+        <div className="question">
+          <label htmlFor={`${idPrefix}-value`} className="label">
+            The right number{unit ? ` (${unit})` : ""}
+          </label>
+          <input id={`${idPrefix}-value`} name="value" type="text" inputMode="numeric" required maxLength={10} />
+        </div>
+        <div className="question">
+          <label htmlFor={`${idPrefix}-reason`} className="label">
+            Why the first number was wrong
+          </label>
+          <input id={`${idPrefix}-reason`} name="reason" type="text" required maxLength={MAX_NOTE_LENGTH} />
+        </div>
+        <div className="actions">
+          <button type="submit">Record the correction</button>
+        </div>
+        <p className="help">The number you recorded stays on record, marked as corrected. The corrected number is used from now on, including in the change since the starting number.</p>
+      </form>
+    </details>
+  );
+}
 
 export default async function Run({ searchParams }: { searchParams: Promise<Search> }) {
   const e = env as unknown as AppEnv;
@@ -135,12 +189,16 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                         {baselineDone ? <Check /> : 2}
                       </span>
                       <h3>Before the work</h3>
-                      {baselineDone ? <Tag tone="ok">Recorded</Tag> : o.canRecordBaseline ? <Tag tone="turn">Your turn</Tag> : <Tag>Not recorded</Tag>}
+                      {baselineDone ? <Tag tone="ok">Recorded</Tag> : o.canRecordBaseline ? <Tag tone="turn">Your turn</Tag> : o.baselineBlocked === "no_plan" ? <Tag>Not yet</Tag> : <Tag>Not recorded</Tag>}
                     </div>
                     {o.baseline ? (
-                      <p className="ru-baseline" data-testid="baseline">
-                        Starting number: <strong>{num(o.baseline.value)}</strong> {unit}, recorded <span className="ru-nw">{o.baseline.at.slice(0, 10)}</span>.{o.baseline.note ? ` ${o.baseline.note}` : ""}
-                      </p>
+                      <>
+                        <p className="ru-baseline" data-testid="baseline">
+                          Starting number: <strong>{num(o.baseline.value)}</strong> {unit}, recorded <span className="ru-nw">{o.baseline.at.slice(0, 10)}</span>.{o.baseline.note ? ` ${o.baseline.note}` : ""}
+                        </p>
+                        <Corrections item={o.baseline} unit={unit} testId="baseline-corrections" />
+                        <CorrectForm companyId={companyId} engagementId={g.id} outcomeId={o.baseline.id} idPrefix={`correct-bl-${g.id}`} unit={unit} testId="form-correct-baseline" />
+                      </>
                     ) : o.canRecordBaseline ? (
                       <form method="post" action={base(g.id)} className="ru-form" data-testid="form-baseline">
                         <input type="hidden" name="kind" value="baseline" />
@@ -166,6 +224,14 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                         </div>
                         <p className="help">It is recorded once and cannot be changed. It has to be taken before the first milestone is accepted.</p>
                       </form>
+                    ) : o.baselineBlocked === "no_plan" ? (
+                      <p className="muted" data-testid="baseline-needs-plan">
+                        Agree the plan on <a href="/deliver">Delivery</a> first. Then record the starting number here, before the first milestone is accepted.
+                      </p>
+                    ) : o.baselineBlocked === "closed" ? (
+                      <p className="muted" data-testid="baseline-closed">
+                        This engagement was closed before any milestone was accepted, so there is no starting number to record.
+                      </p>
                     ) : (
                       <Notice tone="info" data-testid="no-baseline">
                         No starting number was recorded before the first milestone was accepted, and it cannot be added now. The reviews below are still worth recording; there is just nothing to compare them with.
@@ -241,12 +307,16 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
                             </div>
                           </div>
                           {r.state === "recorded" && r.record ? (
-                            <p className="ru-record" data-testid={`review-${r.no}-record`}>
-                              <span className="ru-tags">
-                                <span className="tag">{VERDICT[r.record.verdict]}</span> <span className="tag">{USE[r.record.inUse]}</span>
-                              </span>
-                              Number: <strong>{num(r.record.value)}</strong> {unit}, recorded <span className="ru-nw">{r.record.at.slice(0, 10)}</span>.{r.record.note ? ` ${r.record.note}` : ""}
-                            </p>
+                            <>
+                              <p className="ru-record" data-testid={`review-${r.no}-record`}>
+                                <span className="ru-tags">
+                                  <span className="tag">{VERDICT[r.record.verdict]}</span> <span className="tag">{USE[r.record.inUse]}</span>
+                                </span>
+                                Number: <strong>{num(r.record.value)}</strong> {unit}, recorded <span className="ru-nw">{r.record.at.slice(0, 10)}</span>.{r.record.note ? ` ${r.record.note}` : ""}
+                              </p>
+                              <Corrections item={r.record} unit={unit} testId={`review-${r.no}-corrections`} />
+                              <CorrectForm companyId={companyId} engagementId={g.id} outcomeId={r.record.id} idPrefix={`correct-${g.id}-${r.no}`} unit={unit} testId={`form-correct-review-${r.no}`} />
+                            </>
                           ) : r.state === "waiting" ? (
                             <p className="muted">Starts when you accept your first milestone.</p>
                           ) : r.state === "not_due" && r.dueAt ? (

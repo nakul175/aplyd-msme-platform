@@ -105,6 +105,18 @@ test("an owner records the starting number before the work, and once a milestone
     assert.match(await page.getByTestId("baseline").innerText(), /Starting number: 42 .*Counted from the September paper sheets/);
     assert.equal(await page.getByRole("button", { name: "Record the starting number" }).count(), 0, "recorded once; the form is gone");
 
+    // A wrong number is corrected from the page (BR-RUN-09): a new record with its reason; the first number stays, struck through.
+    await page.getByTestId("form-correct-baseline").locator("xpath=..").locator("summary").click();
+    await page.getByLabel(/^The right number/).fill("45");
+    await page.getByLabel("Why the first number was wrong").fill("Counted the wrong week of sheets");
+    await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "correction"), page.getByRole("button", { name: "Record the correction" }).click()]);
+    assert.match(await page.getByTestId("saved").innerText(), /The correction is recorded\. The number it corrects stays on record, marked as corrected\./);
+    assert.match(await page.getByTestId("baseline").innerText(), /Starting number: 45 /);
+    const fixes = await page.getByTestId("baseline-corrections").innerText();
+    assert.match(fixes, /First recorded: 42/);
+    assert.match(fixes, /Corrected on \d{4}-\d{2}-\d{2} to 45 .*Why: Counted the wrong week of sheets/);
+    assert.equal(await page.getByTestId("baseline-corrections").locator("s").first().innerText(), "42", "the first number is struck through, not removed");
+
     // The owner goes to Delivery and accepts the milestone, with the page's own buttons.
     await page.goto("/deliver");
     await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "delivered"), page.getByRole("button", { name: "Record that milestone 1 was delivered" }).click()]);

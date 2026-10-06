@@ -36,5 +36,19 @@ export function reviewSlots(input: { firstAcceptedAt: string | null; now: Date; 
   });
 }
 
+/**
+ * Why a starting number cannot be recorded now, or null when it can. In the order the database answers (drizzle/0013_run_guards.sql and
+ * drizzle/0015_run_corrections.sql): once recorded it is "recorded"; after an acceptance it is too late; a closed engagement takes none;
+ * and before the plan is agreed it is too early, because there is no plan yet to measure the work against.
+ */
+export type BaselineBlock = "recorded" | "too_late" | "closed" | "no_plan";
+export function baselineBlock(e: { recorded: boolean; accepted: boolean; closed: boolean; planAgreed: boolean }): BaselineBlock | null {
+  if (e.recorded) return "recorded";
+  if (e.accepted) return "too_late";
+  if (e.closed) return "closed";
+  if (!e.planAgreed) return "no_plan";
+  return null;
+}
+
 /** What the unit the assessment used for an idea's benefit is called on a page. */
 export const UNIT_LABEL: Record<"percent" | "days" | "rupees_per_year", string> = { percent: "percent", days: "days", rupees_per_year: "rupees a year" };

@@ -72,3 +72,12 @@ export function firstWaitingDecision(list: readonly { id: string; status: Engage
   }
   return null;
 }
+
+/**
+ * True when accepting a milestone now would end the owner's chance to record a starting number: the engagement is open, nothing has been
+ * accepted on it yet, and no starting number is recorded. The run module refuses a starting number once anything is accepted
+ * (`outcome_events_baseline_before_acceptance`), so the Delivery page says so beside the Accept button.
+ */
+export function acceptEndsBaseline(g: { closed: boolean; baselineRecorded: boolean; states: readonly MilestoneState[] }): boolean {
+  return !g.closed && !g.baselineRecorded && acceptedCount(g.states) === 0;
+}

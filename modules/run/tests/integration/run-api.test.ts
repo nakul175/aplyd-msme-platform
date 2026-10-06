@@ -14,7 +14,7 @@ import { handleRequirementCreate, handleRequirementWithdraw } from "../../../pro
 import { handleEngagementCreate, handleEngagementEvent, handleMilestoneAdd } from "../../../deliver/src/api/engagements.ts";
 import { handleOutcomeRead, handleOutcomeRecord } from "../../src/api/outcomes.ts";
 import type { PresentedOutcomes } from "../../src/api/outcomes.ts";
-import { listOutcomes, recordBaseline, recordReview } from "../../src/db/outcomes.ts";
+import { listCorrections, listOutcomes, recordBaseline, recordCorrection, recordReview } from "../../src/db/outcomes.ts";
 import { MAX_NOTE_LENGTH, MAX_VALUE, REVIEW_DAYS } from "../../src/state.ts";
 
 let env: AppEnv;
@@ -171,6 +171,62 @@ test("a delivered but not yet accepted milestone does not close the baseline: on
   assert.equal((await deliverEvent(p.id, p.a, { kind: "delivered", milestoneId: p.milestoneId })).status, 201);
   assert.equal((await view(p.id, p.a)).canRecordBaseline, true);
   assert.equal((await outcomes(A, p.id, p.a, { kind: "baseline", value: 5 })).status, 201);
+});
+
+test("a baseline is not offered or taken for an engagement that is closed or whose plan is not agreed: refused with a plain reason, nothing written, nothing audited", async () => {
+  const s = await base();
+  // No plan agreed: a milestone is written but the plan is not agreed.
+  const open = await engageFor(s, 0);
+  assert.equal((await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${open.id}/milestones`, s.a, MILESTONE), env, A, open.id)).status, 201);
+  const draft = await view(open.id, s.a);
+  assert.deepEqual([draft.canRecordBaseline, draft.baselineBlocked], [false, "no_plan"]);
+  const early = await outcomes(A, open.id, s.a, { kind: "baseline", value: 42 });
+  assert.equal(early.status, 409);
+  assert.deepEqual(await early.json(), { error: "baseline_no_plan" });
+  const earlyForm = await handleOutcomeRecord(form(`/api/companies/${A}/engagements/${open.id}/outcomes`, s.a, [["kind", "baseline"], ["value", "42"]]), env, A, open.id);
+  assert.equal(earlyForm.headers.get("location"), "/run?problem=baseline_no_plan");
+
+  // Closed before anything was accepted, with an agreed plan.
+  const agreed = await engageFor(s, 1);
+  const m = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${agreed.id}/milestones`, s.a, MILESTONE), env, A, agreed.id);
+  assert.equal(m.status, 201);
+  assert.equal((await deliverEvent(agreed.id, s.a, { kind: "plan_agreed" })).status, 201);
+  assert.equal((await view(agreed.id, s.a)).canRecordBaseline, true, "open and agreed: the form is offered");
+  assert.equal((await deliverEvent(agreed.id, s.a, { kind: "closed", note: "SYNTHETIC: the provider stopped" })).status, 201);
+  const closed = await view(agreed.id, s.a);
+  assert.deepEqual([closed.canRecordBaseline, closed.baselineBlocked], [false, "closed"]);
+  const late = await outcomes(A, agreed.id, s.a, { kind: "baseline", value: 42 });
+  assert.equal(late.status, 409);
+  assert.deepEqual(await late.json(), { error: "baseline_closed" });
+  const lateForm = await handleOutcomeRecord(form(`/api/companies/${A}/engagements/${agreed.id}/outcomes`, s.a, [["kind", "baseline"], ["value", "42"]]), env, A, agreed.id);
+  assert.equal(lateForm.headers.get("location"), "/run?problem=baseline_closed");
+
+  // Closed before any plan: closed is the reason, not the plan.
+  const never = await engageFor(s, 2);
+  assert.equal((await deliverEvent(never.id, s.a, { kind: "closed" })).status, 201);
+  assert.equal((await view(never.id, s.a)).baselineBlocked, "closed");
+  assert.deepEqual(await (await outcomes(A, never.id, s.a, { kind: "baseline", value: 1 })).json(), { error: "baseline_closed" });
+
+  assert.equal(await count("outcome_events"), 0, "no number was written for any of them");
+  assert.equal((await audits("outcome.baseline")).length, 0, "and none was audited as a baseline");
+});
+
+test("a recorded baseline and a late one keep their own reasons after the engagement is closed", async () => {
+  const p = await planned();
+  assert.equal((await outcomes(A, p.id, p.a, { kind: "baseline", value: 7 })).status, 201);
+  assert.equal((await deliverEvent(p.id, p.a, { kind: "closed" })).status, 201);
+  assert.equal((await view(p.id, p.a)).baselineBlocked, "recorded");
+  assert.deepEqual(await (await outcomes(A, p.id, p.a, { kind: "baseline", value: 8 })).json(), { error: "baseline_exists" }, "a second number is 'recorded once', as the database says first");
+  const e = await engageFor(p, 1);
+  const m = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${e.id}/milestones`, p.a, MILESTONE), env, A, e.id);
+  assert.equal(m.status, 201);
+  assert.equal((await deliverEvent(e.id, p.a, { kind: "plan_agreed" })).status, 201);
+  const q = { id: e.id, a: p.a, milestoneId: ((await m.json()) as { id: string }).id };
+  await accept(q);
+  assert.equal((await deliverEvent(q.id, q.a, { kind: "closed" })).status, 201);
+  assert.equal((await view(q.id, q.a)).baselineBlocked, "too_late");
+  assert.deepEqual(await (await outcomes(A, q.id, q.a, { kind: "baseline", value: 8 })).json(), { error: "baseline_too_late" }, "after an acceptance it is too late, closed or not");
+  assert.equal(await count("outcome_events"), 1);
 });
 
 test("a review needs an accepted milestone", async () => {
@@ -718,4 +774,172 @@ test("a form post refused before the person is known is answered as the platform
   // after the person is known, every refusal goes back to the page
   const refused = await answer(await handleOutcomeRecord(formTo(own, p.a, {}, "kind=baseline&value=abc"), env, A, p.id));
   assert.deepEqual(refused, { status: 303, json: false, location: "/run?problem=invalid" });
+});
+
+// ---- migration 0015: the database refuses a starting number on a closed engagement and before the plan is agreed (FND-253)
+
+test("the database itself refuses a starting number on a closed engagement and before the plan is agreed, whoever writes, and the data layer names each", async () => {
+  const s = await base();
+  const insertBaseline = (eid: string) => db.prepare("INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, value, note) VALUES (?, ?, ?, 'user-synthetic-owner-a', 'baseline', 1, '')").bind(eid, A, new Date().toISOString()).run();
+  const draft = await engageFor(s, 0);
+  await assert.rejects(insertBaseline(draft.id), /a baseline needs an agreed plan/);
+  const common = { companyId: A, userId: "user-synthetic-owner-a", value: 1, note: "", at: new Date() };
+  assert.deepEqual(await recordBaseline(db, { ...common, engagementId: draft.id }), { ok: false, reason: "baseline_no_plan" });
+  assert.equal((await deliverEvent(draft.id, s.a, { kind: "closed" })).status, 201);
+  await assert.rejects(insertBaseline(draft.id), /a baseline is not taken on a closed engagement/, "closed before any plan: closed is the one answer");
+  assert.deepEqual(await recordBaseline(db, { ...common, engagementId: draft.id }), { ok: false, reason: "baseline_closed" });
+  // A fraction is still refused as a fraction only, not also as closed.
+  await assert.rejects(
+    db.prepare("INSERT INTO outcome_events (engagement_id, company_id, at, user_id, kind, value, note) VALUES (?, ?, ?, 'user-synthetic-owner-a', 'baseline', 1.5, '')").bind(draft.id, A, new Date().toISOString()).run(),
+    (error: unknown) => /whole number/.test(String(error)) && !/closed|agreed plan/.test(String(error)),
+  );
+
+  // Agreed and open: accepted. Then closed: a second one is "once", as before; with an acceptance, "too late", as before.
+  const e = await engageFor(s, 1);
+  const m = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${e.id}/milestones`, s.a, MILESTONE), env, A, e.id);
+  const milestoneId = ((await m.json()) as { id: string }).id;
+  await assert.rejects(insertBaseline(e.id), /a baseline needs an agreed plan/, "a milestone alone is not an agreed plan");
+  assert.equal((await deliverEvent(e.id, s.a, { kind: "plan_agreed" })).status, 201);
+  await insertBaseline(e.id);
+  assert.equal((await deliverEvent(e.id, s.a, { kind: "closed" })).status, 201);
+  await assert.rejects(insertBaseline(e.id), (error: unknown) => /a baseline is recorded once/.test(String(error)) && !/closed/.test(String(error)));
+  const late = await engageFor(s, 2);
+  const lm = await handleMilestoneAdd(req(`/api/companies/${A}/engagements/${late.id}/milestones`, s.a, MILESTONE), env, A, late.id);
+  assert.equal((await deliverEvent(late.id, s.a, { kind: "plan_agreed" })).status, 201);
+  await accept({ id: late.id, a: s.a, milestoneId: ((await lm.json()) as { id: string }).id });
+  assert.equal((await deliverEvent(late.id, s.a, { kind: "closed" })).status, 201);
+  await assert.rejects(insertBaseline(late.id), (error: unknown) => /before anything is accepted/.test(String(error)) && !/closed/.test(String(error)));
+  assert.ok(milestoneId);
+  assert.equal(await count("outcome_events"), 1, "only the one on the agreed, open engagement");
+});
+
+// ---- corrections (BR-RUN-09)
+
+/** An engagement with a baseline of 40 and review 1 of 60, recorded 31 days after the first acceptance. */
+async function measured() {
+  const p = await planned();
+  assert.equal((await outcomes(A, p.id, p.a, { kind: "baseline", value: 40, note: "first" })).status, 201);
+  await accept(p);
+  const first = (await view(p.id, p.a)).firstAcceptedAt!;
+  const day31 = after(first, 31);
+  assert.equal((await outcomes(A, p.id, p.a, { ...REVIEW, value: 60 }, day31)).status, 201);
+  const v = await view(p.id, p.a, day31);
+  return { ...p, day31, baselineId: v.baseline!.id, reviewId: v.reviews[0].record!.id };
+}
+
+test("a wrong number is corrected by a new record that names it and says why: both stay visible, the latest correction is the current value, and the change since the start uses it", async () => {
+  const p = await measured();
+  const correct = (body: unknown) => outcomes(A, p.id, p.a, { kind: "correction", ...(body as object) }, p.day31);
+  assert.equal((await view(p.id, p.a, p.day31)).changeSinceBaseline, 20, "60 less 40 before any correction");
+
+  const fixed = await correct({ outcomeId: p.baselineId, value: 45, reason: "Counted the wrong week of sheets." });
+  assert.equal(fixed.status, 201);
+  assert.deepEqual(await fixed.json(), { ok: true });
+  let v = await view(p.id, p.a, p.day31);
+  assert.equal(v.baseline!.value, 45, "the correction is the current value");
+  assert.equal(v.baseline!.recorded, 40, "the number first recorded is kept");
+  assert.deepEqual(v.baseline!.corrections.map((c) => [c.value, c.reason]), [[45, "Counted the wrong week of sheets."]]);
+  assert.equal(v.baseline!.note, "first");
+  assert.equal(v.changeSinceBaseline, 15, "60 less the corrected 45");
+
+  assert.equal((await correct({ outcomeId: p.reviewId, value: 70, reason: "Typed 60 for 70." })).status, 201);
+  assert.equal((await correct({ outcomeId: p.reviewId, value: 65, reason: "70 was also wrong: the sheet says 65." })).status, 201, "a correction can itself be corrected, by a later one");
+  v = await view(p.id, p.a, p.day31);
+  const r1 = v.reviews[0].record!;
+  assert.deepEqual([r1.value, r1.recorded, r1.verdict, r1.inUse], [65, 60, "met", "yes"], "the latest correction is the value; the verdict and use are not corrected");
+  assert.deepEqual(r1.corrections.map((c) => c.value), [70, 65], "every correction stays, in order");
+  assert.equal(v.changeSinceBaseline, 20, "65 less 45");
+
+  // The originals are never changed: the rows hold what was first written, and the table still refuses an edit.
+  assert.deepEqual((await listOutcomes(db, A, p.id)).map((o) => o.value), [40, 60]);
+  await assert.rejects(db.prepare("UPDATE outcome_events SET value = 45 WHERE id = ?").bind(p.baselineId).run(), /append-only/);
+  assert.equal(await count("outcome_corrections"), 3);
+
+  const entries = await audits("outcome.corrected");
+  assert.equal(entries.length, 3, "one audit row for each correction");
+  assert.equal(entries[0].user_id, "user-synthetic-owner-a");
+  assert.equal(entries[0].company_id, A);
+  assert.deepEqual(JSON.parse(entries[0].detail), { engagement: p.id, outcome: p.baselineId });
+});
+
+test("a correction needs the number it corrects, a whole number and a reason; a form is sent back with a message and nothing is written", async () => {
+  const p = await measured();
+  const bad = async (body: Record<string, unknown>, field: string) => {
+    const res = await outcomes(A, p.id, p.a, { kind: "correction", outcomeId: p.baselineId, value: 41, reason: "Typed wrong", ...body }, p.day31);
+    assert.equal(res.status, 400, JSON.stringify(body));
+    assert.ok(field in ((await res.json()) as { fields: Record<string, string> }).fields, `${field} in ${JSON.stringify(body)}`);
+  };
+  await bad({ reason: undefined }, "reason");
+  await bad({ reason: "   " }, "reason");
+  await bad({ reason: "x".repeat(MAX_NOTE_LENGTH + 1) }, "reason");
+  await bad({ reason: "a\u0000b" }, "reason");
+  await bad({ value: "lots" }, "value");
+  await bad({ value: MAX_VALUE + 1 }, "value");
+  await bad({ outcomeId: undefined }, "outcomeId");
+  await bad({ outcomeId: "1" }, "outcomeId");
+  await bad({ outcomeId: 1.5 }, "outcomeId");
+  await bad({ verdict: "met" }, "verdict");
+  await bad({ note: "a note" }, "note");
+  const send = (fields: [string, string][]) => handleOutcomeRecord(form(`/api/companies/${A}/engagements/${p.id}/outcomes`, p.a, fields), env, A, p.id, () => p.day31);
+  assert.equal((await send([["kind", "correction"], ["outcome", String(p.baselineId)], ["value", "41"], ["reason", ""]])).headers.get("location"), "/run?problem=correction_invalid");
+  assert.equal(await count("outcome_corrections"), 0);
+  assert.equal((await send([["kind", "correction"], ["outcome", String(p.baselineId)], ["value", "41"], ["reason", "Typed wrong"]])).headers.get("location"), "/run?saved=correction");
+  assert.equal(await count("outcome_corrections"), 1);
+});
+
+test("a correction cannot name a number of another engagement or of another company, and another company cannot correct one: not found, nothing written, the original unchanged", async () => {
+  const p = await measured();
+  const e2 = await engageFor(p, 1);
+  // The number of engagement 1, sent on the path of engagement 2 of the same company.
+  const wrongEngagement = await outcomes(A, e2.id, p.a, { kind: "correction", outcomeId: p.baselineId, value: 1, reason: "Wrong place" }, p.day31);
+  assert.equal(wrongEngagement.status, 404);
+  assert.deepEqual(await wrongEngagement.json(), { error: "not_found" });
+  // A number that does not exist.
+  assert.equal((await outcomes(A, p.id, p.a, { kind: "correction", outcomeId: 999999, value: 1, reason: "None" }, p.day31)).status, 404);
+  // Another company: on company A's path it is refused before anything (404, audited); on its own path with A's ids, nothing matches.
+  const b = await ownerB();
+  const missing = await (await outcomes(A, "no-such-engagement", p.a, { kind: "correction", outcomeId: p.baselineId, value: 1, reason: "x" }, p.day31)).text();
+  const foreign = await outcomes(A, p.id, b, { kind: "correction", outcomeId: p.baselineId, value: 1, reason: "Not mine" }, p.day31);
+  assert.equal(foreign.status, 404);
+  assert.equal(await foreign.text(), missing);
+  const ownPath = await outcomes(B, p.id, b, { kind: "correction", outcomeId: p.baselineId, value: 1, reason: "Not mine" }, p.day31);
+  assert.equal(ownPath.status, 404);
+  const form404 = await handleOutcomeRecord(form(`/api/companies/${A}/engagements/${e2.id}/outcomes`, p.a, [["kind", "correction"], ["outcome", String(p.baselineId)], ["value", "1"], ["reason", "Wrong place"]]), env, A, e2.id);
+  assert.equal(form404.headers.get("location"), "/run?problem=missing");
+  // The data layer on its own, with another company's id.
+  assert.deepEqual(await recordCorrection(db, { companyId: B, userId: "user-synthetic-owner-b", engagementId: p.id, outcomeId: p.baselineId, value: 1, reason: "x", at: new Date() }), { ok: false, reason: "not_found" });
+  assert.deepEqual(await listCorrections(db, B, p.id), [], "another company reads none of them");
+
+  assert.equal(await count("outcome_corrections"), 0);
+  assert.equal((await audits("outcome.corrected")).length, 0);
+  assert.equal((await view(p.id, p.a, p.day31)).baseline!.value, 40);
+});
+
+test("the correction table holds its rules for whoever writes: append-only on every path, whole numbers, a reason, and only a number of the same engagement and company", async () => {
+  const p = await measured();
+  const at = new Date().toISOString();
+  const insert = (o: { outcomeId?: unknown; engagementId?: string; companyId?: string; value?: unknown; reason?: string; id?: number; verb?: string }) =>
+    db
+      .prepare(`${o.verb ?? "INSERT"} INTO outcome_corrections (${o.id ? "id, " : ""}outcome_id, engagement_id, company_id, at, user_id, value, reason) VALUES (${o.id ? "?, " : ""}?, ?, ?, ?, 'user-synthetic-owner-a', ?, ?)`)
+      .bind(...(o.id ? [o.id] : []), o.outcomeId ?? p.baselineId, o.engagementId ?? p.id, o.companyId ?? A, at, o.value ?? 41, o.reason ?? "Typed wrong")
+      .run();
+  await insert({});
+  const [{ id }] = (await db.prepare("SELECT id FROM outcome_corrections").all<{ id: number }>()).results;
+  await assert.rejects(db.prepare("UPDATE outcome_corrections SET value = 1 WHERE id = ?").bind(id).run(), /append-only/);
+  await assert.rejects(db.prepare("DELETE FROM outcome_corrections WHERE id = ?").bind(id).run(), /append-only/);
+  await assert.rejects(insert({ id, verb: "INSERT OR REPLACE" }), /append-only/);
+  await assert.rejects(insert({ id, verb: "REPLACE" }), /append-only/);
+  await assert.rejects(insert({ value: 1.5 }), (error: unknown) => /whole number/.test(String(error)) && !/same engagement/.test(String(error)));
+  await assert.rejects(insert({ outcomeId: 1.5 }), /whole number/);
+  await assert.rejects(insert({ value: -1 }), /CHECK/);
+  await assert.rejects(insert({ value: 1_000_000_001 }), /CHECK/);
+  await assert.rejects(insert({ reason: "" }), /CHECK/);
+  await assert.rejects(insert({ reason: "x".repeat(501) }), /CHECK/);
+  const e2 = await engageFor(p, 1);
+  await assert.rejects(insert({ engagementId: e2.id }), /a correction names a number recorded for the same engagement/, "a number of engagement 1 under engagement 2");
+  await assert.rejects(insert({ outcomeId: 999999 }), /a correction names a number recorded for the same engagement/);
+  await assert.rejects(insert({ companyId: B }), /a correction names a number recorded for the same engagement|FOREIGN KEY/, "another company's id with this company's number");
+  assert.equal(await count("outcome_corrections"), 1);
+  await insert({ value: 0, reason: "x".repeat(500) });
+  assert.equal(await count("outcome_corrections"), 2, "the edges of what is allowed are allowed");
 });

@@ -109,6 +109,10 @@ test("an owner chooses a provider, writes and agrees a plan, records a delivery,
     assert.match(await page.getByTestId("milestone-1").innerText(), /Delivered, waiting for you/);
     assert.match(await page.getByTestId("milestone-1").getByTestId("history").innerText(), /Delivered: Provider says it is live/);
     assert.equal(await page.getByRole("button", { name: "Record a payment for milestone 1" }).count(), 0, "nothing is paid before it is accepted");
+    // No starting number is recorded, so the page says, beside Accept, that accepting ends the chance to record one (FND-183).
+    const warning = page.getByTestId("baseline-warning-1");
+    assert.match(await warning.innerText(), /You have not recorded your starting number\. Once you accept a milestone, it can no longer be recorded\./);
+    assert.match((await warning.getByRole("link", { name: "Record the starting number first" }).getAttribute("href")) ?? "", /^\/run#bl-/);
 
     await page.getByTestId("milestone-1").getByLabel("Your note, against your test (optional)").fill("All ten jobs found");
     await Promise.all([page.waitForURL((u) => u.searchParams.get("saved") === "accepted"), page.getByTestId("milestone-1").getByRole("button", { name: "Accept milestone 1" }).click()]);
