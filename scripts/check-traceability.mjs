@@ -6,6 +6,8 @@
 //   4. the functional specification (docs/fsd/FSD.md): its function rows trace to requirements that exist, and its section 11 says
 //      exactly which functions cover each requirement;
 //   5. every FR, UC, SCR, MSG, RULE, AD, SC, TC, RP, TD, TH and API identifier any Markdown file cites is defined in some Markdown file.
+// It fails, and does not pass quietly, when the BRD yields fewer than MIN_REQUIREMENTS requirement rows or when the BRD or the FSD is missing: a change
+// to the BRD's table format or location would otherwise make every check below a check of nothing (S3-06).
 // Exit code 0 when clean, 1 when a problem is found.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -17,18 +19,26 @@ import { brokenReferences } from "../modules/docs/src/ids.ts";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const BRD = "docs/brd/BRD.md";
+const FSD = "docs/fsd/FSD.md";
+/** The same floor as the static test modules/docs/tests/static/brd.test.ts (`reqs.length >= 100`). Keep the two equal. */
+const MIN_REQUIREMENTS = 100;
 const write = process.argv.includes("--write");
 
 const problems = [];
 let reqs = [];
-const text = readFileSync(join(ROOT, BRD), "utf8");
-try {
-  reqs = parseRequirements(text);
-} catch (e) {
-  problems.push(e.message);
+const text = existsSync(join(ROOT, BRD)) ? readFileSync(join(ROOT, BRD), "utf8") : undefined;
+if (text === undefined) problems.push(`${BRD}: the document does not exist`);
+else {
+  try {
+    reqs = parseRequirements(text);
+  } catch (e) {
+    problems.push(e.message);
+  }
+  if (reqs.length < MIN_REQUIREMENTS) problems.push(`${BRD}: ${reqs.length} requirement rows were read, and at least ${MIN_REQUIREMENTS} are expected; the table format or the file's place has probably changed, so nothing below was checked`);
 }
+if (!existsSync(join(ROOT, FSD))) problems.push(`${FSD}: the document does not exist`);
 
-if (reqs.length) {
+if (reqs.length >= MIN_REQUIREMENTS) {
   const wanted = withCounts(text, reqs);
   if (wanted !== text) {
     if (write) {
@@ -44,9 +54,9 @@ if (reqs.length) {
   }
 }
 
-if (reqs.length && existsSync(join(ROOT, "docs/fsd/FSD.md"))) {
+if (reqs.length >= MIN_REQUIREMENTS && existsSync(join(ROOT, FSD))) {
   try {
-    const fsd = readFileSync(join(ROOT, "docs/fsd/FSD.md"), "utf8");
+    const fsd = readFileSync(join(ROOT, FSD), "utf8");
     problems.push(...checkCoverage(fsd, reqs, parseFunctionalRequirements(fsd, reqs)));
   } catch (e) {
     problems.push(e.message);

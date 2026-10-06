@@ -1,9 +1,9 @@
 // Starts the launcher itself (scripts/serve.mjs) against the BUILT application, as a host would, and talks to it over HTTP the way a
-// browser behind a platform's ingress does. Needs `pnpm build` first. Ports are chosen free; the database is the launcher's own, in memory.
+// browser behind a platform's ingress does. Needs `pnpm build` first. Ports are chosen free; each launch has its own database, a SQLite file in a new temporary directory.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { after, test } from "node:test";
-import { AUTH, PASSWORD, SECRET, SERVE, exited, launchServe, stopAllLaunched } from "../support/launcher.ts";
+import { AUTH, PASSWORD, SECRET, SERVE, childPids, exited, launchServe, stopAllLaunched } from "../support/launcher.ts";
 
 const launch = launchServe;
 after(stopAllLaunched);
@@ -20,6 +20,17 @@ test("the launcher refuses to start for a real environment, a weak secret or no 
   assert.equal(ungated.status, 2);
   assert.match(ungated.stderr, /DEMO_USER and DEMO_PASSWORD/);
   assert.ok(!ungated.stderr.includes(SECRET), "the secret is never printed");
+});
+
+test("the launcher refuses the spec's placeholder in each of the three secrets, alone, and exits 2 (S3-05)", () => {
+  const run = (env: Record<string, string>) => spawnSync(process.execPath, [SERVE], { env: { NODE_ENV: "production", PATH: process.env.PATH ?? "", ...env }, encoding: "utf8", timeout: 30_000 });
+  const real = { SESSION_SECRET: SECRET, DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD };
+  for (const name of ["SESSION_SECRET", "DEMO_USER", "DEMO_PASSWORD"] as const) {
+    const out = run({ ...real, [name]: "REPLACE_ME" });
+    assert.equal(out.status, 2, `${name} alone as REPLACE_ME`);
+    assert.match(out.stderr, new RegExp(`${name} is still the placeholder REPLACE_ME`));
+    assert.ok(!out.stderr.includes(SECRET) && !out.stderr.includes(PASSWORD), "no real value is printed");
+  }
 });
 
 test("behind the gate: 401 without the password, an open health route, and the application's own pages with it", async () => {
@@ -88,4 +99,35 @@ test("open access works only when asked for, and the launcher stops cleanly on S
   assert.match(app.output(), /access: OPEN/, "the log says the address is open");
   app.child.kill("SIGTERM");
   assert.equal(await exited(app.child, 15_000), 0, "a clean exit within 15 seconds");
+});
+
+test("a restart resets the data but not the sign-ins: a cookie issued before it is accepted after it, while SESSION_SECRET is the same", async () => {
+  const first = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD });
+  const host = new URL(first.base).host;
+  const signIn = await fetch(`${first.base}/api/session`, { method: "POST", redirect: "manual", headers: { authorization: AUTH, origin: `https://${host}`, "content-type": "application/x-www-form-urlencoded" }, body: "email=owner-a%40synthetic.invalid" });
+  assert.equal(signIn.status, 303);
+  const cookie = (signIn.headers.get("set-cookie") ?? "").split(";")[0];
+  assert.match(cookie, /^aplyd_session=/);
+  assert.ok((await (await fetch(`${first.base}/`, { headers: { authorization: AUTH, cookie } })).text()).includes("SYNTHETIC Company A"), "signed in before the restart");
+  first.child.kill("SIGTERM");
+  assert.equal(await exited(first.child, 15_000), 0);
+  const second = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD });
+  const home = await (await fetch(`${second.base}/`, { headers: { authorization: AUTH, cookie } })).text();
+  assert.ok(home.includes("SYNTHETIC Company A"), "the cookie from before the restart still signs the person in");
+});
+
+test("a Worker that dies takes the launcher down with exit code 1 and one log line, and a healthy one is left alone", async () => {
+  const app = await launch({ DEMO_USER: "demo", DEMO_PASSWORD: PASSWORD, APLYD_WATCHDOG_PROBES: "3", APLYD_WATCHDOG_SECONDS: "1" });
+  // Healthy: more than twice the time three failed probes would need, and it is still up.
+  await new Promise((r) => setTimeout(r, 4_500));
+  assert.equal(app.child.exitCode, null, "a healthy Worker does not make the launcher exit");
+  assert.equal((await fetch(`${app.base}/healthz`)).status, 200);
+  const workers = childPids(app.child.pid as number);
+  assert.ok(workers.length >= 1, "the launcher has a child process: the Worker's");
+  for (const pid of workers) process.kill(pid, "SIGKILL");
+  assert.equal(await exited(app.child, 40_000), 1, `the launcher exits with code 1 once the Worker has been dead for 3 probes:\n${app.output()}`);
+  const lines = app.output().split("\n").filter((l) => l.includes("has not answered its health check"));
+  assert.equal(lines.length, 1, "one line, once");
+  assert.match(lines[0], /3 times in a row \(one probe every 1 seconds\)\. Exiting with code 1/);
+  assert.ok(!app.output().includes(PASSWORD) && !app.output().includes(SECRET));
 });

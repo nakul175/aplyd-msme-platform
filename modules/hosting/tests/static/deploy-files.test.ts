@@ -71,12 +71,25 @@ test("every secret in the spec is an encrypted value, and the placeholder is ref
   assert.equal(half.ok, false);
 });
 
+test("each of the spec's three placeholders is refused on its own, with the other two set to good values (S3-05)", () => {
+  // The spec and the status page say the container does not start while ANY of the three is still the placeholder. Only DEMO_USER used to slip through.
+  const real = { APLYD_ENV: "synthetic", SESSION_SECRET: "k3Jx9mQ2vL8sT5wZ1bN7cR4dF6gH0yPa", DEMO_USER: "demo", DEMO_PASSWORD: "a-real-password-here" };
+  assert.equal(parseConfig(real).ok, true, "the control: these values start");
+  for (const key of ["SESSION_SECRET", "DEMO_USER", "DEMO_PASSWORD"] as const) {
+    const placeholder = new RegExp(`- key: ${key}\\n\\s+value: (\\S+)`).exec(spec)?.[1];
+    assert.equal(placeholder, "REPLACE_ME", `${key} in the spec carries the placeholder`);
+    const result = parseConfig({ ...real, [key]: placeholder });
+    assert.equal(result.ok, false, `${key} alone as the placeholder must stop the launch`);
+    if (!result.ok) assert.ok(result.problems.some((p) => p.startsWith(`${key} is still the placeholder`)), result.problems.join(" | "));
+  }
+});
+
 test("the spec points at the Dockerfile, the port and health route the launcher serves, and is not deployed on every push", () => {
   assert.match(spec, /dockerfile_path: Dockerfile/);
   assert.match(spec, /http_port: 8080/);
   assert.match(spec, /http_path: \/healthz/);
   assert.match(spec, /deploy_on_push: false/);
-  assert.match(spec, /instance_count: 1/, "one instance: the database is in memory, so a second instance would hold a different one");
+  assert.match(spec, /instance_count: 1/, "one instance: the database is a file in the container's own temporary directory, so a second instance would hold a different one");
   assert.match(spec, /branch: main/);
   assert.match(spec, /value: synthetic/);
   assert.ok(!/APLYD_DEMO/.test(spec) || /key: APLYD_DEMO\n\s+value: "?true"?/.test(spec));
@@ -98,4 +111,14 @@ test("the spec turns the demonstration on, as the live app does, and the cast is
 test("the container's build context leaves out secrets, dependencies and build output", () => {
   const ignore = read(".dockerignore").split("\n").map((l) => l.trim());
   for (const entry of [".git", "node_modules", "dist", ".next", ".env", ".env.*", "*.pem"]) assert.ok(ignore.includes(entry), `.dockerignore lists ${entry}`);
+});
+
+test("the build context leaves out the local development secrets and key files, and the Dockerfile copies the whole context (S3-09)", () => {
+  const ignore = read(".dockerignore").split("\n").map((l) => l.trim());
+  // .dev.vars is where a developer keeps SESSION_SECRET locally (docs/design/LLD.md 3.6); the Dockerfile's `COPY . .` would carry it into an image built from a working tree.
+  for (const entry of [".dev.vars", ".dev.vars.*", "*.key", "*.pem"]) assert.ok(ignore.includes(entry), `.dockerignore lists ${entry}`);
+  assert.ok(instructions.includes("COPY . ."), "the check matters because the Dockerfile copies everything the context holds");
+  // Git keeps the same files out of the repository, so an App Platform build from git never has them either.
+  const gitignore = read(".gitignore").split("\n").map((l) => l.trim());
+  assert.ok(gitignore.includes(".dev.vars"), ".gitignore lists .dev.vars");
 });

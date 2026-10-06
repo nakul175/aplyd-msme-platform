@@ -1,10 +1,10 @@
 {
   "updatedAt": "2026-10-06",
-  "reason": "Deploy readiness (6 October 2026): /healthz names the commit (APLYD_COMMIT); the spec and Dockerfile carry it; one new test in each of the four hosting suites except the static one, which gained two",
+  "reason": "Hosting fixes (6 October 2026, wave 2): placeholder refused in each secret, mf- headers dropped, build context, watchdog; new tests in all four suites",
   "suites": {
-    "integration/gateway": 15,
-    "smoke/serve": 7,
-    "static/deploy-files": 8,
-    "unit/gate": 18
+    "integration/gateway": 19,
+    "smoke/serve": 10,
+    "static/deploy-files": 10,
+    "unit/gate": 23
   }
 }

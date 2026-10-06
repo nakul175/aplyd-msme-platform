@@ -14,6 +14,14 @@ export const MIN_SECRET_BYTES = 32;
 export const MIN_PASSWORD_CHARACTERS = 12;
 /** Larger than any legitimate request this application takes (its own limit is 64 KB). */
 export const MAX_PROXY_BODY_BYTES = 256 * 1024;
+/** What .do/app.yaml holds in place of each of the three secrets. A deploy made before the real values are set must stop, not run with the placeholder as the value. */
+export const PLACEHOLDER = "REPLACE_ME";
+/** The watchdog's defaults: the Worker is counted as dead after this many health probes in a row that fail, one probe every this many seconds (6 and 5: about 30 seconds). */
+export const DEFAULT_WATCHDOG_PROBES = 6;
+export const DEFAULT_WATCHDOG_SECONDS = 5;
+/** Upper limits, so a typo cannot make the watchdog wait for hours: a day of probes is not a watchdog. */
+export const MAX_WATCHDOG_PROBES = 1000;
+export const MAX_WATCHDOG_SECONDS = 3600;
 
 export type Config = {
   port: number;
@@ -29,6 +37,8 @@ export type Config = {
   commit: string | null;
   /** True when APLYD_COMMIT holds something that is not a commit id (it is ignored, and the launcher says so); never a reason to refuse to start. */
   commitIgnored: boolean;
+  /** When the Worker's own health route has failed `probes` times in a row, one probe every `seconds`, the launcher exits with a non-zero code so the platform restarts the container. `probes` of 0 turns it off. */
+  watchdog: { probes: number; seconds: number };
 };
 
 /** A git commit id as the platform or a build argument gives it: 7 to 64 hexadecimal characters (40 for SHA-1, 64 for SHA-256). Anything else is not one. */
@@ -46,6 +56,19 @@ function integer(value: string | undefined, fallback: number): number {
   return /^\d+$/.test(value) ? Number(value) : Number.NaN;
 }
 
+/** True for the spec's placeholder, with or without stray white space. Only the whole value counts: a real secret that happens to contain the word is not one. */
+function isPlaceholder(value: string): boolean {
+  return value.trim() === PLACEHOLDER;
+}
+
+const placeholderProblem = (name: string) => `${name} is still the placeholder ${PLACEHOLDER}. Set the real value (an encrypted run-time value on the platform) before the first deploy.`;
+
+/** A whole number from 0 to `max`, or the default when the variable is unset or empty. */
+function boundedInteger(value: string | undefined, fallback: number, min: number, max: number): number {
+  const n = integer(value, fallback);
+  return Number.isInteger(n) && n >= min && n <= max ? n : Number.NaN;
+}
+
 export function parseConfig(env: Environment): ConfigResult {
   const problems: string[] = [];
   const port = integer(env.PORT, 8080);
@@ -60,13 +83,18 @@ export function parseConfig(env: Environment): ConfigResult {
   }
 
   const secret = env.SESSION_SECRET ?? "";
-  if (new TextEncoder().encode(secret).length < MIN_SECRET_BYTES) problems.push(`SESSION_SECRET must be at least ${MIN_SECRET_BYTES} bytes.`);
+  if (isPlaceholder(secret)) problems.push(placeholderProblem("SESSION_SECRET"));
+  else if (new TextEncoder().encode(secret).length < MIN_SECRET_BYTES) problems.push(`SESSION_SECRET must be at least ${MIN_SECRET_BYTES} bytes.`);
   else if (new Set(secret).size < 2) problems.push("SESSION_SECRET must not be one repeated character.");
 
   const user = env.DEMO_USER ?? "";
   const password = env.DEMO_PASSWORD ?? "";
   let access: Config["access"] | null = null;
-  if (env.DEMO_ACCESS === "open") {
+  // The spec's placeholder is refused whichever way the gate is set up, so that it is never taken as a real value or hidden behind another problem.
+  const placeholders = (["DEMO_USER", "DEMO_PASSWORD"] as const).filter((name) => isPlaceholder(env[name] ?? ""));
+  if (placeholders.length > 0) {
+    for (const name of placeholders) problems.push(placeholderProblem(name));
+  } else if (env.DEMO_ACCESS === "open") {
     if (user !== "" || password !== "") problems.push("DEMO_ACCESS=open and DEMO_USER or DEMO_PASSWORD are both set: choose one.");
     access = { kind: "open" };
   } else if (env.DEMO_ACCESS !== undefined && env.DEMO_ACCESS !== "") {
@@ -80,6 +108,11 @@ export function parseConfig(env: Environment): ConfigResult {
   } else {
     access = { kind: "password", user, password };
   }
+
+  const probes = boundedInteger(env.APLYD_WATCHDOG_PROBES, DEFAULT_WATCHDOG_PROBES, 0, MAX_WATCHDOG_PROBES);
+  if (Number.isNaN(probes)) problems.push(`APLYD_WATCHDOG_PROBES must be a whole number from 0 (no watchdog) to ${MAX_WATCHDOG_PROBES}.`);
+  const watchdogSeconds = boundedInteger(env.APLYD_WATCHDOG_SECONDS, DEFAULT_WATCHDOG_SECONDS, 1, MAX_WATCHDOG_SECONDS);
+  if (Number.isNaN(watchdogSeconds)) problems.push(`APLYD_WATCHDOG_SECONDS must be a whole number from 1 to ${MAX_WATCHDOG_SECONDS}.`);
 
   const publicHosts: string[] = [];
   for (const raw of (env.APLYD_PUBLIC_HOSTS ?? "").split(",")) {
@@ -102,6 +135,7 @@ export function parseConfig(env: Environment): ConfigResult {
       demo: env.APLYD_DEMO === "true",
       commit: parseCommit(env.APLYD_COMMIT),
       commitIgnored: (env.APLYD_COMMIT ?? "").trim() !== "" && parseCommit(env.APLYD_COMMIT) === null,
+      watchdog: { probes, seconds: watchdogSeconds },
     },
   };
 }
@@ -129,11 +163,14 @@ export function passesGate(authorization: string | undefined, access: Config["ac
  * sees. Hosts named in `publicHosts` count too, for a platform that rewrites Host on its way in. A page on another site cannot send an Origin with this host, so every other Origin (another host, "null", something that is not
  * a URL) is passed on untouched and the application refuses it as cross-site, as it would without the proxy. The scheme is not compared:
  * the ingress's forwarded-scheme header is not relied on, and the session cookie is Secure, so a request that arrived over plain http
- * carries no session. The gate's own Authorization header is not passed on.
+ * carries no session. The gate's own Authorization header is not passed on, and neither is any header whose name starts with `mf-`: those
+ * are Miniflare's own control headers (MF-Original-URL, MF-CF-Blob, MF-Route-Override ...), which its entry worker acts on, and a client
+ * must not be able to set them (S3-04).
  */
 export function upstreamHeaders(headers: IncomingHttpHeaders, publicHosts: readonly string[] = []): IncomingHttpHeaders {
   const out: IncomingHttpHeaders = { ...headers };
   delete out.authorization;
+  for (const name of Object.keys(out)) if (name.toLowerCase().startsWith("mf-")) delete out[name];
   // Neither header is a list: a value with a comma in it is not an origin, and is left for the application to refuse.
   const origin = typeof headers.origin === "string" ? headers.origin : undefined;
   const hostHeader = typeof headers.host === "string" ? headers.host : undefined;
