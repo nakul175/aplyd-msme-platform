@@ -22,6 +22,8 @@ test("a complete synthetic configuration is accepted and takes its defaults", ()
   assert.equal(result.config.upstreamPort, 8787);
   assert.equal(result.config.environment, "synthetic");
   assert.equal(result.config.demo, false);
+  assert.equal(result.config.commit, null);
+  assert.equal(result.config.commitIgnored, false);
   assert.deepEqual(result.config.access, { kind: "password", user: "demo", password: PASSWORD });
 });
 
@@ -92,6 +94,18 @@ test("demonstration mode is on only for the exact word true", () => {
     const result = parseConfig({ ...good, APLYD_DEMO: value });
     assert.ok(result.ok);
     if (result.ok) assert.equal(result.config.demo, expected, String(value));
+  }
+});
+
+test("the commit is taken only when it is a commit id, and anything else is ignored and never stops the launch", () => {
+  const sha = "034320ce8a21db0818b9b4a39315d0d4b2f976c4";
+  for (const [value, expected] of [[sha, sha], [sha.toUpperCase(), sha], [`  ${sha}\n`, sha], ["034320c", "034320c"], ["a".repeat(64), "a".repeat(64)], ["034320", null], ["a".repeat(65), null], ["", null], [undefined, null], ["unknown", null], ["${_self.COMMIT_HASH}", null], ["034320c; rm -rf /", null], ["034320c\ncommit evil", null], ["g34320c", null]] as const) {
+    const result = parseConfig({ ...good, APLYD_COMMIT: value });
+    assert.ok(result.ok, `a commit of ${JSON.stringify(value)} must not stop the launch`);
+    if (result.ok) {
+      assert.equal(result.config.commit, expected, String(value));
+      assert.equal(result.config.commitIgnored, expected === null && (value ?? "").trim() !== "", `commitIgnored for ${JSON.stringify(value)}`);
+    }
   }
 });
 
