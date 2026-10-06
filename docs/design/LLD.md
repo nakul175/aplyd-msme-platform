@@ -82,7 +82,7 @@ This document describes how the APLYD MSME platform is built, module by module a
 
 This is the low-level design (LLD) of the APLYD MSME platform as it was built on 5 October 2026. It is for a developer who is about to change the code. For each module it says what each file is for and what it exports, how a request travels through it, what it reads and writes, what it refuses and with which answer, and what must not be broken.
 
-The code was read at commit 21fd329 of the branch slice-10-interface. The journey module (4.7), the shared page frame (5.2) and the statements that depend on them were read again at commit f35b835, after the next-step rules were rewritten. Everything in the application is SYNTHETIC. No person has reviewed the code (AGENTS.md; HANDOVER.md, "Merged without review"), and no person has reviewed this document.
+The code was read at commit 21fd329 of the branch slice-10-interface. The journey module (4.7), the shared page frame (5.2) and the statements that depend on them were read again at commit f35b835, after the next-step rules were rewritten. On 6 October 2026 the statements about behaviour in sections 1 to 9 were read again against commit b741f59 of the branch docs-11-review (about 200 statements, each checked in the code); those that no longer matched were corrected in place, and the files tables, counts and lists of the documentation module were brought up to that commit. Everything in the application is SYNTHETIC. No person has reviewed the code (AGENTS.md; HANDOVER.md, "Merged without review"), and no person has reviewed this document.
 
 This document does not repeat what the other design documents already hold. Tables, columns, triggers and indexes are in [the data dictionary](DATA-DICTIONARY.md). The REST operations are in [the API reference](API-REFERENCE.md). Screens, rules and messages are in [the functional specification](../fsd/FSD.md). The architecture and its decisions are in [the high-level design](HLD.md). Where this document needs one of them, it points to it. Where the code and one of them disagree, the code is followed, and the difference is listed under "Found while writing" at the end of the section and collected in section 9.
 
@@ -114,7 +114,7 @@ The system is one Next.js application, compiled by vinext into one Worker, with 
 | The STATUS and VALIDATION pages of each module, for example [the platform status page](../../modules/platform/STATUS.md) | What the module's owner says works, what is not built and which limits are known | A check of those statements against the code, in the `Found while writing` lists |
 | [AGENTS.md](../../AGENTS.md) and [HANDOVER.md](../../HANDOVER.md) | The working rules and the current state | The rules as they apply to files (section 2.2) |
 
-Section 9 is assembled from the `Found while writing` lists of all sections. Nothing in the code or in another document was changed.
+Section 9 is assembled from the `Found while writing` lists of all sections. Nothing in the code was changed. Where a list says that a document was corrected, it gives the date.
 
 ### 1.4 Reading order
 
@@ -168,7 +168,7 @@ The table gives each module's role as its own STATUS page and HLD 3.3 state it, 
 | `modules/journey/` | The next-step logic and the facts it reads, and the browser test that walks the journey | 2 | 5 | none | none | 4.7 |
 | `modules/demo/` | The cast, the seeder, the presenter script and its tests | 5 | 7 | none | `/demo` | 4.8 |
 | `modules/hosting/` | The gate and gateway for the demonstration host | 2 | 6 | none | none | 4.9 |
-| `modules/docs/` | Readers that read the documents as data, and their tests | 6 | 13 | none | none | 4.9 |
+| `modules/docs/` | Readers that read the documents as data, and their tests | 10 | 22 | none | none | 4.9 |
 
 The 16 tables are the 3 of the platform and 13 of the domain modules. Only `modules/platform/` and `modules/factory/` have a seed file (`modules/platform/db/seed-synthetic.sql` and `modules/factory/db/seed-synthetic.sql`); `seedFiles` in `modules/platform/src/db/migrate.ts` finds a seed by that file name, platform first. Four modules keep recorded mutations in a `mutations/` directory: `modules/platform/mutations/`, `modules/procure/mutations/`, `modules/deliver/mutations/` and `modules/run/mutations/`. `modules/docs/` has no STATUS or VALIDATION page.
 
@@ -366,6 +366,8 @@ The Worker reaches 15 of the 17 files in `modules/platform/src/`: not `modules/p
 | One module's handlers use a text check that lives in another module's questionnaire file | `modules/diagnose/src/api/diagnose.ts`, `modules/procure/src/api/requirements.ts`, `modules/procure/src/api/providers.ts`, `modules/deliver/src/api/engagements.ts` and `modules/run/src/api/outcomes.ts` import `hasControlCharacters` from `modules/factory/src/questionnaire.ts` | The check is general (it refuses control and direction-changing characters in a note), but it is defined in the factory module, so its owner's change reaches four other modules |
 | A module edits a file of another module's claim | See the last column of the table in 2.2: procure in `modules/platform/src/api/authorize.ts`, run in `modules/platform/tests/support/worker.ts`, deliver in `app/procure/page.tsx` and `modules/procure/` | Recorded in the STATUS pages |
 
+**Layers inside a module** (AS BUILT, from the scan above and a second scan of the imports of every file in the `src/` directory of each module). Each stage module (factory, diagnose, procure, deliver, run) has the same shape. A route file under `app/api/` calls a handler in the module's `src/api/`. A handler calls the module's `src/db/` and its rules. The rules are the `.ts` files directly in `src/` (for example `state.ts`, `engine.ts`, `digest.ts`, `pool.ts`, `view.ts`, `progress.ts`, `questionnaire.ts`, `clusters.ts`, `summary.ts`): they take plain values and use no database or request. No file in a `db/` directory imports from an `api/` directory, and no rules file imports from `api/` or `db/`, with one exception: `modules/journey/src/facts.ts` imports data functions of five other modules (9.9). A page in `app/` imports a handler's presenters and constants as well as the data layer (for example `app/procure/page.tsx` imports `presentRequirements`, `MAX_NOTE_LENGTH` and `loadAssessment`), so that the page and the endpoint show the same thing (5.1). The `db/schema.ts` files declare the tables for Drizzle's tools; the SQL that runs is in the other `db/` files (6.3).
+
 #### Found while writing
 
 7 items, listed in [section 9.1](#91-from-section-23-imports-between-modules).
@@ -476,7 +478,7 @@ flowchart TD
 
 | Status | Body | Answered by | Audited |
 | --- | --- | --- | --- |
-| 200 | The record, or `{"signedIn":true}`, `{"signedOut":true}`, or the health object | `handleCompanyRead`, `handleSessionRead`, `handleSessionWrite`, `handleHealth` | No |
+| 200 | The company record (`handleCompanyRead`), the person's identity (`handleSessionRead`), `{"signedIn":true}` or `{"signedOut":true}` (`handleSessionWrite`), or the health object (`handleHealth`) | `handleCompanyRead`, `handleSessionRead`, `handleSessionWrite`, `handleHealth` | No |
 | 303 | None, with `location` | `redirect`, used by `handleSessionWrite` (to `/` or `/sign-in?refused=1`) and by every module's form path | No |
 | 400 | `{"error":"bad_request"}` | `takeBody`, and the sign-in reader in `handleSessionWrite` | No |
 | 401 | `{"error":"not_signed_in"}` | `authorizeCompanyRead`, `authorizeCompanyWrite`, `authorizeSignedIn`, `authorizeOperator`, `handleSessionRead`, `handleCompanyRead` | No |
@@ -490,7 +492,7 @@ flowchart TD
 | 503 | `{"error":"sign_in_not_available"}` | `handleSessionWrite` | No |
 | 503 | `{"status":"degraded","database":...,"auditGuard":...}` | `handleHealth` | No |
 
-**Form and JSON.** `takeBody` returns a `Body` whose `kind` is `form`, `json` or `empty`. A handler that serves both sets `const form = body.kind === "form"`, and on every outcome after the body is read answers a form with `redirect(...)` to the page that sent it, and a program with `json(...)`. The redirect carries a key in the query: `?saved=`, `?made=` or `?withdrawn=` on success and `?problem=` on a refusal. The keys are looked up on the page in a fixed table with `Object.hasOwn`, and `modules/platform/tests/static/page-lookups.test.ts` fails a page that looks a key up without it. Section 5.3 lists the keys. A refusal made before the person is known is JSON even for a form: the checks in the authorize functions, `takeBody` and the sign-in handler answer with `json`. A person at a form whose session ended therefore sees JSON at the address of the operation (already recorded in API-REFERENCE 6, item 8).
+**Form and JSON.** `takeBody` returns a `Body` whose `kind` is `form`, `json` or `empty`. A handler that serves both sets `const form = body.kind === "form"`, and on every outcome after the body is read answers a form with `redirect(...)` to the page that sent it, and a program with `json(...)`. The redirect carries a key in the query: `?saved=`, `?made=` or `?withdrawn=` on success and `?problem=` on a refusal. The keys are looked up on the page in a fixed table with `Object.hasOwn`, and `modules/platform/tests/static/page-lookups.test.ts` fails a page that looks a key up without it. Section 5.3 lists the keys. A refusal made before the handler reads the form's fields is JSON even for a form: the checks in the authorize functions (including the 404 and 403 that come after the person is known), `takeBody` and the sign-in handler answer with `json`. A person at a form whose session ended therefore sees JSON at the address of the operation (already recorded in API-REFERENCE 6, item 8).
 
 **What is not caught.** A handler wraps a data-layer call in `try` only to turn a known trigger message into a typed reason (3.7). Any other error is thrown out of the handler. The route file does not catch it, and neither does `worker/index.ts`.
 
@@ -602,6 +604,7 @@ A text id is not a secret and gives no access: every read is bound to the person
 - The Worker's clock is the only clock. Every timestamp is `new Date().toISOString()`, made in TypeScript and passed to SQL as a bound parameter. No migration uses `datetime('now')`, `CURRENT_TIMESTAMP` or `strftime`; a search of `drizzle/` for them found none.
 - A session's `iat` is not stored. `exp` is `Math.floor(Date.now() / 1000) + SESSION_SECONDS`, in whole seconds (`handleSessionWrite`, `signSession`), and is compared with the same expression at each request (`resolveIdentityFromCookieHeader`).
 - Only the run module's handlers take a clock as a parameter: `handleOutcomeRead` and `handleOutcomeRecord` in `modules/run/src/api/outcomes.ts` take `now: () => Date`, defaulting to `new Date()`. The pages call `new Date()` themselves.
+- In tests, a date is reached in one of three ways. An integration test of the run module passes a clock to `handleOutcomeRecord` or `handleOutcomeRead` (`now: () => Date`), so it can stand on either side of a review date. The pure functions `nextStep`, `stageStatuses`, `stageLine` (`modules/journey/src/progress.ts`) and `reviewSlots` (`modules/run/src/state.ts`) take `now` as an argument, and `dueAt` takes the acceptance time, so a unit test fixes the instant. A smoke or browser test runs the built application with the real clock and adds past-dated delivered and accepted rows to the Worker's own throwaway database with `exec` of `startBuiltApp` (`modules/run/tests/browser/run.test.ts`); the triggers still apply. `seedDemo` takes an optional `now` for the milestone dates (`modules/demo/src/seed.ts`). A data layer that stamps with `new Date().toISOString()` has no argument for a clock.
 - The database compares times in one place: the trigger `outcome_events_review_is_due` (`drizzle/0013_run_guards.sql`) uses `julianday`, while `reviewSlots` in `modules/run/src/state.ts` uses milliseconds (already recorded in FSD 12.1, item 20).
 
 **Times and dates in text.** A timestamp is an ISO 8601 string in UTC, for example `2026-10-04T00:00:00.000Z`, as the seed writes it. A page shows a date as the first ten characters (`createdAt.slice(0, 10)` in `app/page.tsx`). A milestone's due date is a calendar date, `YYYY-MM-DD`, in `milestones.due_on`: the data layer checks it with `isCalendarDate` in `modules/deliver/src/state.ts` and the trigger `milestones_due_is_a_date` checks it again. A review is due 30, 90 and 180 days after the first acceptance (`REVIEW_DAYS` in `modules/run/src/state.ts`).
@@ -615,9 +618,29 @@ A text id is not a secret and gives no access: every read is bound to the person
 | `milestones.agreed_inr` | The owner's own record of an agreed price | The trigger `milestones_numbers_are_whole` |
 | `engagement_events.amount_inr` | The owner's own record of a payment made outside the platform | The trigger `engagement_events_amount_is_whole` |
 
-APLYD's earnings never depend on the provider an owner chooses (D-03). The two fee columns are the only ones that can carry an earning, and the fee is copied by the database from the terms in force, not supplied by a caller (section 4.4). A page writes an amount as `₹${n.toLocaleString("en-IN")}` (`app/operator/page.tsx`, `app/procure/page.tsx`, `app/deliver/page.tsx`).
+APLYD's earnings never depend on the provider an owner chooses (D-03). The two fee columns are the only ones that can carry an earning, and the fee is copied by the database from the terms in force, not supplied by a caller (section 4.4). A page writes an amount as `₹${n.toLocaleString("en-IN")}` (`app/operator/page.tsx`, `app/procure/page.tsx`, `app/deliver/page.tsx`, `app/diagnose/page.tsx`).
 
-**JSON in text columns.** Four columns hold JSON text: `audit_events.detail` (an object, written by `JSON.stringify`), `factory_revisions.answers` (an object; the trigger `factory_revisions_answers_are_an_object` refuses anything else), `assessments.result` and `requirements.spec` (each held to valid JSON by a CHECK constraint in `drizzle/0005_diagnose_assessments.sql` and `drizzle/0008_procure_tables.sql`). The code writes with `JSON.stringify` and reads with `JSON.parse(...) as T`, a cast with no run-time check of the shape (`modules/factory/src/db/revisions.ts`, `modules/diagnose/src/db/assessments.ts`, `modules/procure/src/db/requirements.ts`). The SQL JSON functions are used only inside triggers (`drizzle/0006_diagnose_guards.sql`, `drizzle/0007_diagnose_review_fixes.sql`, `drizzle/0014_review_fixes.sql`).
+**Limits and versions that are constants** (AS BUILT, values read in the files named). The three limits on money are sanity bounds, and none is a price or a proposal. They are also held in the database in different ways: `milestones_agreed` (`drizzle/0010_deliver_tables.sql`) and the shape check of `engagement_events` hold an amount to 1 to 100000000; `listing_terms_fee_positive` holds the fee above zero and nothing holds it below `MAX_FEE_INR`, so the handler `handleTermsSet` alone enforces that upper limit; `outcome_events_value` holds a measured value to 0 to 1000000000.
+
+| Constant | Value | Defined in |
+| --- | --- | --- |
+| `MAX_BODY_CHARACTERS` | 65536 (`64 * 1024`) | `modules/platform/src/api/body.ts`, and a copy in `modules/factory/src/api/factory.ts` |
+| `SESSION_SECONDS` | 28800 (eight hours) | `modules/platform/src/identity/session.ts` |
+| `MIN_SECRET_BYTES` | 32 | `modules/platform/src/env.ts`, and a copy in `modules/hosting/src/gate.ts` |
+| `MAX_PROXY_BODY_BYTES` | 262144 | `modules/hosting/src/gate.ts` |
+| `MIN_PASSWORD_CHARACTERS` | 12 | `modules/hosting/src/gate.ts` |
+| `MAX_AMOUNT_INR` | 100000000 (`readAmount` takes a JSON number or 1 to 9 digits) | `modules/deliver/src/state.ts` |
+| `MAX_FEE_INR` | 10000000 (`handleTermsSet` takes a JSON number or 1 to 8 digits) | `modules/procure/src/api/providers.ts` |
+| `MAX_VALUE` | 1000000000 (a JSON number or 1 to 10 digits) | `modules/run/src/state.ts` |
+| `MAX_NOTE_LENGTH` | 500 | Six files, one for each of the factory, diagnose, procure (two files), deliver and run modules (9.4) |
+| `MAX_SERVICES` | 20 | `modules/procure/src/api/providers.ts` |
+| `MAX_MILESTONES`, `MAX_DELIVERIES` | 12, 14 | `modules/deliver/src/state.ts` |
+| `MAX_REVISIONS_PER_COMPANY` | 500 | `modules/factory/src/db/revisions.ts` |
+| `MAX_ITEMS` | 8 | `modules/diagnose/src/engine.ts` |
+| `QUESTIONNAIRE_VERSION`, `ENGINE_VERSION`, `LIBRARY_VERSION` | 1, 1, 1 | `modules/factory/src/questionnaire.ts`, `modules/diagnose/src/engine.ts`, `modules/diagnose/src/library.ts` |
+| `AGGREGATE_FLOOR` | 5 | `modules/procure/src/pool.ts` |
+
+**JSON in text columns.** Four columns hold JSON text: `audit_events.detail` (an object, written by `JSON.stringify`), `factory_revisions.answers` (an object; the trigger `factory_revisions_answers_are_an_object` refuses anything else), `assessments.result` and `requirements.spec` (each held to valid JSON by a CHECK constraint in `drizzle/0005_diagnose_assessments.sql` and `drizzle/0008_procure_tables.sql`). The code writes with `JSON.stringify` and reads with `JSON.parse(...) as T`, a cast with no run-time check of the shape (`modules/factory/src/db/revisions.ts`, `modules/diagnose/src/db/assessments.ts`, `modules/procure/src/db/requirements.ts`). The SQL JSON functions are used in four places: `json_valid` in the two CHECK constraints above, `json_each`, `json_extract` and `json_valid` inside triggers (`drizzle/0006_diagnose_guards.sql`, `drizzle/0007_diagnose_review_fixes.sql`, `drizzle/0014_review_fixes.sql`), and `json_array_length` in one read, the assessment list in `modules/diagnose/src/db/assessments.ts`.
 
 ### 3.6 Environment and bindings
 
@@ -1086,7 +1109,7 @@ flowchart TD
 
 #### Refusals and messages
 
-A refusal made before the person is known (401, 403, 404, 413, 415, 400 `bad_request`, 503) is JSON even for a form. A refusal about the content gives a form a 303 to `/factory?...` and gives a program JSON. The page turns `problem=` keys into the sentences in section 8.2 of the specification; the keys that exist are `invalid`, `note`, `request` and `too_many`.
+A refusal made by the request checks (401, 403, 404, 413, 415, 400 `bad_request`, 503) is JSON even for a form. A refusal about the content gives a form a 303 to `/factory?...` and gives a program JSON. The page turns `problem=` keys into the sentences in section 8.2 of the specification; the keys that exist are `invalid`, `note`, `request` and `too_many`.
 
 | Refusal | A form is sent to | A program gets | FSD |
 | --- | --- | --- | --- |
@@ -1354,7 +1377,7 @@ How the pins work, as `pins.test.ts` states it. `LIBRARY_PINS` maps a library ve
 
 #### Refusals and messages
 
-Refusals before the person is known, from `authorizeCompanyRead` and `authorizeCompanyWrite`, are JSON for a form too: 503 `storage_unavailable` (MSG-14), 401 `not_signed_in` (MSG-11), 404 `not_found` (MSG-13), 403 `forbidden` (MSG-12), 403 `cross_site_refused` (MSG-15). `takeBody` gives 415, 413 and 400 `bad_request` (MSG-16 to MSG-18). The rest:
+Refusals made by `authorizeCompanyRead` and `authorizeCompanyWrite` are JSON for a form too: 503 `storage_unavailable` (MSG-14), 401 `not_signed_in` (MSG-11), 404 `not_found` (MSG-13), 403 `forbidden` (MSG-12), 403 `cross_site_refused` (MSG-15). `takeBody` gives 415, 413 and 400 `bad_request` (MSG-16 to MSG-18). The rest:
 
 | Refusal | A form is sent to | A program gets | FSD |
 | --- | --- | --- | --- |
@@ -1420,6 +1443,7 @@ Other modules depend on it. The journey (`modules/journey/src/facts.ts`) and Run
 | 0 to 4 | `{shown: false, floor: 5}` | "Fewer than 5 companies have asked for this in your cluster, so the number is not shown to anyone, to protect the companies that asked." (MSG-92) |
 | 5 to 9 | `{shown: true, atLeast: 5}` | "At least 5 companies in this cluster have asked for the same thing." (MSG-91) |
 | 10 to 14 | `{shown: true, atLeast: 10}` | the same sentence with 10 |
+| 15 or more | `{shown: true, atLeast: m}`, where `m` is the largest multiple of 5 that is at most `n` | the same sentence with `m` |
 | any value that is not a whole number | `{shown: false, floor: 5}` | not shown |
 
 The operator's list is the one place an exact count appears (RULE-29; already recorded in FSD 12.1, item 13).
@@ -1616,7 +1640,7 @@ flowchart TD
 
 #### Refusals and messages
 
-Refusals before the person is known come from the platform helpers and are JSON for a form too: 503 `storage_unavailable` (MSG-14), 401 `not_signed_in` (MSG-11), 404 `not_found` for another company (MSG-13), 403 `forbidden` for a member or, on an operator endpoint, for anyone who is not an operator, with an audit row (MSG-12), 403 `cross_site_refused` (MSG-15). `takeBody` gives 415, 413 and 400 `bad_request` (MSG-16 to MSG-18).
+Refusals made by the platform helpers are JSON for a form too: 503 `storage_unavailable` (MSG-14), 401 `not_signed_in` (MSG-11), 404 `not_found` for another company (MSG-13), 403 `forbidden` for a member or, on an operator endpoint, for anyone who is not an operator, with an audit row (MSG-12), 403 `cross_site_refused` (MSG-15). `takeBody` gives 415, 413 and 400 `bad_request` (MSG-16 to MSG-18).
 
 The owner's endpoints. A form is sent to `/procure?...`.
 
@@ -1726,7 +1750,7 @@ The tables are described in [DATA-DICTIONARY.md](DATA-DICTIONARY.md) and the fiv
 | `modules/deliver/mutations/review-fixes.json` | Twelve mutations run by `scripts/mutation/mutate.py` against the delivery cap, the milestone counts and the two reads. | `none` |
 | `modules/deliver/tests/baseline.json` | The recorded test counts of the module's seven suites. | `none` |
 
-Each route file is four lines of code: it reads `params`, then calls the handler with `env`. No route file holds a rule.
+Each of the five route files is nine lines long: three imports, `dynamic`, and a function of three lines that reads `params` and calls the handler with `env`. No route file holds a rule.
 
 #### Data it reads and writes
 
@@ -1782,7 +1806,7 @@ The form field names differ from the JSON names:
 **Flow 2: adding a milestone** (`POST /api/companies/{id}/engagements/{eid}/milestones`).
 
 1. The route calls `handleMilestoneAdd`; steps 2 and 3 of flow 1 apply.
-2. The handler reads each field: `readText` for the title (at most `MAX_TITLE_LENGTH`) and the test (at most `MAX_TEST_LENGTH`) trims, refuses text that is empty or holds a character `hasControlCharacters` refuses; `isCalendarDate` for the due date; `readAmount` for the price (digits only, 1 to `MAX_AMOUNT_INR`). All errors are collected into `fields`. Any error sends a form to `/deliver?problem=invalid` and JSON gets 400 `invalid` with `fields`.
+2. The handler reads each field: `readText` for the title (at most `MAX_TITLE_LENGTH`) and the test (at most `MAX_TEST_LENGTH`) trims, refuses text that is empty or holds a character `hasControlCharacters` refuses; `isCalendarDate` for the due date; `readAmount` for the price (a JSON number, or text of 1 to 9 digits, that is a whole number from 1 to `MAX_AMOUNT_INR`). All errors are collected into `fields`. Any error sends a form to `/deliver?problem=invalid` and JSON gets 400 `invalid` with `fields`.
 3. `addMilestone` runs one batch: an `INSERT ... SELECT` guarded by `EXISTS` (an engagement of this company), and the audit row `milestone.added`.
 4. A trigger may abort the insert. The message "the plan is agreed or the engagement is closed, so a milestone cannot be added" (`milestones_plan_is_open`) is matched by `/cannot be added/`; the data layer then looks for a `closed` event on this engagement and answers `closed` if there is one and `plan_locked` if not. "too many milestones in this plan" (`milestones_limit`) becomes `too_many`.
 5. On success `addMilestone` reads back the new `seq`. The handler answers a redirect to `/deliver?saved=milestone` or JSON 201 `{ id, seq }`. `not_found` (no row inserted) is `/deliver?problem=missing` or 404; the other reasons are `/deliver?problem=<reason>` or 409.
@@ -1981,7 +2005,7 @@ The table is described in [DATA-DICTIONARY.md](DATA-DICTIONARY.md) and the two o
 | `modules/run/mutations/after-first-run.json` | 27 mutations from the first run, against four of those files (all but `modules/run/src/state.ts`). | `none` |
 | `modules/run/tests/baseline.json` | The recorded test counts of the module's six suites. | `none` |
 
-The route file has the same four-line shape as the deliver routes: it reads `params`, then calls the handler with `env`. It passes no clock, so the handlers use `new Date()`. The migration `drizzle/0014_review_fixes.sql` holds no trigger on `outcome_events`.
+The route file has the same shape as the deliver routes, with a `GET` and a `POST` function (13 lines): each reads `params`, then calls its handler with `env`. It passes no clock, so the handlers use `new Date()`. The migration `drizzle/0014_review_fixes.sql` holds no trigger on `outcome_events`.
 
 #### Data it reads and writes
 
@@ -2730,23 +2754,36 @@ The architecture of the host is in [the HLD](HLD.md) (sections 3.1, 4.5, 7.3 and
 | `modules/docs/src/api.ts` | Reads API-REFERENCE.md (summary table, one section per operation, error-code index) and compares it with the route files, the page files, the form posts and the error literals in the source | `METHODS`, `routePath`, `normalisePath`, `exportedMethods`, `pagePaths`, `formActions`, `SUMMARY_HEADER`, `PROPERTIES`, `REQUEST_HEADER`, `RESPONSE_HEADER`, `ACTORS`, `Operation`, `Entry`, `parseSummary`, `parseEntries`, `RouteFact`, `compareApi`, `errorIndex`, `errorLiterals` |
 | `modules/docs/src/dictionary.ts` | Reads DATA-DICTIONARY.md (tables, columns, indexes, triggers, Mermaid entity diagrams) and compares it with facts taken from the migrated database; also the helpers for lists, audit event names and numeric constants that other checks use | `Section`, `parseSections`, `MdTable`, `parseTables`, `codeSpans`, `withoutFences`, `COLUMN_HEADER`, `INDEX_HEADER`, `TRIGGER_HEADER`, `ColumnDoc`, `IndexDoc`, `TableDoc`, `TriggerDoc`, `ParsedDictionary`, `parseDictionary`, `SchemaFacts`, `migrationIndex`, `tableOwners`, `triggerParts`, `indexCondition`, `compareDictionary`, `unknownReferences`, `ErDiagram`, `erBlocks`, `parseEr`, `compareEr`, `undrawnRelationships`, `tableUnder`, `firstSpans`, `compareSets`, `auditEventNames`, `constantNumbers` |
 | `modules/docs/src/testdocs.ts` | Reads the seven test documents (case table, scenarios, regression pack, traceability, UAT plan, test data, strategy): case rows, automation grammar, numbering, requirement coverage, the generated matrix and counts | `LAYERS`, `Layer`, `CASE_TYPES`, `CaseType`, `VERDICTS`, `Verdict`, `Automation`, `TestCase`, `PARTLY`, `NOT_TESTABLE`, `parseCases`, `parseAutomation`, `declaredTitles`, `checkNumbering`, `checkRequirementsExist`, `checkEveryRequirementCovered`, `checkAutomation`, `GAPS_START`, `GAPS_END`, `parseGaps`, `checkMustAutomated`, `verdictOf`, `MatrixRow`, `buildMatrix`, `compactIds`, `NOT_LINKED`, `COVERAGE_START`, `COVERAGE_END`, `MATRIX_START`, `MATRIX_END`, `functionalCells`, `renderMatrix`, `renderCoverage`, `withBlock`, `withTraceability`, `checkSequence`, `mentionedCaseIds`, `mentionedPaths`, `checkDocument`, `Inputs`, `checkCaseTable`, `TEST_DOCUMENTS`, `checkTestDocuments` |
+| `modules/docs/src/findings.ts` | Reads the findings register (`docs/FINDINGS.md`): one row for each finding, the vocabulary of modules, severities and status words, grouping by module, source links and evidence paths that resolve, and the counts block at the top. The documentation index and the glossary readers use its `resolveLink` | `FINDING_MODULES`, `FindingModule`, `SEVERITIES`, `Severity`, `STATUS_KINDS`, `StatusKind`, `MAX_STATEMENT_LENGTH`, `SourceLink`, `EvidenceItem`, `NO_EVIDENCE`, `Finding`, `statusKindOf`, `evidenceItemOf`, `parseFindings`, `checkGrouping`, `headingAnchors`, `scriptAnchors`, `resolveLink`, `Resolver`, `checkSourceLinks`, `Files`, `checkEvidence`, `ModuleCounts`, `countsOf`, `COUNTS_START`, `COUNTS_END`, `countsBlock`, `checkCounts` |
+| `modules/docs/src/glossary.ts` | Reads the glossary (`docs/GLOSSARY.md`): one row for each term in four cells, the order of the rows, the terms the BRD and FSD convention tables need, the identifier schemes, paths and links in the "where" cell, terms never used elsewhere, and the stage table against the progress strip's words | `MAX_MEANING_SENTENCES`, `GlossaryEntry`, `cellsOf`, `sortKey`, `letterOf`, `sentenceCount`, `parseGlossary`, `Required`, `requiredTerms`, `missingTerms`, `definedPrefixes`, `missingPrefixes`, `looksLikePath`, `checkWhere`, `searchKey`, `unusedTerms`, `SUITE_LIKE`, `checkPathsInText`, `StageRow`, `stageRows`, `checkStages` |
+| `modules/docs/src/docindex.ts` | Reads the documentation index (`docs/DOCUMENTATION-INDEX.md`): the table of documents, the reading paths and the table of checks. It checks that every document of the repository is listed, that each row says what the document says of itself, that the reading paths lead to listed documents, and that every check, path and suite named exists | `READERS`, `Reader`, `PATH_NAMES`, `MIN_PATH_ITEMS`, `IndexedDocument`, `parseDocuments`, `isDocumentPath`, `missingFromIndex`, `missingListed`, `checkStatusClaims`, `ReadingPath`, `parseReadingPaths`, `checkReadingPaths`, `IndexedCheck`, `parseChecks`, `suiteIdOf`, `checkChecks`, `checkCodeSpans`, `suiteIdsOf` |
+| `modules/docs/src/lld.ts` | Reads this document: the files tables (each row names a file that exists and lists exactly the names it exports), repository paths and named things in code spans, the document's own anchors, its structure and its diagrams, and the pointers to section 9. It reads no prose | `REQUIRED_HEADINGS`, `MODULE_SECTIONS`, `MAX_DIAGRAM_LINES`, `exportedNames`, `FilesTableRow`, `parseFilesTables`, `checkFilesTables`, `codeSpans`, `checkPathSpans`, `checkNamedThings`, `headings`, `checkOwnAnchors`, `checkStructure`, `checkDiagrams`, `checkFoundPointers` |
 | `modules/docs/tests/static/api-sync.test.ts` | Holds the API reference to the route files, form posts, redirect targets and error literals | none |
 | `modules/docs/tests/static/dictionary-sync.test.ts` | Holds the data dictionary to the migrated database and to the constants of other modules | none |
 | `modules/docs/tests/static/brd.test.ts` | Holds the BRD to its own row grammar and counts block | none |
 | `modules/docs/tests/static/fsd.test.ts` | Holds the FSD to the BRD | none |
 | `modules/docs/tests/static/ids.test.ts` | Holds every cited identifier to a definition | none |
 | `modules/docs/tests/static/testdocs.test.ts` | Holds the test documents to the BRD and to the test files | none |
+| `modules/docs/tests/static/findings.test.ts` | Holds the findings register to its own row grammar, grouping, source links, evidence paths and counts block, and requires every module's status and validation page to be the source of at least one finding | none |
+| `modules/docs/tests/static/glossary.test.ts` | Holds the glossary to its row grammar and order, to the convention tables of the BRD and FSD and the identifier schemes, to its paths and links, to the use of each term elsewhere, and to the stage table | none |
+| `modules/docs/tests/static/docindex.test.ts` | Holds the documentation index to the repository: every Markdown file and every HTML page under `docs/` is listed, each row agrees with its document, the reading paths and the table of checks resolve | none |
+| `modules/docs/tests/static/lld-sync.test.ts` | Holds this document to the code: the plan's headings, the files tables, repository paths, named things, anchors and diagrams. It does not check prose | none |
+| `modules/docs/tests/static/wireframes.test.ts` | Holds `docs/design/wireframes.html` to being one self-contained page with a place for every screen of the FSD and links that land | none |
 | `modules/docs/tests/unit/api.test.ts` | Unit suite for `modules/docs/src/api.ts` with small invented documents | none |
 | `modules/docs/tests/unit/brd.test.ts` | Unit suite for `modules/docs/src/brd.ts` | none |
 | `modules/docs/tests/unit/dictionary.test.ts` | Unit suite for `modules/docs/src/dictionary.ts` | none |
 | `modules/docs/tests/unit/fsd.test.ts` | Unit suite for `modules/docs/src/fsd.ts` | none |
 | `modules/docs/tests/unit/ids.test.ts` | Unit suite for `modules/docs/src/ids.ts` | none |
 | `modules/docs/tests/unit/testdocs.test.ts` | Unit suite for `modules/docs/src/testdocs.ts` | none |
-| `modules/docs/tests/baseline.json` | Least passing count for each of the twelve suites | none |
+| `modules/docs/tests/unit/findings.test.ts` | Unit suite for `modules/docs/src/findings.ts`, each check with a seeded fault | none |
+| `modules/docs/tests/unit/glossary.test.ts` | Unit suite for `modules/docs/src/glossary.ts`, each check with a seeded fault | none |
+| `modules/docs/tests/unit/docindex.test.ts` | Unit suite for `modules/docs/src/docindex.ts`, each check with a seeded fault | none |
+| `modules/docs/tests/unit/lld.test.ts` | Unit suite for `modules/docs/src/lld.ts`, each check with a seeded fault and a clean case | none |
+| `modules/docs/tests/baseline.json` | Least passing count for each of the 21 suites | none |
 
-The readers import only each other: `modules/docs/src/api.ts` uses three helpers from `modules/docs/src/dictionary.ts`, and both `modules/docs/src/fsd.ts` and `modules/docs/src/testdocs.ts` use `modules/docs/src/brd.ts`. None opens a file or a database. The static tests and the scripts read the files and give the readers text. The sync tests (`dictionary-sync`, `api-sync`) also import constants from the data layers of other modules (`LIBRARY`, `ENGINE_VERSION`, `SECTIONS`, `EVENT_KINDS`, `CLUSTERS`) and the migration reader of the platform; section 8 lists what each of those checks pins.
+The readers import only each other. `modules/docs/src/api.ts` uses three helpers from `modules/docs/src/dictionary.ts`. Both `modules/docs/src/fsd.ts` and `modules/docs/src/testdocs.ts` use `modules/docs/src/brd.ts`. Both `modules/docs/src/glossary.ts` and `modules/docs/src/docindex.ts` use `resolveLink` from `modules/docs/src/findings.ts`, and `modules/docs/src/docindex.ts` also uses three helpers from `modules/docs/src/glossary.ts`. None opens a file or a database. The static tests and the scripts read the files and give the readers text. The sync tests (`dictionary-sync`, `api-sync`) also import constants from the data layers of other modules (`LIBRARY`, `ENGINE_VERSION`, `SECTIONS`, `EVENT_KINDS`, `CLUSTERS`) and the migration reader of the platform; section 8 lists what each of those checks pins.
 
-On the pinned commit the module holds six reader files. The branch that adds the glossary, the documentation index and the findings register also adds a reader and a test for each of them (three more reader files); those are not in the pinned code and are not described here.
+The module holds ten reader files at the pinned commit: the six above that read the BRD, the FSD, the identifiers, the API reference, the data dictionary and the test documents, and four that read the findings register, the glossary, the documentation index and this document. `scripts/check-traceability.mjs` and `scripts/check-test-docs.mjs` are the only scripts that import a reader. No script runs the readers for the findings register, the glossary, the documentation index or this document; their static tests do.
 
 #### What the hosting module decides
 
@@ -2775,7 +2812,7 @@ Function: `createGateway` in `modules/hosting/src/gateway.ts`. The numbers are t
 2. If the path is exactly `/healthz` and the method is GET or HEAD, it answers before the gate. If `options.ready()` is false it answers 503 `starting`. Otherwise, if the last probe is more than `HEALTH_CACHE_MS` (2 seconds) old, `probe` sends a GET to the Worker's `/api/health` on loopback with a 2 second timeout and caches the result; the answer is 200 `ok` or 503 `application not answering`.
 3. `passesGate(req.headers.authorization, options.access)`. If false: one log line, the request body is drained, answer 401 with a `www-authenticate` header for HTTP Basic.
 4. If `options.ready()` is false: 503 with `retry-after: 5`. This comes after the gate, so a person without the password learns nothing about start-up.
-5. If a declared `content-length` is all digits and larger than `maxBodyBytes` (default `MAX_PROXY_BODY_BYTES`, 256 KiB): 413, the body is not read.
+5. If a declared `content-length` is all digits and larger than `maxBodyBytes` (default `MAX_PROXY_BODY_BYTES`, 256 KiB): 413, the body is drained and not handed on.
 6. `upstreamHeaders` builds the outgoing headers; the hop-by-hop names (`connection`, `keep-alive`, `proxy-authenticate`, `proxy-authorization`, `proxy-connection`, `te`, `trailer`, `transfer-encoding`, `upgrade`) are removed in both directions.
 7. `http.request` hands the request to `127.0.0.1` on the upstream port with a 60 second timeout and pipes the response back unchanged, including redirects and cookies.
 8. While the body streams, the gateway counts bytes. If the count passes the limit, it destroys the upstream request and answers 413 (`streamed length`).
@@ -2854,7 +2891,7 @@ The same steps run for every owner page. The page `app/deliver/page.tsx` is the 
 1. The Worker entry (`worker/index.ts`, default `fetch`) passes the request to the vinext handler, which renders `RootLayout` in `app/layout.tsx` around the page.
 2. `RootLayout` draws the skip link, the SYNTHETIC banner (only when `isSyntheticEnvironment` in `modules/platform/src/env.ts` is true for the bindings), the bar `AppBar` (`app/_ui/appbar.tsx`), `<main id="main">` and the footer. `AppBar` reads the session itself with `resolveIdentityFromCookieHeader`.
 3. The page function reads its bindings with `env` from `cloudflare:workers`, cast `as unknown as AppEnv`, and awaits `searchParams`.
-4. The page calls `resolveIdentityFromCookieHeader((await headers()).get("cookie"), e)` (`modules/platform/src/identity/resolve.ts`). So each page request resolves the session twice, once in the bar and once in the page; each resolution reads one row of `users`.
+4. The page calls `resolveIdentityFromCookieHeader((await headers()).get("cookie"), e)` (`modules/platform/src/identity/resolve.ts`). So a page that resolves the session itself (every page except `/sign-in` and `/demo`) resolves it twice, once in the bar and once in the page; each resolution of a valid session reads one row of `users`, and one with no valid cookie reads none.
 5. With no identity, the page returns `SignedOut`. With an identity that has no company, is not an `owner`, or when `e.DB` is missing, it returns `NotOwner`. `/diagnose` draws its own not-owner text with `notOwnerMessage`, and `/operator` has its own operator check (5.4).
 6. The page reads with the module's data layer, always passing `identity.companyId` as the company: for example `presentEngagements(e.DB, companyId)` on `/deliver`. The company never comes from the address.
 7. Pure functions of the view modules turn the rows into words, tags and the one action to offer, for example `deliverySummary` and `primaryAction` in `modules/deliver/src/summary.ts`.
@@ -2886,6 +2923,7 @@ Rules that every page follows, each checked in the code:
 - No page writes to the database. The only SQL in `app/` is the `SELECT` of `app/sign-in/page.tsx` on `users`; every other read goes through a module function.
 - A value read from the address is never shown as typed, except the version number on `/factory` (5.3). A message comes from a fixed table, and a key from the address is looked up with `Object.hasOwn`.
 - The name of a record in the address is read through a company-scoped loader, so another company's id finds nothing. The two cases are `?a=` on `/diagnose` (`loadAssessment(db, companyId, id)`) and `?rev=` on `/factory` (`loadRevision(db, companyId, number)`).
+- There is no `error.tsx` and no custom not-found file under `app/`. The only `catch` in `app/` is in `Page` (`app/_ui/parts.tsx`), around `loadFacts`: when that read fails it writes one console line (`journey.facts_failed`) and the page opens with no strip and no next-step card. Any other error inside a page is answered as vinext answers an uncaught error (not read for this document). `/demo` calls `notFound()` when `APLYD_DEMO` is not `true`, and the framework's not-found page answers.
 - Pages import the pure `present*` functions of the handler files (`presentAssessment`, `presentRequirements`, `presentEngagements`, `presentOutcomes`, `presentPools`) so that a page and the JSON read operation show the same data.
 
 The one file of this subsection:
@@ -2917,7 +2955,7 @@ How `Page` draws a page (`app/_ui/parts.tsx`):
 The parts:
 
 - `SignedOut` draws a `PageHead` and one link named "Sign in" to `/sign-in`, followed by the page's reason in its own words. There must be one such link on a visitor's page (5.6).
-- `NotOwner` draws the sentence "This page is for the owner of a company. Your account is not linked to one." and a link "Back" to `/`. The sentence is wrong for a signed-in member of a company; this is already recorded in the FSD (12.1 item 4).
+- `NotOwner` draws a sentence and a link "Back" to `/`. A page tells it whether the account has a company (`hasCompany`, true when `identity.companyId` is not null). With a company, the sentence is "This page is for the owner of your company. You can see your company's record on the home page." Without one, it is "This page is for the owner of a company. Your account is not linked to one." Before this was corrected a member of a company was told the second sentence, which is untrue; the FSD records it (section 12, item 4).
 - `Notice` takes a `role` of `status`, `alert` or `note` and a `tone` of `info`, `success`, `warn` or `danger`. The role is what a screen reader announces and what a test finds the message by. The tone is the colour only.
 - `Tag` takes a tone of `ok`, `turn`, `warn`, `brand` or `danger`. `Meter` clamps `done` to `of` and draws the width as a rounded percentage; the words in `label` carry the meaning.
 
@@ -3029,7 +3067,7 @@ The page side of the contract, as built:
 
 - Each page declares `type Search = {...}` and a `PROBLEMS` table in the form `const PROBLEMS: Record<string, string> = {` with two-space-indented keys and a closing `};` line. `/deliver` and `/run` also declare `SAVED`. The static tests read these declarations as text with that exact shape (7.4). A page that rewrites the shape, for example to a `Map`, makes the tests find no keys and fail on their minimum-size assertions.
 - A key is looked up with `Object.hasOwn(PROBLEMS, q.problem)`, never `PROBLEMS[q.problem]` alone. A key such as `__proto__`, `constructor` or `toString` then shows no message and does not break the page. `modules/platform/tests/static/page-lookups.test.ts` (`unguardedLookups`) holds this for upper-case constant tables indexed by the address values, and `modules/platform/tests/smoke/built-app.test.ts` sends those keys to a built page.
-- A confirmation for `saved`, `made`, `listed`, `unlisted`, `fee` and `withdrawn` appears where the page tests the key for a non-empty value. Of the pages, only `/deliver` and `/run` check `saved` against `SAVED`. On `/factory`, `q.saved` is printed as typed in "Version N saved ..."; this and the other pages that show a fixed confirmation for any non-empty value are already recorded in the FSD (12.1 item 5).
+- A confirmation key is tested in one of two ways. `made` (on `/procure`, `/deliver` and `/operator`) and `saved` (on `/diagnose` and `/factory`) show their notice for any non-empty value. `signed` (on `/diagnose`), `withdrawn` (on `/procure`) and `listed`, `unlisted` and `fee` (on `/operator`) show only for the exact value `1`. Of the pages, only `/deliver` and `/run` check `saved` against `SAVED`. On `/factory`, `q.saved` is printed as typed in "Version N saved ..."; this and the other pages that show a fixed confirmation for any non-empty value are already recorded in the FSD (12.1 item 5).
 - Keys that name questions (`missing`, `fields` on `/factory`) are split on commas and filtered against the questionnaire's own keys before use. `?rev` is accepted only as one to nine digits. `?a` on `/diagnose` is used only when it is at most 64 characters, otherwise the newest assessment is shown.
 - The text of a `PROBLEMS` entry is written by hand in the page. Where it states a limit it states it in words (500 characters, 500 saved versions on `/factory`; "five" on `/procure`; "30, 90 and 180 days" on `/run`). The constants are `MAX_NOTE_LENGTH` in `modules/factory/src/questionnaire.ts`, `MAX_REVISIONS_PER_COMPANY` in `modules/factory/src/db/revisions.ts`, and the pool floor and review days in their modules; no test ties the words to the constants (see Found while writing).
 
@@ -3037,7 +3075,7 @@ A message names a thing that went wrong in words the owner can act on, and never
 
 ### 5.4 The pages one by one
 
-Each row names the page, what it reads and what it posts. Screen contents are in the FSD (SCR-01 to SCR-09). Every page except `/demo` resolves the identity in the same way (5.1) and starts with the same two refusals.
+Each row names the page, what it reads and what it posts. Screen contents are in the FSD (SCR-01 to SCR-09). Every page except `/sign-in` and `/demo` resolves the identity in the same way (5.1). The four owner pages (`/factory`, `/procure`, `/deliver`, `/run`) start with the same two refusals, and `/diagnose` and `/operator` have their own forms of them.
 
 | File | Holds | Exports |
 | --- | --- | --- |
@@ -3204,6 +3242,28 @@ Other build-time facts:
 - Node runs the TypeScript of `modules/` and `scripts/` directly (no compile step) for the tests, `scripts/serve.mjs`, `scripts/check-traceability.mjs` and `scripts/check-test-docs.mjs`. This is why the engine floor is 22.18.0 and why `tsconfig.json` has `erasableSyntaxOnly`: a file may not use a TypeScript feature that needs a transform (enums, parameter properties, namespaces). `docs/DEVELOPMENT.md` says the tests are TypeScript run directly by Node.
 - `pnpm install --frozen-lockfile` follows `pnpm-lock.yaml` exactly. The `Dockerfile` and the workflow `.github/workflows/ci.yml` both use it.
 
+**Pinned versions** (AS BUILT, from `package.json` and `tsconfig.json`; every version is exact, with no range). Four packages are runtime dependencies: `drizzle-orm`, `next`, `react` and `react-dom`. Every other package, `miniflare` and `vinext` included, is a development dependency.
+
+| Part | Version | What the code uses it for |
+| --- | --- | --- |
+| Node | 22.18.0 or later (`engines`) | Runs the tests (the TypeScript files directly), the launcher and the documentation checks |
+| pnpm | 11.25.0 (`packageManager`) | Installs, under the policy of `pnpm-workspace.yaml` |
+| TypeScript | 5.9.3 | The type check only (`tsc --noEmit`), with `strict`, `erasableSyntaxOnly`, `verbatimModuleSyntax`, `isolatedModules` and `allowImportingTsExtensions` |
+| next, react, react-dom | 16.3.6, 19.2.6, 19.2.6 | The code imports `next/headers` and `next/navigation` and the types of `next` |
+| vinext | 1.0.0-beta.5 | The build, the development server and the fetch handler that the Worker calls |
+| vite, @cloudflare/vite-plugin | 8.0.13, 1.37.1 | The bundler, and the plugin that builds for the Workers runtime |
+| wrangler, miniflare | 4.92.0, 4.20260515.0 | The local Worker and D1 for the tests and the launcher |
+| drizzle-orm, drizzle-kit | 0.45.2, 0.31.10 | Table declarations and migration generation. The SQL that runs is written by hand (3.7) |
+| playwright-core | 1.56.1 | The browser layer. It drives a browser that is already installed |
+
+Two details of `tsconfig.json` that are not used: it has a `paths` alias `@/*`, and no source file under `app/`, `modules/`, `worker/` or `scripts/` imports through it; and its `include` list names `next-env.d.ts`, a file that the repository does not have.
+
+**Continuous integration** (AS BUILT, `.github/workflows/`). Two workflows run on GitHub, with no secret, no hosted database and no deployment.
+
+- `docs.yml` (`documentation-checks`, 5-minute limit) runs on every pull request and by hand. It uses Node 22, installs nothing, and runs `scripts/check-documentation.mjs`, `scripts/check-traceability.mjs` and `scripts/check-test-docs.mjs`.
+- `ci.yml` (`engineering-checks`, 20-minute limit) runs on a pull request and on a push to `main`, unless every changed file is Markdown or under `docs/` (`paths-ignore`), and by hand. In order: `node scripts/test.mjs --check-catalogue`, `corepack enable` and `pnpm install --frozen-lockfile`, `pnpm build`, `google-chrome --version` (the browser layer uses the Chrome that the runner image has, and the step fails if it is missing), `node scripts/test.mjs pr --guard`, and last an upload of `reports/summary.json`, also when an earlier step failed. A new run for the same pull request or branch cancels the one before it.
+- The sync tests of the documentation module are suites of the static layer, so only `ci.yml` runs them. A pull request that changes only documents runs `docs.yml` and not the sync tests (9.11).
+
 ### 6.2 The worker and bindings
 
 The Worker entry is one small file.
@@ -3261,7 +3321,7 @@ The 15 files in `drizzle/` follow one pattern for each module: a file of tables 
 | --- | --- | --- |
 | Platform | `drizzle/0000_init.sql`, `drizzle/0001_audit_append_only.sql`, `drizzle/0002_audit_no_replace.sql` | Tables `audit_events`, `companies`, `users`; the triggers that refuse update and delete of `audit_events`; the trigger that refuses a replace |
 | Describe | `drizzle/0003_factory_revisions.sql`, `drizzle/0004_factory_revisions_append_only.sql` | The table `factory_revisions` and its three append-only triggers |
-| Decide | `drizzle/0005_diagnose_assessments.sql`, `drizzle/0006_diagnose_guards.sql`, `drizzle/0007_diagnose_review_fixes.sql` | Tables `assessments` and `assessment_events`, their guards, and the review fixes (new triggers, one old trigger dropped and made again) |
+| Decide | `drizzle/0005_diagnose_assessments.sql`, `drizzle/0006_diagnose_guards.sql`, `drizzle/0007_diagnose_review_fixes.sql` | Tables `assessments` and `assessment_events`, their ten guards, and the review fixes of 0007 (three new triggers; none is dropped) |
 | Choose | `drizzle/0008_procure_tables.sql`, `drizzle/0009_procure_guards.sql` | Tables `listing_terms`, `provider_events`, `provider_services`, `providers`, `requirement_events`, `requirements` and their triggers |
 | Deliver | `drizzle/0010_deliver_tables.sql`, `drizzle/0011_deliver_guards.sql` | Tables `engagement_events`, `engagements`, `milestones` and their triggers |
 | Measure | `drizzle/0012_run_tables.sql`, `drizzle/0013_run_guards.sql` | The table `outcome_events` and its triggers |
@@ -3358,7 +3418,7 @@ A test is a file modules/<module>/tests/<layer>/<name>.test.ts, run by `node --t
 
 The limits are `TIMEOUT_MIN` in `scripts/test.mjs`. There is no `test:browser` script in `package.json`: the browser layer runs inside `pnpm test` (which is `node scripts/test.mjs pr --guard`) or by `node scripts/test.mjs browser`.
 
-The suites on the pinned commit, counted by `node scripts/test.mjs --list` (86 suites; `--check-catalogue` prints "Test catalogue clean: 86 suites in 5 layers."):
+The suites on the pinned commit, counted by `node scripts/test.mjs --list` (95 suites; `--check-catalogue` prints "Test catalogue clean: 95 suites in 5 layers."):
 
 | Module | static | unit | integration | smoke | browser |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -3371,9 +3431,9 @@ The suites on the pinned commit, counted by `node scripts/test.mjs --list` (86 s
 | `journey` | 0 | 2 | 1 | 0 | 1 |
 | `demo` | 1 | 3 | 0 | 1 | 1 |
 | `hosting` | 1 | 1 | 1 | 1 | 0 |
-| `docs` | 6 | 6 | 0 | 0 | 0 |
+| `docs` | 11 | 10 | 0 | 0 | 0 |
 | command suites (no module) | 5 | 0 | 0 | 0 | 0 |
-| Total | 23 | 35 | 9 | 8 | 11 |
+| Total | 28 | 39 | 9 | 8 | 11 |
 
 The five command suites are `static/typecheck` (`tsc --noEmit`), `static/documentation` (`scripts/check-documentation.mjs`), `static/traceability` (`scripts/check-traceability.mjs`), `static/test-docs` (`scripts/check-test-docs.mjs`) and `static/migrations` (`drizzle-kit check`). They are listed in `COMMAND_SUITES` and have no baseline.
 
@@ -3404,10 +3464,10 @@ The ten baseline files:
 | `modules/procure/tests/baseline.json` | The same for 8 suites (sum 77) | none |
 | `modules/deliver/tests/baseline.json` | The same for 7 suites (sum 70) | none |
 | `modules/run/tests/baseline.json` | The same for 6 suites (sum 63) | none |
-| `modules/journey/tests/baseline.json` | The same for 4 suites (sum 34) | none |
+| `modules/journey/tests/baseline.json` | The same for 4 suites (sum 52) | none |
 | `modules/demo/tests/baseline.json` | The same for 6 suites (sum 32) | none |
 | `modules/hosting/tests/baseline.json` | The same for 4 suites (sum 43) | none |
-| `modules/docs/tests/baseline.json` | The same for 12 suites (sum 155) | none |
+| `modules/docs/tests/baseline.json` | The same for 21 suites (sum 254) | none |
 
 The sums are the numbers written in the files on 5 October 2026, read by a script; they are recorded counts and not the result of a run. All ten files carry the date 2026-10-05.
 
@@ -3453,7 +3513,7 @@ The fixtures are the synthetic seed and, for the demonstration, a cast.
 | Platform seed | `modules/platform/db/seed-synthetic.sql` | Companies `company-synthetic-a` and `company-synthetic-b`; users `owner-a`, `owner-b` and `operator`, each at an address under `synthetic.invalid`; all marked synthetic. Added with `INSERT OR IGNORE` |
 | Factory seed | `modules/factory/db/seed-synthetic.sql` | One confirmed revision (number 1, questionnaire version 1) for company A, added only when company A has none (the append-only trigger would refuse a colliding insert). Company B has none |
 | Demonstration cast | `modules/demo/src/cast.ts`, added by `seedDemo` in `modules/demo/src/seed.ts` | The synthetic companies, providers and requests of the demonstration host. The people are added by SQL (`identityStatements`, `modules/demo/src/identities.ts`); everything else is done through the application's own endpoints over HTTP (`modules/demo/src/client.ts`). It is not part of any migration seed, and it cannot be run twice on one database because the tables are append-only |
-| Test constants | `modules/platform/tests/support/d1.ts` (`TEST_SECRET`) and `modules/platform/tests/support/ui.ts` (`OWN_COMPANY`, `OTHER_COMPANY`) | A 44-character test secret that is not a real secret; the ids and names of company A and B |
+| Test constants | `modules/platform/tests/support/d1.ts` (`TEST_SECRET`) and `modules/platform/tests/support/ui.ts` (`OWN_COMPANY`, `OTHER_COMPANY`) | A 43-character test secret that is not a real secret; the ids and names of company A and B |
 
 The browser sign-in helper `signInAsOwner` depends on the page: the label "Synthetic user", an option whose text ends in "(owner)", the button "Sign in" and a redirect to `/` (5.6). The local development database is made by `scripts/local-db.mjs` (6.3), not by these helpers.
 
@@ -3480,7 +3540,7 @@ The first table lists contracts of the page and request layer. The second lists 
 | The script labels of the presenter's page exist in the pages | `modules/demo/tests/static/script-labels.test.ts` | None |
 | The demonstration cast ranks the same first and second idea for each company, and its answers are valid | `modules/demo/tests/unit/cast.test.ts`; `checkRanking` in `modules/demo/src/seed.ts` at start-up | A change to the library or the questionnaire can fail the cast (8.1, 8.2) |
 | The launcher's configuration, gate and gateway; the deployment files agree | `modules/hosting/tests/unit/gate.test.ts`, `modules/hosting/tests/integration/gateway.test.ts`, `modules/hosting/tests/smoke/serve.test.ts`, `modules/hosting/tests/static/deploy-files.test.ts` | The `Dockerfile` and `.do/app.yaml` are read as text, never built |
-| The documents agree with the code | `modules/docs/tests/static/api-sync.test.ts`, `modules/docs/tests/static/dictionary-sync.test.ts`, `modules/docs/tests/static/brd.test.ts`, `modules/docs/tests/static/fsd.test.ts`, `modules/docs/tests/static/ids.test.ts`, `modules/docs/tests/static/testdocs.test.ts` and the command suites `static/documentation`, `static/traceability`, `static/test-docs` | See 8.3, 8.4 and 8.6 for what the sync tests pin |
+| The documents agree with the code | `modules/docs/tests/static/api-sync.test.ts`, `modules/docs/tests/static/dictionary-sync.test.ts`, `modules/docs/tests/static/brd.test.ts`, `modules/docs/tests/static/fsd.test.ts`, `modules/docs/tests/static/ids.test.ts`, `modules/docs/tests/static/testdocs.test.ts`, `modules/docs/tests/static/findings.test.ts`, `modules/docs/tests/static/glossary.test.ts`, `modules/docs/tests/static/docindex.test.ts`, `modules/docs/tests/static/lld-sync.test.ts`, `modules/docs/tests/static/wireframes.test.ts` and the command suites `static/documentation`, `static/traceability`, `static/test-docs` | See 8.3, 8.4 and 8.6 for what the sync tests pin |
 | No tracked file is a secret, a database, build output or a source document; `.env.example` holds names only; no merge-conflict marker | `modules/platform/tests/static/source-rules.test.ts`; `modules/platform/tests/static/conflict-markers.test.ts` | None |
 
 Test ids that appear in the pages and in no test file: `section-<section id>`, `make-form`, `needs-confirm`, `procure-state`, `no-requirements`, `choose-provider`, `agree-plan`, `engagement-<id>`, `form-decision-<seq>`, `form-baseline`, `outcome-<id>`, `fee-saved`, `at-a-glance` and `next-up`. A search of every test file of the modules for each of these strings found none (5 October 2026). They can be changed or removed without a failing test, so a test that should rely on one must be written before the id is changed. The interface guide asks a page to keep "every `data-testid`".
@@ -3563,7 +3623,7 @@ An endpoint has four parts: a route file that binds an address to a handler, the
 5. If a page posts to the endpoint, follow 5.3: the form is `<form method="post" action=...>` with `method="post"` before any `data-testid` attribute, and the action is a string, a template string in braces, or a call to a local arrow helper of the page; the form names are the form column of the API entry; the handler redirects to the page with `saved`, `made` or `problem`; the page looks the key up with `Object.hasOwn` in its `PROBLEMS` or `SAVED` table. Held by `formsAgree` in `modules/docs/tests/static/api-sync.test.ts` (the action must be a POST operation in the reference) and by the module's key-sync tests where they exist (5.3, table of handlers).
 6. API-REFERENCE.md (the `api-sync` checks; each is a named function in the test). In the summary table: one row in order of id, with the next free two-digit id, `GET` or another method, the path in one code span starting with `/` and with the parameter names of the route's folders, an area, and an actor from `visitor`, `signed-in person`, `owner`, `member`, `operator`. Below, a section headed `### <id> <METHOD> <path>` with a properties table whose rows are Purpose, Serves, Caller, Everyone else, Content types, Body limit, Side effects, Idempotency and Form post (none empty; Serves names a requirement that exists in the BRD; Form post begins with yes or no, and yes only when a page posts to it); a request table with the headings Field, Form field, Type, Required, Limits and meaning (a row of `none` when there is no field); a response table with the headings Status, Code or body, When, Form post, with a 2xx row (200 for a read, 200 or 201 for a POST), at least one error row whose code is one code span, and a Form post cell of `none` for a GET, `JSON`, or "303 to" a page address that exists; and one fenced JSON example that parses. Then: the count sentence of the opening paragraph ("N operations in M route files"); the error-code index of section 4 (each code once, with its status and the entries that use it, and a new code in no other row); and the page row of section 5 if a page posts to it. A reason that a handler answers under another code goes in `REASONS_ANSWERED_AS_INVALID` in the test. The reader takes an id of exactly two digits, so a hundredth operation needs a change to `modules/docs/src/api.ts`.
 7. Other documents. HLD 3.7 (the route table, with the authoriser) and the pages in HLD 3.3 are not held. A new function belongs in the FSD as a function row with the requirement it traces to, and the coverage table of FSD section 11 must list it exactly as the rows name it (held by `modules/docs/tests/static/fsd.test.ts` and `scripts/check-traceability.mjs`). Test cases for it go in `docs/test/TEST-CASES.md` (7.5 step 8).
-8. Tests to write, by hand, in the module's integration suite and its smoke suite: the owner gets the success status; another company's owner and the operator get the same 404 as for a missing record; a member gets 403 for a change; nobody signed in gets 401; another website's change gets 403; a body over the limit gets 413; a wrong content type gets 415; and the audit entry is written, and not written for a refusal before the person is known. No test enumerates the routes to demand these, so a route without them passes every static test.
+8. Tests to write, by hand, in the module's integration suite and its smoke suite: the owner gets the success status; another company's owner and the operator get the same 404 as for a missing record; a member gets 403 for a change; nobody signed in gets 401; another website's change gets 403; a body over the limit gets 413; a wrong content type gets 415; and the audit entry is written, and not written for a refusal made before the person is identified (another website, no database, nobody signed in; the 404 and 403 for a company that is not the person's own are audited). No test enumerates the routes to demand these, so a route without them passes every static test.
 9. Audit: if the endpoint changes a row, add the event (8.6). Record the run in the module's VALIDATION.md file.
 
 ### 8.4 Add a table and a migration
@@ -3605,7 +3665,7 @@ An audit entry is a row of `audit_events` (append-only) with an event name, a ti
 3. Name it as the others are: `<thing>.<what happened>` in lower case (`assessment.signed_off`) for a change, and `<area>.read.denied` or `<area>.write.denied` for a refusal. Note that `unknownReferences` treats `table.word` in a document as a column reference when `table` is a table's name, so an event that begins with a table's name and a dot (as `listing_terms.set` does) is accepted in the dictionary only because the dictionary test passes the code's names as known, and in the API reference only because `AUDIT_EVENTS_THAT_LOOK_LIKE_COLUMNS` in `modules/docs/tests/static/api-sync.test.ts` lists it by hand.
 4. DATA-DICTIONARY 5.8: one row with the name as the first code span of the first cell, then the API ids that write it (every `API-` id in the second cell must exist in the API reference), when it is written, and its detail keys. Held by the `auditEvents` check of `modules/docs/tests/static/dictionary-sync.test.ts`, in both directions: a name in the code and not in the table fails, and a name in the table and not in the code fails.
 5. API-REFERENCE: write the name in the "Side effects" row of each entry that writes it, and in the "Everyone else" row for a refusal that is audited. Not held: the API test has a comment promising a check that mutating operations name their audit event, but the function that carries the comment (`examplesAndShape`) makes no such check (see Found while writing).
-6. Test it by hand in the module's integration suite: the tests read `audit_events` by event name (for example the helper in `modules/diagnose/tests/integration/diagnose-api.test.ts`), assert the user, the company and the detail, and assert that a repeated request does not write a second entry and that a refusal before the person is known writes none. The audit table refuses edits and deletes (`modules/platform/tests/integration/platform-api.test.ts`), so a test must not try to clean it.
+6. Test it by hand in the module's integration suite: the tests read `audit_events` by event name (for example the helper in `modules/diagnose/tests/integration/diagnose-api.test.ts`), assert the user, the company and the detail, and assert that a repeated request does not write a second entry and that a refusal made before the person is identified (another website, no database, nobody signed in) writes none. The audit table refuses edits and deletes (`modules/platform/tests/integration/platform-api.test.ts`), so a test must not try to clean it.
 7. Other documents, by hand: the FSD main flows that name the event, HLD 5.8, and the case rows in `docs/test/TEST-CASES.md` that cite it. The application has no reader of the audit log (no page or endpoint selects from `audit_events`, and the BRD records no audit viewer under BR-OPS-06), so no screen needs to change.
 
 #### Found while writing
@@ -3614,15 +3674,15 @@ An audit entry is a row of `audit_events` (append-only) with an event name, a ti
 
 ## 9. Discrepancies and technical debt
 
-This section collects what was found while the other sections were written: places where the code does something a document does not say, where two documents disagree, and hazards and debt in the code. Each item is shown once, here. The section it came from ends with a pointer to its list. There are 120 items in 15 lists. The lists of 1.4 found none. Nothing in the code or in another document was changed to resolve any of them. A difference already recorded in HLD 12, in the data dictionary section 9, in the API reference section 6 or in the FSD section 12.1 is cited, not repeated. Where one of these items has since been corrected in code, the item says so and gives the commit.
+This section collects what was found while the other sections were written: places where the code does something a document does not say, where two documents disagree, and hazards and debt in the code. Each item is shown once, here. The section it came from ends with a pointer to its list. There are 120 items in 15 lists. The lists of 1.4 found none. Nothing in the code was changed to resolve any of them. Where an item says a document was corrected, it gives the date. A difference already recorded in HLD 12, in the data dictionary section 9, in the API reference section 6 or in the FSD section 12.1 is cited, not repeated. Where one of these items has since been corrected in code, the item says so and gives the commit.
 
 An item is a discrepancy or a hazard; none of them is a finding in the sense of [the findings register](../FINDINGS.md) until someone enters it there. The register's own entries are cited by identifier where they cover the same ground.
 
 ### 9.1 From section 2.3: Imports between modules
 
-- **The journey module has application code, and its own status page says it has none.** `modules/journey/src/facts.ts` (`loadFacts`) and `modules/journey/src/progress.ts` (`nextStep`, `stageStatuses`, `STAGES`) exist, and `app/page.tsx`, `app/diagnose/page.tsx` and `app/_ui/parts.tsx` import both. Lines 1 to 5 of `modules/journey/STATUS.md` say the module "adds no code to the application and no page"; a documentation test pins those lines (`modules/docs/tests/static/dictionary-sync.test.ts`), so correcting them means changing the test too. HLD 3.3 says the journey module is "no application code", and the graph in HLD 3.4 draws no edge from `journey`, while the scan finds five (to factory, diagnose, procure, deliver and run). Risk: a reader who trusts those pages will not look in `modules/journey/src/` for the logic behind the home page's next step, and will not expect a change in deliver or run to affect it. FSD 12.1 items 25 and 26 recorded two faults in `nextStep`; both were corrected on 5 October 2026 (commit f35b835), and the FSD now marks them so.
+- **The journey module has application code, and its own status page says it has none.** `modules/journey/src/facts.ts` (`loadFacts`) and `modules/journey/src/progress.ts` (`nextStep`, `stageStatuses`, `STAGES`) exist, and `app/page.tsx`, `app/diagnose/page.tsx` and `app/_ui/parts.tsx` import both. Line 3 of `modules/journey/STATUS.md` says the module "adds no code to the application and no page". A documentation test pins line 5 of that file (`modules/docs/tests/static/dictionary-sync.test.ts`, `EVIDENCE`), so the lines must not move without a change to the test. HLD 3.3 and the graph in HLD 3.4 first said the same (no application code, no edge from `journey`); at commit b741f59 they are corrected, and the HLD table row and its five edges (to factory, diagnose, procure, deliver and run) agree with the scan. Risk: a reader who trusts the status page will not look in `modules/journey/src/` for the logic behind the home page's next step, and will not expect a change in deliver or run to affect it. FSD 12.1 items 25 and 26 recorded two faults in `nextStep`; both were corrected on 5 October 2026 (commit f35b835), and the FSD now marks them so.
 - **A text check shared by four modules is defined in the Describe module.** Evidence above (`hasControlCharacters`). Nothing in a document says it is shared. Risk: a change of the character class for a questionnaire answer changes what notes in the diagnose, procure, deliver and run endpoints accept. FSD 12.1 item 21 records that the comment above the class disagrees with the class.
-- **`modules/docs/` has no STATUS or VALIDATION page.** AGENTS.md ("Parallel work") and `docs/DEVELOPMENT.md` ("Adding a module") say each module keeps both. The module holds six readers (`modules/docs/src/api.ts`, `modules/docs/src/brd.ts`, `modules/docs/src/dictionary.ts`, `modules/docs/src/fsd.ts`, `modules/docs/src/ids.ts`, `modules/docs/src/testdocs.ts`) and 13 files of tests. HLD 3.3 describes it as reading "the BRD as data for `scripts/check-traceability.mjs`". Risk: the module's limits are written nowhere, and the HLD understates what it reads.
+- **`modules/docs/` has no STATUS or VALIDATION page.** AGENTS.md ("Parallel work") and `docs/DEVELOPMENT.md` ("Adding a module") say each module keeps both. The module holds ten readers (`modules/docs/src/api.ts`, `modules/docs/src/brd.ts`, `modules/docs/src/dictionary.ts`, `modules/docs/src/docindex.ts`, `modules/docs/src/findings.ts`, `modules/docs/src/fsd.ts`, `modules/docs/src/glossary.ts`, `modules/docs/src/ids.ts`, `modules/docs/src/lld.ts`, `modules/docs/src/testdocs.ts`) and 21 test files with a baseline. HLD 3.3 described it as reading "the BRD as data for `scripts/check-traceability.mjs`"; the row now lists the documents the ten readers read (6 October 2026). Risk: the module's limits are written nowhere.
 - **`docs/DEVELOPMENT.md` and `README.md` are out of date about the layout.** The Layout table of `docs/DEVELOPMENT.md` names six modules (platform, factory, diagnose, procure, deliver, run) and does not list journey, demo, hosting or docs. The `Status:` line of `README.md` says "documentation base plus a walking skeleton ... on a draft pull request". The tree has ten modules and 15 migrations. Risk: a new developer who starts at `README.md` is told the repository is smaller than it is.
 - **Migration 0014 is in no module's claim.** `drizzle/0014_review_fixes.sql` creates 19 triggers and drops 2, on the tables of the factory, diagnose, procure and deliver modules (`factory_revisions`, `assessment_events`, `requirement_events`, `listing_terms`, `provider_events`, `provider_services`, `engagements`, `milestones`, `engagement_events`). The migrations named in the STATUS pages stop at 0013 (run); the platform page claims `drizzle/` as a whole. Risk: a later fix to one of those triggers has no named owner under AGENTS.md's rule that an agent does not edit another module's files.
 - **Claims overlap.** The platform page claims `app/` and `scripts/` whole, while the other pages claim parts of `app/`, and `scripts/serve.mjs` is claimed by the hosting page, by the platform page (as part of `scripts/`) and changed by the demo module. Risk: two owners for one file. Nothing in the code detects it.
@@ -3725,7 +3785,7 @@ An item is a discrepancy or a hazard; none of them is a finding in the sense of 
 - `SYNTHETIC_ENVIRONMENTS` and `MIN_SECRET_BYTES` exist twice: exported by `modules/hosting/src/gate.ts` and defined in `modules/platform/src/env.ts` (the first is not exported there). A comment in `modules/hosting/src/gate.ts` says they are the same floor. No test compares the two copies (a search of the tests found none), so a change to one would not fail the other's suite. Risk: the launcher could accept a secret or an environment name that the application then refuses, or the reverse.
 - `.github/workflows/docs.yml` runs three checks (`scripts/check-documentation.mjs`, `scripts/check-traceability.mjs`, `scripts/check-test-docs.mjs`). HLD 4.7 says it runs only the first. The HLD is out of date on this point. Corrected on 5 October 2026 in HLD 4.7.
 - `.github/workflows/ci.yml` skips Markdown and `docs/` changes (`paths-ignore`). The docs-sync static suites (`modules/docs/tests/static/`) belong to the engineering workflow, so a pull request that changes only documents does not run them; `.github/workflows/docs.yml` covers links, identifiers, requirements and test documents only. A document that breaks `dictionary-sync` or `api-sync` is found by the next code change, not by its own pull request. Risk: drift is found late.
-- HLD 4.7 says the catalogue holds 67 suites (17 static, 23 unit, 8 integration, 8 smoke, 11 browser). `node scripts/test.mjs --list` on the pinned commit lists 86 (23 static including five command suites, 35 unit, 9 integration, 8 smoke, 11 browser). The difference is the documentation and journey suites and the later slices. Corrected on 5 October 2026 in HLD 4.7 and 12.
+- HLD 4.7 says the catalogue holds 67 suites (17 static, 23 unit, 8 integration, 8 smoke, 11 browser). `node scripts/test.mjs --list` at commit b741f59 lists 95 (28 static including five command suites, 39 unit, 9 integration, 8 smoke, 11 browser). The HLD counted 86 at commit 21fd329; the nine more are documentation suites added since (five static and four unit). The 67 of the first HLD did not include the documentation and journey suites and the later slices. Corrected on 5 October 2026 in HLD 4.7 and 12.
 - `modules/docs/` has no STATUS.md or VALIDATION.md, unlike every other module that has source. Its status is only the baseline reason in `modules/docs/tests/baseline.json`.
 - The gate is the only protection of synthetic sign-in on the demonstration host: `scripts/serve.mjs` binds the gateway to `0.0.0.0` and the Worker to `127.0.0.1`, so the gateway is the only door. `parseConfig` refuses to start without a gate unless `DEMO_ACCESS` is `open`; with it, anyone who reaches the address can sign in as the synthetic operator, as the header of `modules/hosting/src/gate.ts` says. This is intended and stated; it is listed here as a hazard for whoever sets `DEMO_ACCESS`.
 
@@ -3760,7 +3820,7 @@ An item is a discrepancy or a hazard; none of them is a finding in the sense of 
 
 - `--update-baseline` sets each suite it ran to its current `passed`, so it can lower a baseline as well as raise it; the `--reason` is the only record, and there is one reason for each module file. This is the documented way to lower a baseline (`docs/DEVELOPMENT.md`), but nothing stops a lower number being written without a failing suite.
 - The guard compares `passed` only. A suite that loses a test and gains another keeps its count. The catalogue and the guard do not look at test names; `docs/test/TEST-CASES.md` is the only place that holds titles (7.5).
-- `docs/test/TEST-STRATEGY.md` section 2.1 says four more suites are commands and names typecheck, documentation, traceability and migrations. `COMMAND_SUITES` has five: `static/test-docs` (the check of the test documents) is the fifth. The same section gives counts from the last recorded full run (61 suites, 524 tests, nine code modules); `--list` now shows 86 suites. HLD 12 already records the 67-suite figure; the strategy's wording is not recorded there.
+- `docs/test/TEST-STRATEGY.md` section 2.1 says four more suites are commands and names typecheck, documentation, traceability and migrations. `COMMAND_SUITES` has five: `static/test-docs` (the check of the test documents) is the fifth. The same section gives counts from the last recorded full run (61 suites, 524 tests, nine code modules); `--list` shows 95 suites at commit b741f59 (the 61 are the suites that report a count in the recorded run of 64 suites, [demonstration VALIDATION.md](../../modules/demo/VALIDATION.md) line 56; the catalogue has grown since that run). HLD 4.7 (the paragraph on the recorded full runs) carries the same correction.
 - `package.json` has `test:static`, `test:unit`, `test:integration` and `test:smoke` but no `test:browser`. The layer is reached through `pnpm test` or the runner directly. Low risk.
 - The comment at the top of `modules/platform/tests/support/ui.ts` says the helpers are written with "role and label locators, no test ids", while the browser tests of every stage use `getByTestId` on the ids of 5.4. The comment is out of date; the helpers themselves use only roles and labels.
 - `modules/platform/tests/support/browser.ts` names the container path `PREINSTALLED_CHROMIUM` (a directory of the development container) as the second choice of browser. On another machine it is skipped; the third choice is Google Chrome through Playwright's `chrome` channel. The order is described in `docs/DEVELOPMENT.md`.

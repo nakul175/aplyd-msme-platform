@@ -163,7 +163,7 @@ AS BUILT. The modules are directories, not packages: each is a folder under `mod
 | `hosting` | Gate and gateway for the demonstration host; no import from any other module | none | none | none |
 | `demo` | The cast, the seeder (through the application's own requests), the presenter script | none | `/demo` (only with `APLYD_DEMO=true`) | none |
 | `journey` | The next-step logic behind the home page and the progress strip (`src/progress.ts`, `src/facts.ts`), and the browser test that walks the whole journey through the pages. It has no page and no route of its own | none | none | none |
-| `docs` | Reads the BRD as data for `scripts/check-traceability.mjs`; no application code | none | none | none |
+| `docs` | Readers that read the project's own documents as data (the BRD, the FSD, the identifiers they cite, the API reference, the data dictionary, the test documents, the findings register, the glossary, the documentation index and the low-level design), used by `scripts/check-traceability.mjs`, `scripts/check-test-docs.mjs` and the static tests of the module; no application code | none | none | none |
 
 The totals are 9 pages, 23 route files and 29 operations (GET and POST), counted from `app/`. The operation-level catalogue is in [the API reference](API-REFERENCE.md). One route of the `deliver` module lives under the `requirements` path (`requirements/[rid]/engagement`), and the `/operator` page belongs to `procure`.
 
@@ -378,7 +378,7 @@ AS BUILT. `pnpm db:local` (`scripts/local-db.mjs`) deletes `.wrangler/state/v3/d
 
 ### 4.7 Tests and continuous integration
 
-AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue (`node scripts/test.mjs --list`) held 86 suites at commit 21fd329 on 5 October 2026 (23 static, 35 unit, 9 integration, 8 smoke and 11 browser) and holds more as documentation suites are added; the command prints the current list. The earlier figure of 67 in this paragraph was out of date.
+AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue (`node scripts/test.mjs --list`) held 86 suites at commit 21fd329 on 5 October 2026 (23 static, 35 unit, 9 integration, 8 smoke and 11 browser) and 95 at commit b741f59 (28 static including five command suites, 39 unit, 9 integration, 8 smoke and 11 browser); the command prints the current list. The earlier figure of 67 in this paragraph was out of date.
 
 | Layer | What runs | Needs |
 | --- | --- | --- |
@@ -388,7 +388,7 @@ AS BUILT. `node scripts/test.mjs <layer> [--guard]` runs a layer. The catalogue 
 | Smoke | The built Worker started on a free port (`modules/platform/tests/support/worker.ts`, using Wrangler's local mode) or, for the hosting and demonstration suites, the launcher | A build |
 | Browser | Chromium driven by playwright-core against the built Worker or the launcher | A build and Chrome or Chromium |
 
-Each module keeps `tests/baseline.json`; with `--guard` a suite that is missing, has no baseline or passes fewer tests than its baseline fails the run (BR-NFR-05). Mutation checks (`scripts/mutation/mutate.py`) were run by the module authors and are recorded in each `VALIDATION.md`. The recorded full runs on 5 October 2026 passed 58 of 58 suites for the hosting slice and 64 of 64 for the demonstration slice, on a two-core container in about 10.5 and 11 minutes [Certain for those runs; the catalogue now lists 67 suites and no full run of all 67 is recorded in the repository].
+Each module keeps `tests/baseline.json`; with `--guard` a suite that is missing, has no baseline or passes fewer tests than its baseline fails the run (BR-NFR-05). Mutation checks (`scripts/mutation/mutate.py`) were run by the module authors and are recorded in each `VALIDATION.md`. The recorded full runs on 5 October 2026 passed 58 of 58 suites for the hosting slice and 64 of 64 for the demonstration slice, on a two-core container in about 10.5 and 11 minutes [Certain for those runs; the catalogue listed 95 suites at commit b741f59 and no full run of all 95 is recorded in the repository].
 
 CI is `.github/workflows/ci.yml` (`engineering-checks`): on pull requests and pushes to `main` that change something other than Markdown or `docs/`, on `ubuntu-latest` with Node 22 and a 20-minute limit, it checks the catalogue, installs with `pnpm install --frozen-lockfile`, runs `pnpm build`, shows the Chrome version, runs `node scripts/test.mjs pr --guard` and uploads `reports/summary.json`. It holds no secret, uses no hosted database and deploys nothing. `.github/workflows/docs.yml` (`documentation-checks`) runs `scripts/check-documentation.mjs`, `scripts/check-traceability.mjs` and `scripts/check-test-docs.mjs` on every pull request. A pull request that changes only Markdown or `docs/` skips `ci.yml`, so the documentation sync suites under `modules/docs/tests/` do not run on it; only these three scripts do. A concurrency group cancels superseded runs. [Certain for the files; the result of a CI run on the merged tree is not recorded (HANDOVER.md).]
 
@@ -848,9 +848,9 @@ Context. Two tabs, or two people of one company, can save the description at onc
 
 Decision. A save names the revision it starts from (`basedOn`); if a later one exists, nothing is written and the answer is 409 with the latest. Revisions are numbered per company without gaps by a trigger.
 
-Consequences. A person at a form is told their copy is stale and keeps what they typed. There are no merges.
+Consequences. AS BUILT: a person at a form is told that a newer version was saved, that theirs was not saved and to make the changes again; the page shows the newest version, and the answers they typed are not kept (`handleRevisionCreate` redirects to `/factory?stale=1`; [FND-268](../FINDINGS.md)). TO BE: BR-DESC-03 asks that nothing typed is lost. There are no merges.
 
-Status. Built.
+Status. Built for the check that nothing is overwritten; partly built for the person's typed answers (FND-268).
 
 Source. [Factory status](../../modules/factory/STATUS.md); `modules/factory/src/db/revisions.ts`; commit 408352b.
 
@@ -1112,4 +1112,4 @@ These are places where the code, a status page and the BRD disagree, or where th
 | 9 | `docs/open-questions.md` | No open question covers a model or speech provider, an operator view of the audit log, or an owner's export | The BRD has requirements that need them (BR-DESC-07, BR-OPS-06, BR-UX-10, BR-DATA-03) | Technical questions TQ-01, TQ-03 and TQ-04 are not tracked in the register |
 | 10 | `modules/factory/src/api/factory.ts` | The factory handlers inline the sign-in check, the scope check and the body bound (their own `MAX_BODY_CHARACTERS`) | `modules/platform/src/api/authorize.ts` says the checks are in one place "so that no endpoint can forget one" | The other four modules call the shared functions; the factory copy has to be kept in step by hand |
 
-Two further observations are not discrepancies. The catalogue listed 86 suites at commit 21fd329, while the recorded full runs in the module validation records show 58 and 64: the later runs predate the commits that added the documentation and interface suites [Likely]. The hosting status page says the demonstration host was built "on `main` after pull requests #1 to #9 were merged", while the HANDOVER pull-request table stops at #9; the question of what `main` holds is TQ-10.
+Two further observations are not discrepancies. The catalogue listed 86 suites at commit 21fd329 and lists 95 at commit b741f59, while the recorded full runs in the module validation records show 58 and 64: the later runs predate the commits that added the documentation and interface suites [Likely]. The hosting status page says the demonstration host was built "on `main` after pull requests #1 to #9 were merged", while the HANDOVER pull-request table stops at #9; the question of what `main` holds is TQ-10.
