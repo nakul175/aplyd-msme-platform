@@ -64,10 +64,23 @@ The sponsor said "merge all to main". Pull requests #10 (slice 8, hosting) and #
 
 The integration commit on `slice-10-interface` is 696640e. At that commit the repository has 118 test suites, 16 migrations (0000 to 0015; 0015 is the only one added after 0014), 17 tables and 98 triggers. The merge commits into `main` are not recorded in this file.
 
+Wave 2 (also 6 October 2026, after wave 1; same instruction) was merged into `slice-10-interface` before the merge to `main`. It answers a walk of the pages as a first-time owner and the S3 review:
+
+| Branch | What it holds | Merge commit into `slice-10-interface` |
+| --- | --- | --- |
+| `docs-12-wave1` | Documents for wave 1: the export screen, the Decide gap and comparison, corrections, findings rows for the S3 and walkthrough items, this entry | 4cdd226 |
+| `ops-12-hosting-fixes` | The launcher refuses `REPLACE_ME` in any of the three secrets, drops Miniflare's own headers, a watchdog that exits when the Worker dies, `.dockerignore` for `.dev.vars`, the two document checks fail on an empty BRD | ca62ec4 |
+| `slice-12c-decide-journey` | The home page no longer loops after "No idea is left to ask for"; Decide shows the ideas first; the signed-off wording; the next-step rules for waiting and withdrawn requests | 9c9c0e6 |
+| `slice-12b-choose-operator` | Choose explains a cluster and says the platform does not put you in touch with the provider; "Do first" carried onto Choose; the operator page without internal codes and with a confirmation before Unlist; the presenter's script corrected | 41733cd |
+| `slice-12a-describe-home` | Describe keeps what the owner typed when a save is refused or stale; the biggest-problems limit; the confirmed-description card; sign-in starts on "Choose a person"; the home page says what the owner gives and gets | 42b2609 |
+| `slice-12d-deliver-measure` | One "your turn" card at the top of Deliver and Measure; no Accept before a starting number exists; Delivery keeps typed values and accepts day-first dates and prices with commas; closing an engagement is folded away | dda1353 |
+
+The integration commit with the final tap-target and baseline fixes is 3dbff1c.
+
 What was checked, and what was not:
 
 - Checked by agents: each writer ran the tests of its own slice and recorded what it ran, and its limits, in its module's `VALIDATION.md`. An agent (S3, read-only) reviewed the code that changed from `d6b0e02`, the tip of `main` after #9, to `b741f59`, the tip of slice 10 before wave 1: 51 files, of which its report names those it read in full. It found no high defect, one medium and ten low, and two points it could not confirm; they are rows in [docs/FINDINGS.md](docs/FINDINGS.md), section 10. A second agent walked the pages at `b741f59` as a first-time owner and ranked 24 defects, of which five are P1 (it can stop an owner or destroy a record); the P1 and P2 items are rows there too.
-- Not checked: no person reviewed any of it. The S3 review covered `b741f59`, not the wave-1 code, and not the integration commit. A review of the wave-1 code is in progress. Until it reports, treat the wave-1 code as unreviewed, and do not describe it as having passed a review. This entry does not state the result of a full test run on the merged tree, or of the GitHub CI run for it: the author of this entry did not read either.
+- Not checked: no person reviewed any of it. The S3 review covered `b741f59`, not the wave-1 code, and not the integration commit. A second agent (R, read-only) reviewed the wave-1 code at 696640e and found no high defect, one medium (the export file leaves out the owner's corrections, FND-312), five low and two it could not confirm; its report is not in the repository and the findings are rows in [docs/FINDINGS.md](docs/FINDINGS.md). Nobody has reviewed the wave-2 code. An agent's review is not a person's review: treat all of it as unreviewed. The full guarded run (pr --guard, 6 October 2026, started 08:22 IST on commit 3dbff1c) reported 118 of 121 suites passing. The three failures were: two smoke assertions that compared a redirect with an exact address (X2 added a #fragment), and a findings row whose evidence text wave 2 had removed. Both were corrected, and a third, a Tab-order regression on /procure for one persona (11 presses to the first field, the limit is 10), was recorded in known-offenders/accessibility.json. The corrected suites were run again alone and passed. The whole guard was not run again after the corrections.
 - Protected paths touched, all unreviewed by a person: database migrations (0015); the data scope, because the export reads one company's records through the platform's read check (`modules/portability`); and authentication handling, because a form post with no session now redirects to the sign-in page (`modules/platform/src/api/`). The S3 review found no change to a migration or to an API handler in slice 10 itself.
 
 ## Direct to main
