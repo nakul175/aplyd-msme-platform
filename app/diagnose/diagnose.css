@@ -120,3 +120,4 @@
 .dg-saved-here a { min-height: 2.75rem; display: inline-flex; align-items: center; }
 .dg-benefit-means { display: block; margin-top: var(--s-1); }
 .dg-idea { scroll-margin-top: var(--s-4); }
+.dg-count a { display: inline-flex; align-items: center; min-height: 2.75rem; }
