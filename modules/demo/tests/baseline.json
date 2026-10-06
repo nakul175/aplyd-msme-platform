@@ -1,16 +1,16 @@
 {
-  "updatedAt": "2026-10-05",
-  "reason": "Slice 11d polish (6 October 2026): session expiry on a form post, page titles, withdrawn counts, date helper, contrast tokens, phone layout, empty states",
+  "updatedAt": "2026-10-06",
+  "reason": "Slice 12b (6 October 2026): askState and the tags for ideas with something first; the demo script's figures",
   "suites": {
     "browser/walk": 2,
     "smoke/demo": 10,
     "static/script-labels": 3,
     "unit/cast": 10,
-    "unit/script": 5,
+    "unit/script": 6,
     "unit/seed-checks": 2,
     "unit/dates": 6,
     "unit/ui-contrast": 10,
-    "smoke/interface": 5,
+    "smoke/interface": 6,
     "browser/phone": 2
   }
 }

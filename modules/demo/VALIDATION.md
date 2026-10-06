@@ -91,3 +91,23 @@ The author is an agent; no person has read this. Real results, after `pnpm build
 **What was looked at.** The text of the home page for the visitor, the operator and owners A to G (each stage and the step above it), and of the operator's page at 390 and 1000 px. No wording was changed. The "Not yet" beside "Starting number recorded" is a known gap (STATUS).
 
 **What this does not show.** The contrast tests measure colours written in the style sheet; they do not measure a rendered page, and they do not resolve a colour made with `color-mix()`. Chromium only. The home page's sentences about dates ("The next review opens on" followed by an ISO date) come from the journey module, which was not changed, and still show ISO dates; the pages of Decide, Deliver and Measure do too.
+
+## Slice 12b: the script and its page (6 October 2026, branch `slice-12b-choose-operator`)
+
+The author is an agent; no person has read this. Real results, after `pnpm build`, on 6 October 2026 (about 06:54 IST).
+
+| Check | Result |
+| --- | --- |
+| `demo/unit/script` | 6 passed (1 more: the starting number is a percent, the date and price are typed as the form wants them, the no-contact sentence is in the script) |
+| `demo/static/script-labels` | 3 passed |
+| `demo/unit/cast`, `dates`, `seed-checks`, `ui-contrast` | 10, 6, 2 and 10 passed |
+| `demo/smoke/interface` | 6 passed (1 more: `/demo` has exactly one `role="note"`, and its two links are on a line of their own) |
+| `demo/smoke/demo` | 10 passed, unchanged |
+| `demo/browser/walk`, `demo/browser/phone` | 2 and 2 passed, unchanged |
+| `journey/browser/journey` | 1 passed, unchanged |
+
+**Mutation check.** Putting "late orders" back into the starting-number step made `demo/unit/script` fail; restored.
+
+**One existing assertion was changed:** `demo/smoke/interface` matched "The fee has not been decided (OQ-11), so ..." on the operator's page; the code was taken out of the page's text and the assertion matches the sentence without it.
+
+**What this does not show.** The script was not walked again by a person, and its 15 minutes were not timed; the 12 minutes in the first-time walkthrough belong to its own order of ten steps. The browser test `demo/browser/walk` walks the pages with the script's labels, not with its figures: nothing typed in the script's step 6 is checked against the form by a test, except by wording (the unit test). The page was not looked at as a picture. The two links under the introduction are 44 px high by their style; no tap-target measurement was made of `/demo` apart from `quality/browser/phone`, whose list still holds the layout's own "Skip to the page" and "APLYD home".

@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-10-05",
-  "reason": "Slice 11d polish (6 October 2026): session expiry on a form post, page titles, withdrawn counts, date helper, contrast tokens, phone layout, empty states",
+  "updatedAt": "2026-10-06",
+  "reason": "Slice 12b (6 October 2026): askState and the tags for ideas with something first; the demo script's figures",
   "suites": {
     "browser/procure": 3,
     "integration/procure-api": 34,
@@ -9,6 +9,6 @@
     "static/rules": 10,
     "unit/clusters": 2,
     "unit/pool": 5,
-    "unit/view": 17
+    "unit/view": 19
   }
 }
