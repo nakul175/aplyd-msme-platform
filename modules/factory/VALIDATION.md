@@ -126,7 +126,7 @@ The author is an agent; no person has read this. Results are from the tree at th
 | `factory/browser/first-visit` | 3 passed (new: the visitor's two sentences and no price, the sign-in placeholder and its refusal, no "Signed in as" line on the owner's home page) |
 | `factory/smoke/describe`, `demo/smoke/interface` | 11 and 5 passed |
 | `platform/browser/pages` | 3 passed after one assertion was changed (the sign-in list now starts with "Choose a person") |
-| `platform/browser/session-and-scope`, `journey/browser/journey` | 8 and 1 passed (run on the first build of the branch; the second build changed only the biggest-problems limit and a stylesheet). Two assertions of `session-and-scope` were changed, see below |
+| `platform/browser/session-and-scope`, `journey/browser/journey`, `platform/browser/session-expired`, `diagnose/browser/gaps`, `demo/browser/walk`, `quality/browser/no-script` (run last, on the final build) | 8, 1, 3, 4, 2 and 2 passed. Two assertions of `session-and-scope` were changed, see below. The last three press "Confirm this is accurate" on an already confirmed description or sign in from the list, and still pass (the bar's main button keeps that name for a screen reader) |
 | `quality/browser/accessibility` | 5 passed |
 | `quality/browser/phone` | 3 passed, 2 failed: see below |
 | `node scripts/test.mjs static` | 28 of 29 passed; the failing suite is `docs/static/lld-sync` (it names `metadata` on `app/diagnose`, `app/deliver` and `app/run`, pages this slice did not touch) |
