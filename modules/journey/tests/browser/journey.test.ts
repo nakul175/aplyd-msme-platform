@@ -108,7 +108,7 @@ test("an owner goes from describing the factory to the days before the first rev
       for (const title of titles) await accept(page, `${titles.indexOf(title) + 1}. ${title}`);
       assert.match(await page.getByTestId("progress").innerText(), /5 of 5 ideas decided/);
       await Promise.all([page.waitForURL((u) => u.searchParams.get("signed") === "1"), page.getByRole("button", { name: "Sign off this assessment" }).click()]);
-      assert.match(await page.getByTestId("signoff").innerText(), /Signed off on \d{4}-\d{2}-\d{2}/);
+      assert.match(await page.getByTestId("signoff").innerText(), /Signed off on \d{1,2} [A-Z][a-z]+ \d{4}/);
       await read();
 
       // 3. Procure: a requirement for the first idea in the first cluster, and the provider the operator listed is offered for it.

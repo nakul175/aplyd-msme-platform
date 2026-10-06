@@ -5,7 +5,7 @@
 // Nothing here decides anything for the owner or moves a record on. It names the step that is the owner's turn and where to do it.
 import { milestoneState, statusOf } from "../../deliver/src/state.ts";
 import type { MilestoneKind, MilestoneState } from "../../deliver/src/state.ts";
-import { reviewSlots } from "../../run/src/state.ts";
+import { REVIEW_DAYS, reviewSlots } from "../../run/src/state.ts";
 
 export const STAGE_IDS = ["describe", "diagnose", "procure", "deliver", "run"] as const;
 export type StageId = (typeof STAGE_IDS)[number];
@@ -46,8 +46,13 @@ export type EngagementFacts = {
 export type Facts = {
   /** The newest saved version of the description, and the newest one the owner confirmed (null if none was). */
   factory: { latestRevision: number | null; confirmedRevision: number | null };
-  /** The assessment that counts (the newest signed-off one, else the newest), or null if there is none. */
-  assessment: { items: number; decided: number; signedOff: boolean } | null;
+  /**
+   * The assessment that counts, or null if there is none. It is the newest one, unless an older one is signed off and some work is still
+   * open (a requirement with no provider chosen, or an engagement not closed): then it is the newest signed-off one, because that is what
+   * the open work came from. `newerVersion` is true when the owner has confirmed a newer version of the description than the one this
+   * assessment was made from (absent counts as false).
+   */
+  assessment: { items: number; decided: number; signedOff: boolean; newerVersion?: boolean } | null;
   /**
    * Of the ideas the owner accepted in the signed-off assessment, how many have no requirement. An idea whose requirement was withdrawn
    * counts as asked for, because a withdrawn requirement is not made again. Zero when nothing is signed off.
@@ -55,6 +60,8 @@ export type Facts = {
   ideasToAsk: number;
   /** Requirements that were not withdrawn. */
   requirements: number;
+  /** Requirements that were withdrawn (absent counts as zero). Only the line under Choose uses it. */
+  requirementsWithdrawn?: number;
   /** Of those, the ones for which no provider has been chosen yet. */
   requirementsWithoutProvider: number;
   /** Of those, the ones that have at least one listed provider to choose from. Never more than `requirementsWithoutProvider`. */
@@ -112,8 +119,16 @@ const step = (stage: StageId, key: NextStep["key"], title: string, body: string,
 const NOTHING_NEEDED: ReadonlySet<NextStep["key"]> = new Set(["keep_going", "waiting_for_listing", "caught_up"]);
 export const isOwnersTurn = (s: Pick<NextStep, "key">): boolean => !NOTHING_NEEDED.has(s.key);
 
-/** A first-acceptance time that cannot be read is treated as "nothing accepted yet", so one bad value cannot stop every page. */
-const readable = (at: string | null): string | null => (at !== null && Number.isNaN(Date.parse(at)) ? null : at);
+/**
+ * The last first-acceptance time whose review dates a JavaScript date can still hold: the last moment a date can hold (8.64e15 ms after
+ * 1970) less the last review day.
+ */
+const LAST_READABLE_MS = 8.64e15 - REVIEW_DAYS[REVIEW_DAYS.length - 1]! * 86_400_000;
+/**
+ * A first-acceptance time that cannot be read, or whose review dates could not be written down, is treated as "nothing accepted yet", so
+ * one bad value cannot stop every page.
+ */
+const readable = (at: string | null): string | null => (at !== null && (Number.isNaN(Date.parse(at)) || Date.parse(at) > LAST_READABLE_MS) ? null : at);
 const slotsOf = (g: EngagementFacts, now: Date) => reviewSlots({ firstAcceptedAt: readable(g.firstAcceptedAt), now, recorded: g.reviewsRecorded });
 
 /** A starting number can still be recorded: the plan is agreed, the engagement is open and nothing has been accepted. */
@@ -133,6 +148,12 @@ export function nextStep(facts: Facts, now: Date): NextStep {
   }
   if (assessment === null) {
     return step("diagnose", "diagnose", "See what is worth doing", "Your answers go through a fixed set of rules and come back as a short ranked list of ideas, each with its cost, its risk and what has to come first.", "Get your ranked ideas");
+  }
+  // The owner was sent back to Describe (no idea fitted, or nothing is left to ask for) and has confirmed a newer version since: the next
+  // thing is a new assessment from it, not another trip to Describe.
+  const nothingLeft = assessment.signedOff && facts.requirements === 0 && engagements.length === 0 && facts.ideasToAsk === 0;
+  if (assessment.newerVersion === true && ((!assessment.signedOff && assessment.items === 0) || nothingLeft)) {
+    return step("diagnose", "diagnose", "See what is worth doing", "You have confirmed a newer version of your description. Make a new assessment from it: your answers go through the same fixed rules and come back as a ranked list of ideas.", "Get your ranked ideas");
   }
   if (!assessment.signedOff) {
     if (assessment.items === 0) {
@@ -191,7 +212,11 @@ export function nextStep(facts: Facts, now: Date): NextStep {
     return step("deliver", "keep_going", "Work is under way", `Nothing needs you today. ${second}`, "Check on the work");
   }
   if (facts.requirementsWithoutProvider > 0) {
-    return step("procure", "waiting_for_listing", "Waiting for a provider to be listed", "You have said what you need. No provider is listed for it yet, so there is nothing for you to do. When one is listed you can choose it.", "See your requests");
+    const more =
+      facts.ideasToAsk > 0
+        ? ` While you wait, you can ask for ${facts.ideasToAsk === 1 ? "one more idea" : `${facts.ideasToAsk} more ideas`} you said yes to.`
+        : " There is nothing for you to do until then.";
+    return step("procure", "waiting_for_listing", "Waiting for a provider to be listed", `You have said what you need. No provider is listed for it yet. When one is listed you can choose it.${more}`, "See your requests");
   }
   if (facts.ideasToAsk > 0) {
     return step(
@@ -227,6 +252,19 @@ export function stageStatuses(facts: Facts, now: Date): Record<StageId, StageSta
   return result;
 }
 
+/** A stage's status, with one more word for a stage that is neither done nor the owner's turn but has begun. */
+export type StageProgress = StageStatus | "started";
+
+/**
+ * The statuses of stageStatuses, except that Measure is "started" instead of "todo" once a starting number or a review is recorded on any
+ * engagement, so the strip does not say "not started" next to a recorded number. Pages that can show the extra word use this one.
+ */
+export function stageProgress(facts: Facts, now: Date): Record<StageId, StageProgress> {
+  const out: Record<StageId, StageProgress> = { ...stageStatuses(facts, now) };
+  if (out.run === "todo" && facts.engagements.some((g) => g.baselineRecorded || g.reviewsRecorded.length > 0)) out.run = "started";
+  return out;
+}
+
 /** A short line under each stage on the home page: where it stands, in words. */
 export function stageLine(stage: StageId, facts: Facts, now: Date): string {
   const { factory, assessment, engagements } = facts;
@@ -242,7 +280,10 @@ export function stageLine(stage: StageId, facts: Facts, now: Date): string {
       return assessment.signedOff ? `Signed off. You decided on ${assessment.decided} of ${plural(assessment.items, "idea", "ideas")}.` : `Decided on ${assessment.decided} of ${plural(assessment.items, "idea", "ideas")}. Not signed off.`;
     case "procure":
       if (assessment?.signedOff !== true) return "Waits for your signed-off decisions";
-      if (facts.requirements === 0) return "Nothing asked for yet";
+      if (facts.requirements === 0) {
+        const withdrawn = facts.requirementsWithdrawn ?? 0;
+        return withdrawn > 0 ? `Nothing asked for now. ${withdrawn === 1 ? "1 request was" : `${withdrawn} requests were`} taken back.` : "Nothing asked for yet";
+      }
       return `${plural(facts.requirements, "requirement", "requirements")}, ${plural(engagements.length, "provider chosen", "providers chosen")}.`;
     case "deliver": {
       if (engagements.length === 0) return "Waits for a chosen provider";

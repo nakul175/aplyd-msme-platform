@@ -15,7 +15,7 @@ import { handleProviderCreate, handleProviderList, handleTermsSet } from "../../
 import { handleRequirementCreate, handleRequirementWithdraw } from "../../../procure/src/api/requirements.ts";
 import { handleOutcomeRecord } from "../../../run/src/api/outcomes.ts";
 import { loadFacts } from "../../src/facts.ts";
-import { NO_FACTS, nextStep, stageStatuses } from "../../src/progress.ts";
+import { NO_FACTS, nextStep, stageLine, stageStatuses } from "../../src/progress.ts";
 
 let env: AppEnv;
 let db: D1Database;
@@ -75,7 +75,7 @@ test("what the home page calls the next step follows the records, from a confirm
   const detail = (await (await handleAssessmentRead(get(`/api/companies/${A}/assessments/${id}`, a), env, A, id)).json()) as { result: Result };
   const items = detail.result.items.length;
   assert.ok(items >= 2, "the seeded description gives more than one idea, which the later steps rely on");
-  assert.deepEqual((await loadFacts(db, A)).assessment, { items, decided: 0, signedOff: false });
+  assert.deepEqual((await loadFacts(db, A)).assessment, { items, decided: 0, signedOff: false, newerVersion: false });
   assert.equal(await keyOf(A), "decide");
 
   for (const item of detail.result.items) assert.equal((await handleDecisionCreate(req(`/api/companies/${A}/assessments/${id}/decisions`, a, { opportunityId: item.opportunityId, decision: "accept" }), env, A, id)).status, 201);
@@ -225,13 +225,12 @@ test("a company reads only its own facts: another company that has done nothing 
   assert.deepEqual(await loadFacts(db, "company-that-does-not-exist"), NO_FACTS);
 });
 
-test("with a newer assessment not yet signed off, an older one that was is the one the work in progress came from", async () => {
+// Finding S3-01 (6 October 2026): the old test of this name built no work in progress and never asked which step the owner is shown.
+test("with work still open from a signed-off assessment, a newer one is not the one counted, and the owner is shown the open work", async () => {
   const a = await signIn("owner-a@synthetic.invalid");
-  const first = (await (await handleAssessmentCreate(req(`/api/companies/${A}/assessments`, a), env, A)).json()) as { id: string };
-  const detail = (await (await handleAssessmentRead(get(`/api/companies/${A}/assessments/${first.id}`, a), env, A, first.id)).json()) as { result: Result };
-  for (const item of detail.result.items) await handleDecisionCreate(req(`/api/companies/${A}/assessments/${first.id}/decisions`, a, { opportunityId: item.opportunityId, decision: "accept" }), env, A, first.id);
-  await handleSignOff(req(`/api/companies/${A}/assessments/${first.id}/signoff`, a), env, A, first.id);
-  // An assessment is made from one version of the description, so a second one needs a second version (saved as a draft here).
+  const { id } = await signedOff(a);
+  // A request no provider is listed for: open work that came from the first assessment.
+  assert.equal((await handleRequirementCreate(req(`/api/companies/${A}/requirements`, a, { assessmentId: id, opportunityId: KIND, cluster: CLUSTER }), env, A)).status, 201);
   const latest = (await loadLatest(db, A, "any"))!;
   const saved = await appendRevision(db, { companyId: A, userId: "user-synthetic-owner-a", basedOn: latest.revision, answers: latest.answers, note: "SYNTHETIC second version", confirmed: true, questionnaireVersion: latest.questionnaireVersion });
   assert.equal(saved.ok, true);
@@ -240,5 +239,80 @@ test("with a newer assessment not yet signed off, an older one that was is the o
   assert.equal(all.length, 2, "two assessments exist");
   assert.equal(all[0]!.signedOffAt, null, "the newest is not signed off");
   const facts = await loadFacts(db, A);
-  assert.equal(facts.assessment?.signedOff, true, "the signed-off assessment counts");
+  assert.equal(facts.assessment?.signedOff, true, "the signed-off assessment the open request came from counts");
+  assert.equal(facts.requirementsWithoutProvider, 1);
+  assert.equal(nextStep(facts, new Date()).key, "waiting_for_listing", "the owner is shown the open request, not the newer assessment");
+});
+
+test("after 'No idea is left to ask for', a newer confirmed version leads to ranked ideas, then deciding and signing off the newer assessment (S3-01)", async () => {
+  const a = await signIn("owner-a@synthetic.invalid");
+  const first = (await (await handleAssessmentCreate(req(`/api/companies/${A}/assessments`, a), env, A)).json()) as { id: string };
+  const detail = (await (await handleAssessmentRead(get(`/api/companies/${A}/assessments/${first.id}`, a), env, A, first.id)).json()) as { result: Result };
+  for (const item of detail.result.items) assert.equal((await handleDecisionCreate(req(`/api/companies/${A}/assessments/${first.id}/decisions`, a, { opportunityId: item.opportunityId, decision: "reject" }), env, A, first.id)).status, 201);
+  assert.equal((await handleSignOff(req(`/api/companies/${A}/assessments/${first.id}/signoff`, a), env, A, first.id)).status, 201);
+  const shown = async () => {
+    const facts = await loadFacts(db, A);
+    return { facts, step: nextStep(facts, new Date()), status: stageStatuses(facts, new Date()) };
+  };
+  let now = await shown();
+  assert.equal(now.step.key, "new_assessment", "every idea was refused: the owner is sent to Describe");
+  assert.equal(now.step.href, "/factory");
+
+  // Before the newer version is confirmed: a draft is saved, and Describe is still the step.
+  const v1 = (await loadLatest(db, A, "any"))!;
+  const draft = await appendRevision(db, { companyId: A, userId: "user-synthetic-owner-a", basedOn: v1.revision, answers: v1.answers, note: "SYNTHETIC draft", confirmed: false, questionnaireVersion: v1.questionnaireVersion });
+  assert.equal(draft.ok, true);
+  now = await shown();
+  assert.equal(now.facts.assessment?.newerVersion, false, "a draft is not a confirmed version");
+  assert.equal(now.step.key, "new_assessment");
+
+  // After it is confirmed: the step is ranked ideas, on the Decide page.
+  const v2 = (await loadLatest(db, A, "any"))!;
+  const confirmedVersion = await appendRevision(db, { companyId: A, userId: "user-synthetic-owner-a", basedOn: v2.revision, answers: v2.answers, note: "SYNTHETIC confirmed", confirmed: true, questionnaireVersion: v2.questionnaireVersion });
+  assert.equal(confirmedVersion.ok, true);
+  now = await shown();
+  assert.equal(now.facts.assessment?.newerVersion, true);
+  assert.equal(now.step.key, "diagnose");
+  assert.equal(now.step.cta, "Get your ranked ideas");
+  assert.equal(now.step.href, "/diagnose");
+  assert.equal(now.status.diagnose, "current");
+
+  // After the newer assessment is made: it is the one counted, and the owner decides on it.
+  const made = await handleAssessmentCreate(req(`/api/companies/${A}/assessments`, a), env, A);
+  assert.equal(made.status, 201);
+  const second = ((await made.json()) as { id: string }).id;
+  const items = ((await (await handleAssessmentRead(get(`/api/companies/${A}/assessments/${second}`, a), env, A, second)).json()) as { result: Result }).result.items;
+  now = await shown();
+  assert.deepEqual(now.facts.assessment, { items: items.length, decided: 0, signedOff: false, newerVersion: false });
+  assert.equal(now.step.key, "decide");
+  assert.equal(now.step.href, "/diagnose");
+  assert.equal(now.status.diagnose, "current");
+
+  // During the decisions.
+  assert.equal((await handleDecisionCreate(req(`/api/companies/${A}/assessments/${second}/decisions`, a, { opportunityId: items[0]!.opportunityId, decision: "accept" }), env, A, second)).status, 201);
+  now = await shown();
+  assert.equal(now.facts.assessment?.decided, 1);
+  assert.equal(now.step.key, items.length > 1 ? "decide" : "sign_off");
+  for (const item of items.slice(1)) assert.equal((await handleDecisionCreate(req(`/api/companies/${A}/assessments/${second}/decisions`, a, { opportunityId: item.opportunityId, decision: "accept" }), env, A, second)).status, 201);
+  assert.equal((await shown()).step.key, "sign_off");
+
+  // After signing off: the newer assessment's accepted ideas are ready to ask for.
+  assert.equal((await handleSignOff(req(`/api/companies/${A}/assessments/${second}/signoff`, a), env, A, second)).status, 201);
+  now = await shown();
+  assert.equal(now.facts.assessment?.signedOff, true);
+  assert.equal(now.facts.ideasToAsk, items.length);
+  assert.equal(now.step.key, "make_requirement");
+  assert.equal(now.status.diagnose, "done");
+});
+
+test("a withdrawn request is counted in the facts, so the line under Choose does not say nothing was asked for (S3-08)", async () => {
+  const a = await signIn("owner-a@synthetic.invalid");
+  const { id } = await signedOff(a);
+  const made = await handleRequirementCreate(req(`/api/companies/${A}/requirements`, a, { assessmentId: id, opportunityId: KIND, cluster: CLUSTER }), env, A);
+  const requirementId = ((await made.json()) as { id: string }).id;
+  assert.equal((await handleRequirementWithdraw(req(`/api/companies/${A}/requirements/${requirementId}/withdraw`, a), env, A, requirementId)).status, 201);
+  const facts = await loadFacts(db, A);
+  assert.equal(facts.requirements, 0);
+  assert.equal(facts.requirementsWithdrawn, 1);
+  assert.equal(stageLine("procure", facts, new Date()), "Nothing asked for now. 1 request was taken back.");
 });

@@ -2,7 +2,7 @@
 // make the one before it fire instead, so a reordering of the rules fails here.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NO_FACTS, STAGES, STAGE_IDS, isOwnersTurn, milestoneStatesOf, nextStep, stageById, stageLine, stageStatuses } from "../../src/progress.ts";
+import { NO_FACTS, STAGES, STAGE_IDS, isOwnersTurn, milestoneStatesOf, nextStep, stageById, stageLine, stageProgress, stageStatuses } from "../../src/progress.ts";
 import type { EngagementFacts, Facts } from "../../src/progress.ts";
 
 const NOW = new Date("2026-10-05T10:00:00.000Z");
@@ -310,4 +310,57 @@ test("only the steps that need nothing from the owner are not the owner's turn",
   const keys = ["keep_going", "waiting_for_listing", "caught_up"] as const;
   for (const k of keys) assert.equal(isOwnersTurn({ key: k }), false);
   for (const k of ["describe", "confirm", "diagnose", "no_ideas", "decide", "sign_off", "judge_delivery", "review_due", "agree_plan", "record_baseline", "choose_provider", "make_requirement", "new_assessment", "close_engagement", "ask_for_more"] as const) assert.equal(isOwnersTurn({ key: k }), true, k);
+});
+
+// Added 6 October 2026 (findings S3-01, S3-07, S3-08, S5-07 and the extreme-date finding of the property tests).
+
+test("once a newer version is confirmed, an owner sent back to Describe is sent on to get ranked ideas, not to Describe again", () => {
+  const noIdeas: Facts = { ...confirmed, assessment: { items: 0, decided: 0, signedOff: false, newerVersion: true } };
+  const nothingLeft: Facts = { ...signedOff, assessment: { items: 5, decided: 5, signedOff: true, newerVersion: true }, ideasToAsk: 0 };
+  for (const f of [noIdeas, nothingLeft]) {
+    const s = nextStep(f, NOW);
+    assert.equal(s.key, "diagnose");
+    assert.equal(s.cta, "Get your ranked ideas");
+    assert.equal(s.href, "/diagnose");
+    assert.equal(stageStatuses(f, NOW).diagnose, "current");
+  }
+  assert.equal(nextStep({ ...noIdeas, assessment: { ...noIdeas.assessment!, newerVersion: false } }, NOW).key, "no_ideas", "without a newer version it is still Describe");
+  assert.equal(nextStep({ ...nothingLeft, ideasToAsk: 2 }, NOW).key, "make_requirement", "an idea still to ask for comes first");
+  assert.equal(nextStep({ ...confirmed, assessment: { items: 3, decided: 1, signedOff: false, newerVersion: true } }, NOW).key, "decide", "an assessment with ideas is still decided on");
+});
+
+test("waiting for a listing says that more ideas can be asked for when there are some, and that nothing is needed when there are none", () => {
+  const waiting: Facts = { ...signedOff, requirements: 1, requirementsWithoutProvider: 1, requirementsToChoose: 0 };
+  assert.match(nextStep({ ...waiting, ideasToAsk: 2 }, NOW).body, /you can ask for 2 more ideas you said yes to\.$/);
+  assert.match(nextStep({ ...waiting, ideasToAsk: 1 }, NOW).body, /you can ask for one more idea you said yes to\.$/);
+  const none = nextStep({ ...waiting, ideasToAsk: 0 }, NOW);
+  assert.match(none.body, /There is nothing for you to do until then\.$/);
+  assert.doesNotMatch(nextStep({ ...waiting, ideasToAsk: 2 }, NOW).body, /nothing for you to do/);
+});
+
+test("the line under Choose counts withdrawn requests instead of saying nothing was asked for", () => {
+  const f: Facts = { ...signedOff, ideasToAsk: 0, requirements: 0, requirementsWithdrawn: 1 };
+  assert.equal(stageLine("procure", f, NOW), "Nothing asked for now. 1 request was taken back.");
+  assert.equal(stageLine("procure", { ...f, requirementsWithdrawn: 3 }, NOW), "Nothing asked for now. 3 requests were taken back.");
+  assert.equal(stageLine("procure", { ...f, requirementsWithdrawn: 0 }, NOW), "Nothing asked for yet");
+});
+
+test("Measure is 'started' once a starting number is recorded, and stays as stageStatuses says otherwise", () => {
+  const recorded = withEngagement(engagement({ baselineRecorded: true, milestones: ["paid", "delivered"], firstAcceptedAt: daysAgo(5) }));
+  assert.equal(stageStatuses(recorded, NOW).run, "todo");
+  assert.equal(stageProgress(recorded, NOW).run, "started");
+  const none = withEngagement(engagement({ planAgreed: false }));
+  assert.equal(stageProgress(none, NOW).run, "todo");
+  const { run: _run, ...rest } = stageProgress(recorded, NOW);
+  const { run: _r, ...restStatuses } = stageStatuses(recorded, NOW);
+  assert.deepEqual(rest, restStatuses, "only Measure gets the extra word");
+});
+
+test("a first-acceptance time whose review dates a date cannot hold is treated as unreadable, not thrown on", () => {
+  for (const at of ["+275760-09-12T00:00:00.000Z", "+275760-09-13T00:00:00.000Z"]) {
+    const f = withEngagement(engagement({ baselineRecorded: true, milestones: ["accepted"], firstAcceptedAt: at }));
+    assert.doesNotThrow(() => nextStep(f, NOW));
+    assert.doesNotThrow(() => stageStatuses(f, NOW));
+    assert.doesNotThrow(() => stageLine("run", f, NOW));
+  }
 });

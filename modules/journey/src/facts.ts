@@ -30,8 +30,10 @@ export function engagementFacts(g: EngagementRecord, outcomes: { kind: "baseline
 }
 
 /**
- * Where the company stands. The assessment that counts is the newest one that was signed off; a newer one that was not is the owner's
- * to finish, but it is not nagged about while an older, signed-off one is what the work in progress came from.
+ * Where the company stands. The assessment that counts is the newest one, unless an older one is signed off and some work is still open (a
+ * requirement with no provider chosen, or an engagement not closed): then it is the newest signed-off one, because the open work came
+ * from it, and a newer one is not nagged about until that work is done. Once nothing is open, a newer assessment counts, so the owner is
+ * asked to decide on it and sign it off (finding S3-01).
  */
 export async function loadFacts(db: D1Database, companyId: string): Promise<Facts> {
   const [latest, confirmed, assessments, requirements, engagements] = await Promise.all([
@@ -42,10 +44,13 @@ export async function loadFacts(db: D1Database, companyId: string): Promise<Fact
     listEngagements(db, companyId),
   ]);
   const outcomes = await Promise.all(engagements.map((g) => listOutcomes(db, companyId, g.id)));
-  const counted = assessments.find((a) => a.signedOffAt !== null) ?? assessments[0] ?? null;
   const active = requirements.filter((r) => r.withdrawnAt === null);
   const engaged = new Set(engagements.map((g) => g.requirementId));
   const withoutProvider = active.filter((r) => !engaged.has(r.id));
+  const newest = assessments[0] ?? null;
+  const signed = assessments.find((a) => a.signedOffAt !== null) ?? null;
+  const workOpen = withoutProvider.length > 0 || engagements.some((g) => !g.events.some((e) => e.kind === "closed"));
+  const counted = signed !== null && signed !== newest && workOpen ? signed : newest;
   const providerCounts = await Promise.all(withoutProvider.map(async (r) => (await listedProvidersFor(db, r.opportunityId, r.cluster)).length));
 
   // The ideas the owner accepted in the signed-off assessment that nothing has been asked for yet. A withdrawn requirement still counts as
@@ -60,9 +65,12 @@ export async function loadFacts(db: D1Database, companyId: string): Promise<Fact
   }
   return {
     factory: { latestRevision: latest?.revision ?? null, confirmedRevision: confirmed?.revision ?? null },
-    assessment: counted ? { items: counted.items, decided: counted.decided, signedOff: counted.signedOffAt !== null } : null,
+    assessment: counted
+      ? { items: counted.items, decided: counted.decided, signedOff: counted.signedOffAt !== null, newerVersion: confirmed !== null && confirmed.revision > counted.factoryRevisionNo }
+      : null,
     ideasToAsk,
     requirements: active.length,
+    requirementsWithdrawn: requirements.length - active.length,
     requirementsWithoutProvider: withoutProvider.length,
     requirementsToChoose: providerCounts.filter((n) => n > 0).length,
     engagements: engagements.map((g, i) => engagementFacts(g, outcomes[i])),

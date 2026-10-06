@@ -44,7 +44,8 @@ function forEach(list: readonly Case[], check: (c: Case) => void): void {
  * request, so they cannot hold with the rules that need an engagement (7 to 11, 15, 16); rules 13 and 14 split on `ideasToAsk`, and rule 14
  * (`ideasToAsk` is 0) cannot hold with rule 18 (it is more than 0).
  */
-const SWAPS_THAT_CHANGE_NOTHING = ["3/4", "3/5", "3/6", "4/5", "7/13", "7/14", "8/13", "8/14", "9/13", "9/14", "10/13", "10/14", "11/13", "11/14", "13/14", "13/15", "13/16", "14/15", "14/16", "14/18"];
+// "3/4" and "3/6" left this list on 6 October 2026: rule 3 now also holds for an assessment made from an older version (finding S3-01).
+const SWAPS_THAT_CHANGE_NOTHING = ["3/5", "4/5", "7/13", "7/14", "8/13", "8/14", "9/13", "9/14", "10/13", "10/14", "11/13", "11/14", "13/14", "13/15", "13/16", "14/15", "14/16", "14/18"];
 
 test("the generators produce what they promise: at least 5,000 cases from fixed seeds, and every rule and every pair of rules that can fire together is reached", () => {
   assert.ok(SENSIBLE.length >= 5_000 && EVERYTHING.length >= 40_000, `${EVERYTHING.length} cases`);
@@ -239,7 +240,7 @@ test("the other steps are given only on the facts that make them the owner's tur
     switch (s.key) {
       case "describe": assert.equal(f.factory.latestRevision, null); break;
       case "confirm": assert.ok(f.factory.latestRevision !== null && f.factory.confirmedRevision === null); break;
-      case "diagnose": assert.ok(f.factory.confirmedRevision !== null && f.assessment === null); break;
+      case "diagnose": assert.ok(f.factory.confirmedRevision !== null && (f.assessment === null || f.assessment.newerVersion === true)); break;
       case "no_ideas": assert.ok(f.assessment !== null && !f.assessment.signedOff && f.assessment.items === 0); break;
       case "decide": assert.ok(f.assessment !== null && !f.assessment.signedOff && f.assessment.decided < f.assessment.items); break;
       case "sign_off": assert.ok(f.assessment !== null && !f.assessment.signedOff && f.assessment.decided >= f.assessment.items && f.assessment.items > 0); break;
@@ -383,7 +384,9 @@ function numbersInLine(stage: StageId, f: Facts, now: Date): number[] {
       if (f.factory.confirmedRevision === null || f.assessment === null || f.assessment.items === 0) return [];
       return [f.assessment.decided, f.assessment.items];
     case "procure":
-      return f.assessment?.signedOff !== true || f.requirements === 0 ? [] : [f.requirements, f.engagements.length];
+      if (f.assessment?.signedOff !== true) return [];
+      if (f.requirements === 0) return (f.requirementsWithdrawn ?? 0) > 0 ? [f.requirementsWithdrawn!] : [];
+      return [f.requirements, f.engagements.length];
     case "deliver":
       return f.engagements.length === 0 || !f.engagements.some((g) => g.planAgreed) ? [] : [accepted, total];
     case "run":
