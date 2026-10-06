@@ -1939,7 +1939,7 @@ Sources: `app/run/page.tsx`, `modules/run/src/api/outcomes.ts`.
 | MSG-142 | `A review needs an accepted milestone. Accept one on Delivery first.` | Refusal | `problem=nothing_accepted` | SCR-07 |
 | MSG-143 | `That review is not due yet. It opens on the date shown.` | Refusal | `problem=not_due` | SCR-07 |
 | MSG-144 | `That engagement could not be found.` | Refusal | `problem=missing` | SCR-07 |
-| MSG-145 | `Say whether this is a baseline or a review.` | Field message | `kind` is neither. Field `kind` | API |
+| MSG-145 | `Say whether this is a baseline, a review or a correction.` | Field message | `kind` is none of the three. Field `kind` | API |
 | MSG-146 | `Give a whole number from 0 to 1000000000.` | Field message | The figure is not a whole number from 0 to 1,000,000,000. Field `value` | API |
 | MSG-147 | `Keep the note to text under 500 characters.` | Field message | The note is too long or holds a refused character. Field `note` | API |
 | MSG-148 | `Say which review: 1, 2 or 3.` | Field message | A review without a number from 1 to 3 (JSON must send a number). Field `reviewNo` | API |

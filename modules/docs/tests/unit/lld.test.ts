@@ -101,7 +101,7 @@ const skeleton = (omit: string[] = [], rename: Record<string, string> = {}): str
   for (const [n, title] of REQUIRED_HEADINGS) {
     if (omit.includes(n)) continue;
     lines.push(`${n.includes(".") ? "###" : "##"} ${n}${n.includes(".") ? "" : "."} ${rename[n] ?? title}`, "");
-    if (/^4\.[1-9]$/.test(n)) lines.push("#### Found while writing", "", "None found.", "");
+    if (/^4\.(?:[1-9]|10)$/.test(n)) lines.push("#### Found while writing", "", "None found.", "");
   }
   return lines.join("\n");
 };

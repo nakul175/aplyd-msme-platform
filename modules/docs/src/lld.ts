@@ -32,6 +32,7 @@ export const REQUIRED_HEADINGS: readonly [string, string][] = [
   ["4.7", "The journey module"],
   ["4.8", "The demo module"],
   ["4.9", "Hosting, scripts and the documentation readers"],
+  ["4.10", "The portability module"],
   ["5", "The pages layer"],
   ["5.1", "How a page is built"],
   ["5.2", "The shared frame and parts in `app/_ui/`"],
@@ -62,7 +63,7 @@ export const REQUIRED_HEADINGS: readonly [string, string][] = [
 ];
 
 /** The module sections, each of which must end with a "Found while writing" subsection. */
-export const MODULE_SECTIONS = ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.7", "4.8", "4.9"] as const;
+export const MODULE_SECTIONS = ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.7", "4.8", "4.9", "4.10"] as const;
 
 /** Where a fenced diagram must stay under, in lines. */
 export const MAX_DIAGRAM_LINES = 25;
