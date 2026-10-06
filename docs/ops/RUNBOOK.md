@@ -362,3 +362,105 @@ AS BUILT: none. The demonstration's database is in memory and synthetic, so ther
 | Whether `main` holds the code that is live | Compare the branch `slice-9-demo` with `main` |
 | Whether branch protection or secret scanning is set on the repository | The repository's settings in GitHub |
 | The $10 a month figure, and the 1 GiB size's current price | DigitalOcean's pricing page, read again; it is not in `docs/sources.md` |
+
+## 19. Moving the live host to `main` (added 6 October 2026)
+
+Status: draft, not reviewed by a person. Written on 6 October 2026 from the repository, from GitHub's run history for the repository (read with `gh run list`), and from runs of the Dockerfile's steps in a clean copy (without Docker: this machine has no container daemon and cannot reach Docker Hub). Every number below comes from [modules/hosting/VALIDATION.md](../../modules/hosting/VALIDATION.md), section "Deploy readiness, 6 October 2026". The console wording is DigitalOcean's and was not run: nobody who wrote this has the account. Where a statement cannot be checked from the repository it carries a tag.
+
+### 19.1 What the repository shows, and what it cannot
+
+- `.do/app.yaml` names the app `aplyd-demo`, the branch `main`, and `deploy_on_push: false`. The live app is called `aplyd-msme-demo`, tracks the branch `slice-9-demo` and autodeploys (section 5). The repository cannot show the console, so the live values rest on the lead's report of 5 October. Two things in the repository agree with that report: the branch `slice-9-demo` exists on GitHub (commit `034320ce8a21`, the head of pull request #11), and the HLD, the security document and this runbook all describe the live app that way. The file is a template for a new app. It was never the live app's spec [Certain for the file; Likely for the live values].
+- On 6 October 2026 `git ls-remote origin refs/heads/main` printed `d6b0e0282e02` (pull request #9 merged). That tree has no `Dockerfile`, no `scripts/serve.mjs`, no `.do/app.yaml`, no `modules/hosting` and no `modules/demo`. They arrive with pull requests #10, #11 and #12. **Pointing the app at `main` before those are merged gives a build with nothing to build from** [Certain for the tree; Likely for what DigitalOcean then does: the build fails and the old deployment stays].
+
+### 19.2 Before you move it
+
+Do all five. Stop at the first one that is not true.
+
+1. Pull requests #10, #11 and #12, and everything else the integrator is merging today, are in `main`. Check the tip has the files: `git fetch origin main && git ls-tree --name-only origin/main Dockerfile scripts/serve.mjs modules/demo/src/seed.ts` lists all three. Do not delete the branch `slice-9-demo` when merging (no "delete branch"): rollback in 19.5 needs it. `git ls-remote origin refs/heads/slice-9-demo` must still print `034320ce8a21db0818b9b4a39315d0d4b2f976c4`.
+2. Write down the tip: `git rev-parse origin/main`. You will compare the first seven characters with `/healthz` in 19.4.
+3. The merged tree installs and builds from nothing. CI does this on the push to `main` (steps "Install pinned dependencies" and "Build" took 12 to 15 seconds and 6 to 8 seconds on 4 and 5 October). On a clean copy of `origin/main`: `pnpm install --frozen-lockfile && pnpm build && node scripts/test.mjs smoke --only hosting/smoke/serve`.
+4. The three run-time values on the live app are still set (19.6). Nothing in this move changes them.
+5. Nobody is presenting. The redeploy rebuilds the practice data from the start (section 8), and the address may answer 503 `starting` for a short time while it does.
+
+### 19.3 (a) Point the app at `main`
+
+In the console (wording is DigitalOcean's; not run) [Likely]:
+
+1. Apps, then `aplyd-msme-demo`, then Settings, then the component `web`.
+2. In the source section choose Edit. Leave the repository `nakul175/aplyd-msme-platform`. Change the branch from `slice-9-demo` to `main`. Save.
+3. DigitalOcean starts a new deployment, because the source changed. If it does not, use the app's Create Deployment action.
+
+The same change in the spec is `services[0].github.branch: main` (`.do/app.yaml`, the field `branch` under `github`). To make it from a terminal, never send the repository's file to the live app:
+
+```
+doctl apps list                              # find the app id of aplyd-msme-demo
+doctl apps spec get <app id> > live-spec.yaml
+# edit live-spec.yaml: github.branch from slice-9-demo to main. Leave every EV[1:...] value as it is.
+doctl apps update <app id> --spec live-spec.yaml
+```
+
+Why not `doctl apps update --spec .do/app.yaml`: that file holds `REPLACE_ME` for the three secret values and no region. Sent to the live app it would replace the encrypted values (the launcher refuses `REPLACE_ME`, so the new deployment would not start) and could change the region. The spec you get from `doctl apps spec get` carries the secrets as `EV[1:...]` text, and DigitalOcean's documentation says to send that encrypted text back unchanged [Certain from the documentation; not run]. Keep `live-spec.yaml` out of the repository.
+
+Two more changes are worth making in the same edit. Both are optional and neither is needed for the move.
+
+- **Health check.** The live app uses the platform's default check, not `/healthz` (the lead's report). Set an HTTP check: path `/healthz`, port 8080, initial delay 60 seconds, period 10, timeout 5, failure threshold 3 (the values in `.do/app.yaml`). Reason, from runs on 6 October: the gateway listens within about one second, five to eight seconds before the application is ready. A default check that only tests the port passes in that gap. And when the Worker process dies the gateway stays up and the launcher does not exit: `/healthz` turns 503 within two seconds and every other page answers 502, but only an HTTP check on `/healthz` lets the platform notice and restart the container [Certain for the behaviour; Likely for what the platform does with it].
+- **Commit on `/healthz`.** Add a run-time value `APLYD_COMMIT` with the value `${_self.COMMIT_HASH}` (not encrypted). DigitalOcean fills that bindable variable at run time, and for a Dockerfile build it is available at run time only. Without it `/healthz` says `commit unknown` and everything else works [Certain that the launcher behaves so; Likely that the variable is filled as documented, not run].
+
+Autodeploy. After the move every push to `main` rebuilds the app and resets the practice data, documentation-only pushes included: DigitalOcean has no path filter. Either leave autodeploy on and tell everyone who pushes to `main` that each push resets the demonstration, or turn it off for demonstration days (set `deploy_on_push` to false in Source, or the console toggle) and deploy by hand when `main` is ready (Create Deployment, or `doctl apps create-deployment <app id>`). The sponsor decides [Likely for the push behaviour; the toggle's wording is the console's].
+
+### 19.4 (b) Confirm the deploy
+
+Use the app's address, which only the sponsor has, over `https`. `APP` below stands for it.
+
+1. Console, the app's Activity or Deployments tab: the new deployment goes through Building and Deploying to Active. The build log shows `pnpm install --frozen-lockfile` and `pnpm build`. The first build on 5 October took 2 minutes 11 seconds. From a terminal: `doctl apps list-deployments <app id>`.
+2. `curl -s -i https://APP/healthz` answers 200 and two lines: `ok` and `commit <id>`. The first seven characters of the id must equal the tip written down in 19.2. `commit unknown` means `APLYD_COMMIT` is not set: the deploy is fine, the label is missing. No second line at all means an older build is still serving: wait, then read the Deployments tab. 503 `starting` means the database and the demonstration seed are being built: wait ten seconds and ask again.
+3. `curl -s -o /dev/null -w "%{http_code}\n" https://APP/sign-in` prints 401: the gate is closed. `curl -s -u demo -o /dev/null -w "%{http_code}\n" https://APP/sign-in` asks for the password and prints 200 (give the real user name in place of `demo`; type the password at the prompt, never on the command line).
+4. `curl -s -u <user> https://APP/api/health` prints `{"status":"ok","database":"ok","auditGuard":"ok"}`.
+5. One owner walk, in a browser, about two minutes. Give the gate's user and password. Open `/sign-in`, choose SYNTHETIC Owner A, press Sign in: the home page shows SYNTHETIC Company A and the SYNTHETIC banner. Open Describe (`/factory`), Diagnose (`/diagnose`), Procure (`/procure`), Deliver (`/deliver`) and Run (`/run`): each opens. Open `/demo`: eight steps. Sign out, sign in as SYNTHETIC Operator, open `/operator`: one fee, three providers, one pool of five (section 7, item 5). If the page after Sign in says `cross_site_refused`, go to section 10 (`APLYD_PUBLIC_HOSTS`).
+6. The runtime log, in this order: `Listening on port 8080; starting the application (synthetic, access: password).`, `Commit: <id>.`, `The demonstration was added: 5 companies, 3 providers, 68 requests.` (68 on the commit of 6 October; it changes when the demonstration cast changes), `The application is ready.`
+
+### 19.5 (c) Roll back to the previous branch
+
+1. Change the branch back: Settings, `web`, Source, Edit, branch `slice-9-demo`, Save. The spec field is the same `github.branch`; with `doctl`, repeat 19.3 with the branch reversed. DigitalOcean rebuilds from the head of `slice-9-demo` (`034320ce8a21`, the demonstration without slice 10's interface). Allow the build time (2 to 3 minutes) and the start time. The practice data is rebuilt again.
+2. Check: `curl -s https://APP/healthz` prints `ok` and no commit line (that build does not know the name). That absence is how you tell the old build from the new one. Then 19.4, items 3 to 5.
+3. The console also has a rollback to an earlier deployment in its Activity tab [Likely; the wording is the console's, not run]. After using it, open Settings and check that the branch and the autodeploy toggle are what you intend [Guessing: a rollback may change them].
+4. A rollback does not repair a wrong password or a short secret: those are section 9. It does not bring data back: nothing does (section 8).
+5. If `slice-9-demo` was deleted, the rollback by branch is impossible. Recreate it from the commit above (`git branch slice-9-demo 034320ce8a21 && git push origin slice-9-demo`: the sponsor's call, as a push to that branch redeploys the live app if it is still tracking it).
+
+### 19.6 (d) Giving someone the demonstration's credentials
+
+- The sponsor holds the values. They exist in one place only: DigitalOcean's encrypted run-time values on the app, named `DEMO_USER`, `DEMO_PASSWORD` and `SESSION_SECRET` (Settings, `web`, Environment Variables; the console does not show an encrypted value again, so a lost password is replaced, not read). `SESSION_SECRET` is never given to anybody.
+- Do not put the user name or the password in a chat, an email, a document, a ticket, a pull request, a screenshot or a slide, and do not give them to an agent.
+- Hand over the address, the user name and the password separately, by voice, or through the sponsor's password manager's sharing feature. If the person only needs to look once, share it as a one-time item.
+- To end someone's access, replace `DEMO_PASSWORD` (section 9). There are no personal accounts: everyone holds the same password and can sign in as the operator and as every synthetic owner (limit 1 in the hosting status). The redeploy resets the practice data.
+- The rules the launcher enforces: `DEMO_USER` has no colon; `DEMO_PASSWORD` is 12 or more characters (an 8-character one stopped the first deploy on 5 October); `SESSION_SECRET` is 32 or more bytes and not one repeated character (`openssl rand -hex 32`). Never set `DEMO_ACCESS=open` on this host.
+
+### 19.7 (e) If the first load is slow
+
+What was measured, in a clean copy on a two-core machine (not on DigitalOcean's): the launcher listens 0.5 to 1.2 seconds after it starts. It answers `/healthz` 200 after 2.2 seconds without the demonstration on an idle machine, 5.3 seconds with it on an idle machine, and 8.0 seconds with it on a machine whose load average was 7. The first page after that took 50 to 120 milliseconds, and the median page after sign-in 24 to 68 milliseconds. Memory after start was about 300 to 345 MB (section 19.8 and the hosting validation file).
+
+So the wait after a deploy or a restart is mostly the platform's: pulling the image, starting the container and the health check's initial delay (60 seconds in `.do/app.yaml`). A fixed container does not sleep when idle [Likely], so a slow first load means a restart or a deploy is in progress.
+
+Say this to a viewer: "The demonstration has just been updated and is rebuilding its practice data. It takes up to a minute. Please reload." While it rebuilds the page shows `The application is starting. Try again in a few seconds.` (503, retry after 5 seconds), after the password has been given. If it lasts more than three minutes: open the runtime log and look for `The application did not start:` or `The application was not started:` (section 10), and check the Deployments tab.
+
+### 19.8 What would surprise you
+
+- **A restart resets the data but not the sign-ins.** After a restart the cookie of someone already signed in still works (checked on 6 October), because the key that signs it is unchanged and the seeded people keep their ids. They see the freshly rebuilt company. Changing `SESSION_SECRET` ends every sign-in.
+- **The database is a file, not memory.** The launcher's own text said "in memory". Miniflare keeps the SQLite database as files in the temporary directory, in a new directory at every start. A restart is still a reset, and on a container the disk is discarded with it. On a machine that is not a container the old directories stay in the temporary directory (about 1.4 MB each).
+- **Every push to `main` is a deploy,** if autodeploy is on (19.3).
+- **A failed deploy.** With the default health check a build that starts and then breaks can replace a good one. With the `/healthz` check the platform should keep the old deployment [Likely; FND-204 lists it as not observed].
+- **Size.** The 1 GiB container is enough: highest resident memory of both processes together 345 MB at start with the demonstration (about 289 MB when shared pages are counted once), 297 to 319 MB after a browse. The 512 MiB size would probably hold but leaves little [Guessing]; do not use it for a presentation.
+
+### 19.9 What CI does when this is merged (from `.github/workflows` and the run history to 5 October 19:20 UTC)
+
+| Event | `engineering-checks` | `documentation-checks` |
+| --- | --- | --- |
+| Pull request that changes anything but Markdown or `docs/` | Runs: about 10.5 to 11.7 minutes of job time (633 to 704 seconds on three runs read), plus up to 5 minutes waiting for a runner on 5 October | Runs: seconds |
+| Pull request that changes only Markdown or `docs/` | Skipped | Runs |
+| Push to `main` that changes anything but Markdown or `docs/` | Runs, same length. A newer push to `main` cancels a run still going (it did seven times on 5 October) | Does not run |
+| Push to `main` that changes only Markdown or `docs/` | Skipped | Does not run |
+| Push to any other branch | Does not run (only pull requests do) | Does not run |
+
+Neither workflow needs a secret, a token or a service: no deploy, no Cloudflare, no hosted database (both have `permissions: contents: read`). The run history from 4 October 14:30 UTC to 5 October 19:20 UTC holds 59 runs and about 220 billed minutes by my count (job start to end, rounded up; cancelled runs counted as the minute they ran). Merging #10, #11 and #12 one after another produces one full run of about 11 to 12 minutes and one or two cancelled runs of about a minute each. A change that touches only Markdown and `docs/` (HANDOVER, this runbook) costs nothing on `main`.
+
+Is the full guard deterministic on a two-core runner? The runner executes the suites one after another, each with its own time limit (10 to 15 minutes), picks free ports, and does not retry. 23 of the 24 completed `engineering-checks` runs in the history passed; the one that failed (4 October, branch `slice-3-diagnose`) failed in the install step after 23 seconds, before any test ran, and its log could not be read [Likely not a test flake]. The guard step took 600 to 672 seconds. The job limit was 20 minutes, a margin of about 8 minutes at 67 suites, and every suite added since lengthens the run and shortens the margin [Likely]. This pass raised the limit to 30 minutes in `.github/workflows/ci.yml` (section 15 and the regression pack still say 20). Each suite keeps its own limit of 10 to 15 minutes, so a hang is stopped as before. Chrome comes from the runner image and can change when the image changes [Guessing]. I did not run the guard.

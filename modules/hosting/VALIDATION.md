@@ -58,3 +58,69 @@ What these do not show: the mutations were written by the author of the code and
 `node scripts/test.mjs pr --update-baseline` on the final code of this branch, 5 October 2026, run once: **58 of 58 suites passed, none failed** (491 tests across the 55 suites that report a count; the other three are `tsc`, the documentation check and `drizzle-kit check`). The runner recorded baselines for the hosting module (new: 43 tests in 4 suites) and the platform module (`static/source-rules` from 6 to 7); the other modules' baselines were not changed, because their counts did not change. The run took about 10 and a half minutes on two cores.
 
 An earlier run of the same command, before this file existed, passed 57 and failed 1: the documentation check, because the handover linked to this file. It is mentioned so the record shows a failure and what it was.
+
+## Deploy readiness, 6 October 2026
+
+Done by the deploy-readiness agent on branch `ops-11-deploy-readiness`, base `b741f59`, for the move of the live host to `main`. **No person and no separate reviewer agent has reviewed it.** Environment: a Linux machine with two cores shared with nine other agents' work, 8 GB, Node v22.22.0, pnpm 11.25.0, no container daemon (`docker` is installed but its daemon is not running) and no route to Docker Hub (a proxy answers 403), so the image itself was not built. The scripts that ran the checks below are not in the repository.
+
+### Clean build and start
+
+What was run, in this order, in a clean copy of the commit (`git archive`, then the paths `.dockerignore` excludes removed: `docs`, `.github`, `reports`, `sources`, `coverage`, `.claude` and every `tests` directory): `corepack prepare pnpm@11.25.0` into an empty corepack home (0.7 seconds, needs the registry), `pnpm install --frozen-lockfile` with an empty package store, `pnpm build`, then `node scripts/serve.mjs` with `NODE_ENV=production`, `APLYD_ENV=synthetic`, test values invented for `SESSION_SECRET`, `DEMO_USER` and `DEMO_PASSWORD` (none real), ports 9461 and 9462. The install and the build ran in the copy that had no `docs` and no `tests`; the build and the launcher did not need them. The copy ran as the same user as the agent (root), not as the image's `node` user: files written during the run were checked, and only the temporary directory was written to (see the second table). Whether App Platform honours `.dockerignore` was not checked.
+
+| Step | Result |
+| --- | --- |
+| Install, empty store, 210 packages, 725 MB in the store | 10.1 s, no release-age or build-script refusal; the install's own message: "Lockfile passes supply-chain policies"; the build scripts of esbuild and workerd ran. Largest single process 829 MB resident |
+| Build (`vinext build`) | 8.3 s. Largest single process 929 MB resident |
+| Start, gated, demonstration on, idle machine (load average 2) | gateway listening 1.05 s; `/healthz` 200 at 5.28 s; "demonstration was added: 5 companies, 3 providers, 68 requests" |
+| Start, open access, demonstration on, busy machine (load average 6.9) | listening 1.2 s; `/healthz` 200 at 8.04 s |
+| Start, gated, no demonstration, idle machine (load average 0.02) | listening 0.47 s; `/healthz` 200 at 2.2 s |
+
+Resident memory (`ps -o rss`, summed over the launcher's Node process and workerd; the second figure counts shared pages once, from `/proc/<pid>/smaps_rollup`), megabytes:
+
+| Run | Highest during start | 3 s after ready | 60 s after ready | After a browse | Highest during the browse |
+| --- | --- | --- | --- | --- | --- |
+| Gated, demonstration on | not sampled | 337 (286) | 277 (223) | 297 (243) | 295 (241) |
+| Open, demonstration on | 345 (288) | 345 (289) | 300 (244) | 319 (262) | 317 (261) |
+| Gated, no demonstration | 306 (279) | 311 (284) | 273 (246) | 301 (273) | 290 (263) |
+
+The browse: sign in as SYNTHETIC Owner A, then Describe, Diagnose, Procure, Deliver, Run, `/demo` (when on) and `/api/health`, three rounds, then sign in as the operator and open `/operator` (26 requests with the demonstration, 23 without). All answered 200. The first request after ready (`/sign-in`) took 119, 71 and 50 ms; the second 28, 40 and 14 ms. Median page 68, 62 and 24 ms; slowest 230, 326 and 56 ms. With the demonstration on, the Node process held 150 to 222 MB and workerd 123 to 145 MB. SIGTERM ended each run with exit code 0 in about 100 ms and left no process. Every process started was ended.
+
+**Does it fit the plan's 1 GiB?** Yes, with room: at the highest, 345 MB resident for both processes (about a third of 1 GiB) [Certain for these processes on this machine; Likely on App Platform, whose own overhead and the way it counts memory were not measured]. The 512 MiB size would probably hold (67 % at the highest) but is tight for a presentation [Guessing].
+
+The database is not in memory. Each start wrote a Miniflare directory (`miniflare-<random>`, about 1.4 MB, SQLite files for the database and a cache) under the temporary directory, and it was still there after a clean SIGTERM exit. Nothing was written to the application's own directories, so a read-only application directory would not stop it [Likely; the run was as root, so a permission error on a path outside what was listed would not have shown].
+
+### Behaviours the status page claims, run against the launcher
+
+56 checks (a script that started the launcher and talked to it over HTTP, with raw requests so that Host and Origin could be set). 55 matched the claim. The one that did not is the second finding below.
+
+- `/healthz` answers 200 `ok` without credentials, also for HEAD and with a query string, with `cache-control: no-store`. `POST /healthz`, `/healthz/`, `/HEALTHZ`, `//healthz` and `/healthz/x` are behind the gate (401).
+- Every other path answers 401 without credentials, with `WWW-Authenticate: Basic realm="APLYD synthetic demonstration"`: 12 paths (including `/`, `/sign-in`, `/api/health`, `/demo`, a static path, a path that does not exist), and `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`.
+- 401 for a wrong password, a wrong user, an empty password, no colon, a user in another case, the password with one character added or removed, `Bearer`, a malformed Basic value and `Basic` alone. The Basic scheme name is accepted in lower case. The right pair gives 200 on `/sign-in`, `/`, `/api/health` (`{"status":"ok","database":"ok","auditGuard":"ok"}`) and `/demo`.
+- Origin and Host: an Origin of `https://<Host>` is accepted for sign-in (303, cookie `HttpOnly; Secure; SameSite=Lax; Max-Age=28800`); another site's Origin, `null`, and a comma list are refused (403 `cross_site_refused`); `X-Forwarded-Host` is not trusted; a request with no Origin at all is accepted (303); an `http` Origin with the same host is accepted. An ingress that rewrites Host to an internal name while the browser's Origin is the public host is refused until `APLYD_PUBLIC_HOSTS` names it; then it is accepted, a second listed host with a port and mixed case works, an unlisted host and a listed name on another port are still refused.
+- A body over 256 KB is refused (413). An upgrade request is closed with no answer.
+- A restart is a reset: a provider entered as the operator was on `/operator`; after SIGTERM (exit 0) and a start with the same settings it was gone, and the demonstration was added again with the same counts (5, 3, 68). Without `APLYD_DEMO`, `/demo` answers 404.
+- The launcher refuses to start (exit 2, problems listed, the secret not printed) with no settings at all, with the spec's `REPLACE_ME` placeholders, with a short password, with `APLYD_ENV=production`, and with `DEMO_ACCESS=open` together with a gate.
+
+### What could not be reproduced or was found different
+
+1. **"The database is in memory"** (the status page, the launcher's header, the Dockerfile's comment, section 2 of the status page's limits). It is a SQLite file in the temporary directory, left behind after exit. The reset on restart is real (new directory each start); the words were wrong. Corrected in the status page, the launcher's header and the Dockerfile.
+2. **A dead Worker is not repaired.** After killing workerd, `/healthz` answered 503 `application not answering` within 2.5 s and every other page 502, as claimed, but the launcher stayed running 7.5 s later. Only a platform health check on `/healthz` makes the platform restart the container, and the live app uses the default check (the sponsor's report). Not changed in code: a watchdog that exits the launcher would reset a live demonstration on a false alarm, and the health check is the platform's job. In the runbook, section 19.3.
+3. **"Ready within about 12 seconds"** was taken on a busy machine. 2.2 to 8.0 seconds here. Not a contradiction; the old figure is kept above in this file.
+4. **A session survives a restart** (the runbook said "Likely; not observed"): a cookie issued before the restart was accepted after it, signed in as Company A, with the demonstration reseeded. Now observed.
+5. **The application's 64 KB body limit** is not applied to `POST /api/session`: a 100 KB form body was passed through by the gateway (under its own 256 KB limit) and answered 303. Not a hosting fault; the application's route is another module's.
+6. **Not reproduced because it needs the platform:** that the platform's ingress forwards Host and Origin as assumed; that the health check reaches `/healthz` over HTTP on port 8080; the platform's start time and build memory; the first build's 2 minutes 11 seconds; the region; the cost.
+
+### The commit on `/healthz`
+
+New in this pass. `APLYD_COMMIT` (7 to 64 hexadecimal characters; anything else is ignored with a line in the log, never a refusal to start) is shown by `/healthz` as a second line `commit <id>`, or `commit unknown`. The Dockerfile declares `ARG APLYD_COMMIT` and `ENV APLYD_COMMIT` after the build, so a new commit does not redo the install and build. `.do/app.yaml` sets `APLYD_COMMIT` to `${_self.COMMIT_HASH}` as a run-time value; DigitalOcean's documentation says its bindable variables are available at run time only for a Dockerfile build (not run). The route that carries the commit is the one route outside the gate: a commit id is shown to anyone who can reach the address [Likely low risk; the sponsor decides]. `.do/app.yaml` also gained `APLYD_DEMO: "true"`, as the live app has.
+
+Tests added: 1 unit (18 in all: the accepted and ignored values, including a newline and a template placeholder), 1 integration (15: the second line in every state, none when not given, nothing on any other path), 1 smoke (7: a given commit, none given, a value that is not a commit id), 2 static (8: the spec's run-time variable and the Dockerfile's order, and the demonstration switch; the old assertion on the spec's literal values now allows exactly `"true"` and `${_self.COMMIT_HASH}` as well as `synthetic` and `REPLACE_ME`, so a real-looking secret still fails it). Four changes were made on purpose and each failed the test written for it: the gateway printing no commit, the commit check accepting any string, the spec's variable renamed, the Dockerfile's `ARG` before the build.
+
+Run on 6 October 2026: `node scripts/test.mjs static` 28 of 28 suites passed (via the heavy queue, including `static/typecheck`, `static/documentation`, `static/traceability`, `static/test-docs`); `node scripts/test.mjs static unit integration smoke --only hosting/unit/gate,hosting/static/deploy-files,hosting/integration/gateway,hosting/smoke/serve`: 18, 15, 8 and 7 tests passed, none failed (smoke 22 seconds, against `pnpm build` of this commit); the baselines in `tests/baseline.json` were updated by the runner to those counts. `node scripts/test.mjs pr --guard` was not run, as the brief forbids it. The documentation findings register quotes text of the status page (FND-197, FND-199); the status page keeps it as quoted history so the register's own check stays green.
+
+### Not checked in this pass
+
+- The image: no Docker build, no non-root run (`USER node`), no `HEALTHCHECK` run, no image size. The `chown -R` after the build copies the whole install into a new layer, so the image is larger than it needs to be [Likely]; it does not affect the running container.
+- Anything on DigitalOcean: the live spec, the console wording, rollback behaviour, what the platform serves while a deploy fails, whether the build honours `.dockerignore`, whether `${_self.COMMIT_HASH}` is filled as documented.
+- GitHub's run logs (forbidden to the token available; only run lists and step timings were read).
+- A run of the full guard on this branch.
