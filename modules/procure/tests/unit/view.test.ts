@@ -1,7 +1,7 @@
 // What the two pages say about where things stand. Each sentence is pinned, because a person reads the page's state from it.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { askedLabel, distinctListedFees, nothingLeftToAsk, operatorSummary, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState, serviceGroups } from "../../src/view.ts";
+import { askedLabel, askState, distinctListedFees, nothingLeftToAsk, operatorSummary, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState, serviceGroups } from "../../src/view.ts";
 
 test("a requirement is withdrawn, has a provider chosen, needs one chosen, or waits for one to be listed, in that order of precedence", () => {
   assert.equal(requirementState({ withdrawn: true, engaged: true, providersListed: 2 }).key, "withdrawn");
@@ -148,4 +148,19 @@ test("an idea ready to ask for is the owner's turn only while no requirement is 
   assert.equal(readyTone({ ...none, accepted: 5, asked: 1, ready: 4, needsChoice: 1 }), "brand");
   assert.equal(readyTone({ ...none, accepted: 5, asked: 1, ready: 4, waiting: 1 }), "brand");
   assert.equal(readyTone({ ...none, accepted: 5, asked: 1, ready: 4, chosen: 1 }), "brand");
+});
+
+test("an idea is ready to ask for only when its assessment names nothing that comes first and nothing to check first (S5-14)", () => {
+  assert.deepEqual(askState({ needsFirst: [], toCheck: [] }), { key: "ready", tag: "Ready to ask for" });
+  assert.deepEqual(askState({ needsFirst: ["First keep every job on a simple shared log"], toCheck: [] }), { key: "do_first", tag: "Needs something else first" });
+  assert.deepEqual(askState({ needsFirst: [], toCheck: ["A job log is in use"] }), { key: "check_first", tag: "A few things to check first" });
+  assert.equal(askState({ needsFirst: ["x"], toCheck: ["y"] }).key, "do_first", "something that must come first outranks something to check");
+});
+
+test("the tags do not call an idea ready when it has something to do or check first, and leave the count of ready ideas to the others (S5-14)", () => {
+  const c = { ...none, accepted: 4, ready: 4 };
+  assert.deepEqual(procureTags(c, 1).map((t) => `${t.tone ?? "plain"}: ${t.text}`), ["turn: 3 ideas ready to ask for", "plain: 1 idea has something to do or check first"]);
+  assert.deepEqual(procureTags(c, 4).map((t) => t.text), ["4 ideas have something to do or check first"], "none ready: no 'ready' tag at all");
+  assert.deepEqual(procureTags(c, 0).map((t) => t.text), ["4 ideas ready to ask for"], "the old call, with no ideas held back, reads as before");
+  assert.deepEqual(procureTags(c, 9).map((t) => t.text), ["4 ideas have something to do or check first"], "more held than there are ready is held to the number ready");
 });

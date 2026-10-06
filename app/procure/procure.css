@@ -62,6 +62,21 @@
 .pr-end { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
 .pr-end > p { max-width: none; }
 
+/* Links that stand alone on a line are tap targets: at least 44 px high (FND-270). */
+.pr-end a, .pr-summary a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+
+/* What the ideas still need first, from the assessment (S5-14). */
+.pr-first { display: grid; gap: var(--s-1); padding: var(--s-2) var(--s-3); border-left: 4px solid var(--line-strong); background: var(--surface-2); border-radius: var(--r-sm); }
+.pr-first p { margin: 0; max-width: none; }
+
+/* The last thing to read before an action that cannot be undone (S5-04), and what the platform does not do (S5-05). */
+.pr-final { font-weight: 600; color: var(--fg); }
+.pr-contact { max-width: none; padding: var(--s-2) var(--s-3); border-left: 4px solid var(--line-strong); background: var(--surface-2); border-radius: var(--r-sm); color: var(--fg); }
+
+/* The card that just changed, where a redirect lands (S5-10). */
+.pr-section .card[id] { scroll-margin-top: 4.5rem; }
+.pr-section .card[id]:target { outline: 3px solid var(--brand); outline-offset: 2px; }
+
 @media (max-width: 40rem) {
   .pr-wide .actions > button, .pr-wide .actions > .btn { width: 100%; }
 }

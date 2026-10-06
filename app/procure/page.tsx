@@ -6,7 +6,7 @@ import { presentAssessment } from "../../modules/diagnose/src/api/diagnose.ts";
 import { listAssessments, loadAssessment } from "../../modules/diagnose/src/db/assessments.ts";
 import { CLUSTERS, clusterLabel } from "../../modules/procure/src/clusters.ts";
 import { MAX_NOTE_LENGTH, presentRequirements } from "../../modules/procure/src/api/requirements.ts";
-import { askedLabel, nothingLeftToAsk, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState } from "../../modules/procure/src/view.ts";
+import { askedLabel, askState, nothingLeftToAsk, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState } from "../../modules/procure/src/view.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
 import { formatDate } from "../_ui/dates.ts";
@@ -59,51 +59,13 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
     withdrawnAsked: alreadyAsked.filter((i) => asked.get(i.opportunityId)?.withdrawnAt != null).length,
     requirements: requirements.map((r) => ({ withdrawn: r.withdrawnAt !== null, engaged: engagedWith.has(r.id), providersListed: r.providers.length })),
   });
-  const tags = procureTags(counts);
+  // Ideas not yet asked for that have something to do or check first are not called "Ready to ask for" (S5-14). The assessment stored with the idea says so.
+  const held = ready.filter((i) => askState(i.readiness).key !== "ready").length;
+  const tags = procureTags(counts, held);
+  // A requirement the owner just made shows its confirmation on its own card, where the redirect lands (S5-10). Any other value falls back to the top of the page.
+  const madeHere = typeof q.made === "string" && requirements.some((r) => r.id === q.made);
 
-  return (
-    <Page stage="procure" identity={identity} title="What you need" lede="Say what you need for each idea you accepted, then choose a provider.">
-      {q.made ? (
-        <Notice role="status" tone="success" data-testid="made">
-          Your requirement was recorded.
-        </Notice>
-      ) : null}
-      {q.withdrawn === "1" ? (
-        <Notice role="status" tone="success" data-testid="withdrawn">
-          Your requirement was withdrawn. It stays on record, marked as withdrawn.
-        </Notice>
-      ) : null}
-      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
-        <Notice role="alert" tone="danger" data-testid="problem">
-          {PROBLEMS[q.problem]}
-        </Notice>
-      ) : null}
-
-      <p className="help pr-note">
-        <Tag>SYNTHETIC</Tag> The ideas, the clusters and the providers on this page are placeholders written to test the service. No quote, price, contract or payment exists here: this only records what you are asking for.
-      </p>
-
-      {accepted.length > 0 || requirements.length > 0 ? (
-        <section className="card tint pr-summary" aria-label="Where this stands" data-testid="procure-state">
-          <p className="pr-sentence">{procureSentence(counts)}</p>
-          {tags.length > 0 ? (
-            <div className="pr-tags">
-              {tags.map((t) => (
-                <Tag key={t.text} tone={t.tone}>
-                  {t.text}
-                </Tag>
-              ))}
-            </div>
-          ) : null}
-          {counts.accepted > 0 ? <Meter done={counts.asked} of={counts.accepted} label={askedLabel(counts)} /> : null}
-          {counts.needsChoice > 0 && counts.ready > 0 ? (
-            <p>
-              <a href="#requirements">Jump to your requirements</a>
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
+  const ideasSection = (
       <section className="pr-section" aria-labelledby="pr-ideas" data-testid="accepted">
         <h2 id="pr-ideas">Ideas you accepted</h2>
         {!view ? (
@@ -124,15 +86,19 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
             </p>
             {ready.length > 0 ? (
               <>
-                <p className="eyebrow">Ready to ask for</p>
-                <p className="help">Choose a cluster for each idea you want to ask for. You are pooled only with companies that ask for the same idea in the same cluster. The size of a pool is shown only from five companies.</p>
+                <p className="eyebrow">Ideas to ask for</p>
+                <p className="help" data-testid="cluster-explained">
+                  A cluster is a group of factories, in one place or in one association. Choose a cluster for each idea you want to ask for. You are counted only with companies that ask for the same idea in the same cluster, and you are shown only the providers listed for that cluster. The three clusters here are made up for the test (SYNTHETIC) and match no real place. The size of a pool is shown only from five companies.
+                </p>
                 <ul className="items">
-                  {ready.map((item) => (
-                    <li key={item.opportunityId} className="card item" data-testid={`accepted-${item.opportunityId}`}>
+                  {ready.map((item) => {
+                    const state = askState(item.readiness);
+                    return (
+                    <li key={item.opportunityId} id={`idea-${item.opportunityId}`} className="card item" data-testid={`accepted-${item.opportunityId}`} data-ask={state.key}>
                       <div className="pr-top">
                         <h3>{item.title}</h3>
                         <div className="pr-tags">
-                          <Tag tone={readyTone(counts)}>Ready to ask for</Tag>
+                          <Tag tone={state.key === "ready" ? readyTone(counts) : undefined}>{state.tag}</Tag>
                           <Tag>{item.kind === "ai" ? "Uses AI" : "No AI needed"}</Tag>
                         </div>
                       </div>
@@ -140,6 +106,21 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                       <p className="muted">
                         Cost, from the assessment: one-time <span className="num">{range(item.costs.oneTime)}</span>, every year after <span className="num">{range(item.costs.recurringPerYear)}</span> (SYNTHETIC placeholders).
                       </p>
+                      {state.key !== "ready" ? (
+                        <div className="pr-first" data-testid={`first-${item.opportunityId}`}>
+                          {item.readiness.needsFirst.length ? (
+                            <p>
+                              <strong>Do first:</strong> {item.readiness.needsFirst.join("; ")}.
+                            </p>
+                          ) : null}
+                          {item.readiness.toCheck.length ? (
+                            <p>
+                              <strong>Check:</strong> {item.readiness.toCheck.join("; ")}. You did not answer a question needed to judge this.
+                            </p>
+                          ) : null}
+                          <p className="muted">This is what your assessment says comes first. You can still make the requirement now.</p>
+                        </div>
+                      ) : null}
                       <form method="post" action={`/api/companies/${companyId}/requirements`} className="pr-ask pr-wide">
                         <input type="hidden" name="assessment" value={view.id} />
                         <input type="hidden" name="opportunity" value={item.opportunityId} />
@@ -147,7 +128,10 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                           <label htmlFor={`cluster-${item.opportunityId}`} className="label">
                             Which cluster do you ask in?
                           </label>
-                          <select id={`cluster-${item.opportunityId}`} name="cluster" required defaultValue="">
+                          <p className="help" id={`cluster-help-${item.opportunityId}`}>
+                            Choose the group of factories you want to be counted with.
+                          </p>
+                          <select aria-describedby={`cluster-help-${item.opportunityId}`} id={`cluster-${item.opportunityId}`} name="cluster" required defaultValue="">
                             <option value="" disabled>
                               Choose a cluster
                             </option>
@@ -158,6 +142,9 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                             ))}
                           </select>
                         </div>
+                        <p className="help pr-final" data-testid={`final-${item.opportunityId}`}>
+                          Check the cluster before you press the button. It cannot be changed afterwards.
+                        </p>
                         <div className="actions">
                           <button type="submit" className="primary">
                             Make a requirement from {item.title}
@@ -166,7 +153,8 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                         <p className="help">This only records what you are asking for. You can withdraw it until you choose a provider, but you cannot change its cluster.</p>
                       </form>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </>
             ) : (
@@ -185,7 +173,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                     {group.items.map((item) => {
                       const r = asked.get(item.opportunityId)!;
                       return (
-                        <li key={item.opportunityId} className="card item" data-testid={`accepted-${item.opportunityId}`}>
+                        <li key={item.opportunityId} id={`idea-${item.opportunityId}`} className="card item" data-testid={`accepted-${item.opportunityId}`}>
                           <div className="pr-top">
                             <h3>{item.title}</h3>
                             <div className="pr-tags">
@@ -209,9 +197,15 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
           </>
         )}
       </section>
-
+  );
+  const requirementsSection = (
       <section className="pr-section" id="requirements" aria-labelledby="pr-requirements">
         <h2 id="pr-requirements">Your requirements</h2>
+        {requirements.length > 0 ? (
+          <p className="help" data-testid="pool-explained">
+            A pool is the companies in one cluster that asked for the same idea. It shows you that others want the same thing. It is only a count: nothing is shared between companies, and a pool does not give you a price or an offer. A number is shown only from five companies.
+          </p>
+        ) : null}
         {requirements.length === 0 ? (
           <div className="card">
             <p data-testid="no-requirements">None yet. {accepted.length > 0 ? "Make one from an idea above: it appears here with the providers listed for it." : "A requirement starts from an idea you accepted."}</p>
@@ -237,6 +231,9 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
               const providers = (
                 <div className="pr-block" data-testid="providers">
                   <h4>Providers listed for this</h4>
+                  <p className="pr-contact">
+                    <strong>APLYD does not put you in touch with the provider. You will have to contact them yourself.</strong>
+                  </p>
                   <p className="help">(SYNTHETIC; in name order. APLYD's earnings do not depend on which one you choose.)</p>
                   {r.providers.length === 0 ? (
                     <p className="muted">No provider is listed for this in your cluster yet. When one is listed for this idea in your cluster, it appears here.</p>
@@ -256,7 +253,12 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                 </div>
               );
               return (
-                <li key={r.id} className="card item" data-testid={`requirement-${r.opportunityId}`} data-state={state.key}>
+                <li key={r.id} id={`requirement-${r.id}`} className="card item" data-testid={`requirement-${r.opportunityId}`} data-state={state.key}>
+                  {q.made === r.id ? (
+                    <Notice role="status" tone="success" data-testid="made">
+                      Your requirement was recorded. The providers listed for it, if any, are below.
+                    </Notice>
+                  ) : null}
                   <div className="pr-top">
                     <h3>{r.title}</h3>
                     <div className="pr-tags">
@@ -278,6 +280,9 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                       <div data-testid="engaged" className="pr-block pr-wide">
                         <p>
                           <strong>You chose {chosen.providerName}.</strong> A requirement with a provider chosen stays: close the engagement on the delivery page if it ends.
+                        </p>
+                        <p className="pr-contact">
+                          <strong>APLYD does not put you in touch with the provider. You will have to contact them yourself.</strong>
                         </p>
                         <div className="actions">
                           <a className="btn" href="/deliver">
@@ -320,7 +325,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                               Choose a provider for {r.title}
                             </button>
                           </div>
-                          <p className="help">This records your choice and opens a plan you write with them. It does not contact the provider, agree a price or move any money. You cannot change the provider for this requirement afterwards.</p>
+                          <p className="help">APLYD does not put you in touch with the provider. You will have to contact them yourself. This records your choice and opens a plan you write with them. It does not contact the provider, agree a price or move any money. You cannot change the provider for this requirement afterwards.</p>
                         </form>
                       ) : null}
                       {pool}
@@ -346,6 +351,62 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
           </ul>
         )}
       </section>
+  );
+
+  return (
+    <Page stage="procure" identity={identity} title="What you need" lede="Say what you need for each idea you accepted, then choose a provider.">
+      {q.made && !madeHere ? (
+        <Notice role="status" tone="success" data-testid="made">
+          Your requirement was recorded.
+        </Notice>
+      ) : null}
+      {q.withdrawn === "1" ? (
+        <Notice role="status" tone="success" data-testid="withdrawn">
+          Your requirement was withdrawn. It stays on record, marked as withdrawn.
+        </Notice>
+      ) : null}
+      {q.problem && Object.hasOwn(PROBLEMS, q.problem) ? (
+        <Notice role="alert" tone="danger" data-testid="problem">
+          {PROBLEMS[q.problem]}
+        </Notice>
+      ) : null}
+
+      <p className="help pr-note">
+        <Tag>SYNTHETIC</Tag> The ideas, the clusters and the providers on this page are placeholders written to test the service. No quote, price, contract or payment exists here: this only records what you are asking for.
+      </p>
+
+      {accepted.length > 0 || requirements.length > 0 ? (
+        <section className="card tint pr-summary" aria-label="Where this stands" data-testid="procure-state">
+          <p className="pr-sentence">{procureSentence(counts)}</p>
+          {tags.length > 0 ? (
+            <div className="pr-tags">
+              {tags.map((t) => (
+                <Tag key={t.text} tone={t.tone}>
+                  {t.text}
+                </Tag>
+              ))}
+            </div>
+          ) : null}
+          {counts.accepted > 0 ? <Meter done={counts.asked} of={counts.accepted} label={askedLabel(counts)} /> : null}
+          {counts.needsChoice > 0 && counts.ready > 0 ? (
+            <p>
+              <a href="#requirements">Jump to your requirements</a>
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {requirements.length > 0 ? (
+        <>
+          {requirementsSection}
+          {ideasSection}
+        </>
+      ) : (
+        <>
+          {ideasSection}
+          {requirementsSection}
+        </>
+      )}
 
       <div className="pr-end">
         <p>

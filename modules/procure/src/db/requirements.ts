@@ -12,17 +12,18 @@ export type Spec = {
   source: string;
   libraryVersion: number;
 };
-export type RequirementRecord = { id: string; assessmentId: string; opportunityId: string; cluster: string; spec: Spec; createdAt: string; createdBy: string; withdrawnAt: string | null };
+export type RequirementRecord = { id: string; assessmentId: string; opportunityId: string; cluster: string; spec: Spec; createdAt: string; createdBy: string; withdrawnAt: string | null; /** The note the owner wrote with the withdrawal, or null when none was written or the requirement is open (FND-278). */ withdrawnNote?: string | null };
 
-type Row = { id: string; assessment_id: string; opportunity_id: string; cluster: string; spec: string; created_at: string; created_by: string; withdrawn_at: string | null };
-const toRecord = (r: Row): RequirementRecord => ({ id: r.id, assessmentId: r.assessment_id, opportunityId: r.opportunity_id, cluster: r.cluster, spec: JSON.parse(r.spec) as Spec, createdAt: r.created_at, createdBy: r.created_by, withdrawnAt: r.withdrawn_at });
+type Row = { id: string; assessment_id: string; opportunity_id: string; cluster: string; spec: string; created_at: string; created_by: string; withdrawn_at: string | null; withdrawn_note?: string | null };
+const toRecord = (r: Row): RequirementRecord => ({ id: r.id, assessmentId: r.assessment_id, opportunityId: r.opportunity_id, cluster: r.cluster, spec: JSON.parse(r.spec) as Spec, createdAt: r.created_at, createdBy: r.created_by, withdrawnAt: r.withdrawn_at, withdrawnNote: r.withdrawn_note ? r.withdrawn_note : null });
 
-/** The company's requirements, newest first, with the time of the withdrawal if there was one. */
+/** The company's requirements, newest first, with the time of the withdrawal and the note written with it, if there was one. */
 export async function listRequirements(db: D1Database, companyId: string): Promise<RequirementRecord[]> {
   const { results } = await db
     .prepare(
       `SELECT r.id, r.assessment_id, r.opportunity_id, r.cluster, r.spec, r.created_at, r.created_by,
-              (SELECT e.at FROM requirement_events e WHERE e.requirement_id = r.id AND e.company_id = r.company_id AND e.kind = 'withdraw') AS withdrawn_at
+              (SELECT e.at FROM requirement_events e WHERE e.requirement_id = r.id AND e.company_id = r.company_id AND e.kind = 'withdraw') AS withdrawn_at,
+              (SELECT e.note FROM requirement_events e WHERE e.requirement_id = r.id AND e.company_id = r.company_id AND e.kind = 'withdraw') AS withdrawn_note
          FROM requirements r WHERE r.company_id = ? ORDER BY r.created_at DESC, r.id`,
     )
     .bind(companyId)

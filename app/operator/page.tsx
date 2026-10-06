@@ -14,7 +14,7 @@ import { Notice, PageHead, SignedOut, Tag } from "../_ui/parts.tsx";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Providers" };
 
-type Search = { made?: string; listed?: string; unlisted?: string; fee?: string; problem?: string };
+type Search = { made?: string; listed?: string; unlisted?: string; fee?: string; problem?: string; name?: string; summary?: string };
 
 const PROBLEMS: Record<string, string> = {
   provider: "That provider could not be added. Give a name and choose at least one idea and one cluster.",
@@ -41,7 +41,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
         <PageHead title="Providers and the listing fee" />
         <div className="card">
           <p className="muted">This page is for a platform operator.</p>
-          <p>
+          <p className="op-end">
             <a href="/">Back</a>
           </p>
         </div>
@@ -53,6 +53,10 @@ export default async function Operator({ searchParams }: { searchParams: Promise
   const [terms, history, providers, pools] = await Promise.all([currentTerms(db), listTermsHistory(db), listAllProviders(db), presentPools(db)]);
   const summary = operatorSummary({ terms, providers, pools: pools.length });
   const fees = distinctListedFees(providers);
+  // A refused "Add provider" comes back with what was typed, so the operator does not type it again. Only these two boxes, cut to their limits; shown as the value of a box, never as markup.
+  const keep = (v: string | undefined, max: number) => (q.problem === "provider" && typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, max) : "");
+  const keptName = keep(q.name, MAX_NAME_LENGTH);
+  const keptSummary = keep(q.summary, MAX_SUMMARY_LENGTH);
 
   return (
     <>
@@ -106,8 +110,8 @@ export default async function Operator({ searchParams }: { searchParams: Promise
         </div>
       </section>
 
-      <section className="card" aria-labelledby="op-terms" data-testid="fee">
-        <h2 id="op-terms">Listing terms</h2>
+      <section className="card" id="op-terms" aria-labelledby="op-terms-h" data-testid="fee">
+        <h2 id="op-terms-h">Listing terms</h2>
         <div className="op-fee-now">
           {terms ? <Tag tone="ok">Fee in force</Tag> : <Tag tone="turn">Fee not decided</Tag>}
           {terms ? (
@@ -115,12 +119,12 @@ export default async function Operator({ searchParams }: { searchParams: Promise
               In force: <strong>{rupees(terms.feeInr)}</strong> (version {terms.version}, set <span className="op-nw">{formatDate(terms.at)}</span>).
             </p>
           ) : (
-            <p data-testid="fee-now">The fee has not been decided (OQ-11), so no provider can be listed. Set it below, and listing opens.</p>
+            <p data-testid="fee-now">The fee has not been decided, so no provider can be listed. Set it below, and listing opens.</p>
           )}
         </div>
-        <p className="help">Any fee set here is a SYNTHETIC placeholder, not a proposal: the real fee is an open question (OQ-11).</p>
+        <p className="help">Any fee set here is a SYNTHETIC placeholder, not a proposal: the real fee has not been decided.</p>
         <p className="help">
-          One fee at a time, the same for every provider listed under it. It does not depend on what a provider serves, on how many owners ask for it, or on which provider an owner chooses (D-03). A provider keeps the fee it was listed at when the fee changes, so providers listed at different times can pay different fees; this page says so when they do.
+          One fee at a time, the same for every provider listed under it. It does not depend on what a provider serves, on how many owners ask for it, or on which provider an owner chooses. A provider keeps the fee it was listed at when the fee changes, so providers listed at different times can pay different fees; this page says so when they do.
         </p>
         <form method="post" action="/api/operator/listing-terms" className="op-form op-wide">
           <div className="field-row two">
@@ -170,36 +174,35 @@ export default async function Operator({ searchParams }: { searchParams: Promise
                 <thead>
                   <tr>
                     <th scope="col">Provider</th>
-                    <th scope="col">What it serves</th>
-                    <th scope="col">Status</th>
                     <th scope="col">
                       <span className="sr">Action</span>
                     </th>
+                    <th scope="col">Status</th>
+                    <th scope="col">What it serves</th>
                   </tr>
                 </thead>
                 <tbody>
                   {providers.map((p) => {
                     const serves = serviceGroups(p.services, titleOf, clusterLabel);
                     return (
-                      <tr key={p.id} data-testid={`provider-${p.name}`}>
+                      <tr key={p.id} id={`provider-${p.id}`} data-testid={`provider-${p.name}`}>
                         <td>
                           <span className="op-name">{p.name}</span>
                           {p.summary ? <span className="op-sub">{p.summary}</span> : null}
                         </td>
-                        <td>{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
-                        <td>
-                          <div className="op-tags">
-                            <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
-                            {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
-                          </div>
-                        </td>
                         <td>
                           {p.listed ? (
-                            <form method="post" action={`/api/operator/providers/${p.id}/unlist`}>
-                              <button type="submit" aria-label={`Unlist ${p.name}`}>
-                                Unlist
-                              </button>
-                            </form>
+                            <details className="op-confirm" data-testid={`unlist-${p.id}`}>
+                              <summary aria-label={`Unlist ${p.name}`}>Unlist</summary>
+                              <form method="post" action={`/api/operator/providers/${p.id}/unlist`}>
+                                <p>
+                                  Unlist {p.name}? Owners will no longer be offered it. Its earlier listing stays on record, and you can list it again.
+                                </p>
+                                <button type="submit" className="danger" aria-label={`Yes, unlist ${p.name}`}>
+                                  Yes, unlist
+                                </button>
+                              </form>
+                            </details>
                           ) : (
                             <form method="post" action={`/api/operator/providers/${p.id}/list`}>
                               <button type="submit" className="primary" aria-label={`List ${p.name}`}>
@@ -208,6 +211,13 @@ export default async function Operator({ searchParams }: { searchParams: Promise
                             </form>
                           )}
                         </td>
+                        <td>
+                          <div className="op-tags">
+                            <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
+                            {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
+                          </div>
+                        </td>
+                        <td>{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
                       </tr>
                     );
                   })}
@@ -226,13 +236,13 @@ export default async function Operator({ searchParams }: { searchParams: Promise
               <label htmlFor="provider-name" className="label">
                 Name
               </label>
-              <input id="provider-name" name="name" type="text" maxLength={MAX_NAME_LENGTH} required />
+              <input id="provider-name" name="name" type="text" maxLength={MAX_NAME_LENGTH} required defaultValue={keptName} />
             </div>
             <div className="question">
               <label htmlFor="provider-summary" className="label">
                 What it does (optional)
               </label>
-              <input id="provider-summary" name="summary" type="text" maxLength={MAX_SUMMARY_LENGTH} />
+              <input id="provider-summary" name="summary" type="text" maxLength={MAX_SUMMARY_LENGTH} defaultValue={keptSummary} />
             </div>
           </div>
           <fieldset className="op-group">
@@ -269,7 +279,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
       <section className="card" aria-labelledby="op-pools" data-testid="pools">
         <h2 id="op-pools">Pools at the floor</h2>
         <p className="help">These are the pools you can take to providers.</p>
-        <p className="muted">Only pools of at least five companies are shown, and only as a count: no company is named (C-04).</p>
+        <p className="muted">Only pools of at least five companies are shown, and only as a count: no company is named.</p>
         {pools.length === 0 ? (
           <p>No pool has reached five companies yet. A pool shows here once five or more companies ask for the same idea in the same cluster.</p>
         ) : (

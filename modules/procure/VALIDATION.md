@@ -155,3 +155,32 @@ The author is an agent; no person has read this. Real results, after `pnpm build
 **Mutation checks (the unit tests only).** `asked` counting a withdrawn requirement, `ready` counting it as ready, and the label never saying "withdrawn" each made `procure/unit/view` fail; restored afterwards. The browser and smoke tests were not mutated. A measurement script, not a test, found the 109 px page overflow of the first version of the table box (see STATUS): the page was 499 px wide on a 390 px screen. The phone test measures the page width and should catch it, but it was written after the fix and was not run against the broken build.
 
 **What this does not show.** Chromium only; 390 px only; no real phone, no screen reader, no keyboard walk of the table box. The owner's wording ("1 withdrawn, which is not made again") has not been read by an owner. The date is the UTC date.
+
+## Slice 12b: Choose and the operator's page for a first-time owner (6 October 2026, branch `slice-12b-choose-operator`)
+
+The author is an agent; no person has read this. Results are from the tree at the commits of this branch, after `pnpm build` on 6 October 2026 (about 06:54 IST). It answers S5-04, S5-05, S5-10, S5-14, S5-15 and S5-19 of the first-time walkthrough and FND-270 and FND-278.
+
+| Check | Result |
+| --- | --- |
+| `procure/unit/view` | 19 passed (2 more: `askState`, and the tags for ideas with something first, including the old call with none held back) |
+| `procure/unit/clusters`, `procure/unit/pool` | 2 and 5 passed |
+| `procure/static/rules`, `procure/static/problems` | 10 and 2 passed (whole static layer run once, 6 October, about 06:25 IST) |
+| `procure/integration/procure-api` | 36 passed: 34, plus the withdrawal note (open requirement, withdrawn with a note, withdrawn without one) and a refused add that keeps what was typed (an assertion added to the existing form-post test). Existing expected redirects were changed (see below) |
+| `procure/smoke/procure` | 6 passed against the built application |
+| `procure/browser/procure` | 3 passed (the unlist step now opens the question first and presses "Yes, unlist"; it checks that opening the question unlists nothing and that the address then names the row) |
+| `demo/smoke/interface`, `demo/smoke/demo` | 6 and 10 passed |
+| `demo/browser/phone`, `demo/browser/walk`, `journey/browser/journey` | 2, 2 and 1 passed |
+| `quality/browser/phone` | 4 passed, 1 failed, and the failure is the list of known offenders being out of date, not a fault of these pages: 19 known offenders are gone (listed under "Known offenders removed"), and two faults are new and are on pages this slice does not own (`/deliver` owner E, `summary "What a good test looks like"`; `/run` owner C, `summary "Correct this number"`) |
+| `static/typecheck` | passed, run again after the last edit to a test (6 October 2026, about 07:00 IST) |
+| `node scripts/check-documentation.mjs`, `check-traceability.mjs`, `check-test-docs.mjs`, `test.mjs --check-catalogue` | passed |
+| Whole static layer, once, before the last commits | 27 of 29 suites passed. The two that failed are not about these pages' behaviour: `docs/static/findings` (FND-271's evidence, `role="note"` in `app/demo/page.tsx`, is gone because it was fixed; the register row needs updating) and `docs/static/lld-sync` (`app/run/page.tsx exports metadata, which is not listed`, a file this branch did not touch) |
+
+**Known offenders removed** (`modules/quality/tests/support/known-offenders/phone.json`, not edited here): `/procure` "Back to your assessment" for owners A to G (7), "Home" for A to G (7), "Jump to your requirements" for D to G (4), and `/operator` "Home" for the operator (1). The file needs `QUALITY_UPDATE_BASELINE=1` run once by the integrator, after reading its diff.
+
+**Existing assertions that were changed, and why.** Each pinned wording or an address that the brief asked to change, and each still asserts the new value: three assertions of "The fee has not been decided (OQ-11), so no provider can be listed" (`procure/smoke`, `procure/browser`, `demo/smoke/interface`) now match the sentence without the code; four expected redirects (`/operator?made=`, `/operator?listed=1`, `/procure?made=`, `/procure?withdrawn=1`, and `/operator?fee=1`) now carry the `#card` part, in `procure/smoke` and `procure/integration`. The query keys are unchanged. Nothing was weakened or deleted.
+
+**Mutation checks (unit only).** Making `askState` ignore what must come first made `procure/unit/view` fail (1 of 19); restored. The smoke and browser tests were not mutated.
+
+**Looked at.** The Choose page for owner G (four ideas to ask for, three with something first, one requirement with two providers) at 1000 px, as a screenshot: requirements first, the pool line, the sentence about contacting the provider before the provider list and under the button, "Do first" on three cards, "Ready to ask for" on one. That screenshot was taken from the build before the operator table's columns were reordered; the operator page was checked afterwards only by `quality/browser/phone`, which no longer reports a clipped control on it, and by `demo/browser/phone` (no sideways scroll, still a table).
+
+**What this does not show.** Chromium only. No keyboard-only walk of the "Unlist" disclosure, no screen reader. The page at 390 px was not looked at as a picture after the change. Nobody who owns a factory has read the new sentences, so whether "a group of factories, in one place or in one association" tells an owner how to choose is unproven (and with three invented clusters it cannot be more than a start). The sentence about contacting the provider is on Choose; the delivery page that follows it was not changed. The export does not yet carry the withdrawal note (the portability module needs one line).

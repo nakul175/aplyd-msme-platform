@@ -84,11 +84,17 @@ export async function handleProviderCreate(request: Request, env: AppEnv): Promi
   if (name === null) fields.name = `Give a name of up to ${MAX_NAME_LENGTH} characters.`;
   if (summary === null) fields.summary = `Keep the summary to text under ${MAX_SUMMARY_LENGTH} characters.`;
   if (services === null) fields.services = "Choose what it serves: ideas from the library, in clusters from the list.";
-  if (Object.keys(fields).length) return form ? back("problem=provider") : json(400, { error: "invalid", fields });
+  // A refused form comes back with the name and summary that were typed, so they are not typed again (S5-19). Nothing is kept when there is nothing to keep.
+  const typed = (key: string, max: number) => {
+    const v = bodyField(body, key);
+    return typeof v === "string" && v.trim().length > 0 ? `&${key}=${encodeURIComponent(v.trim().slice(0, max))}` : "";
+  };
+  const kept = () => typed("name", MAX_NAME_LENGTH) + typed("summary", MAX_SUMMARY_LENGTH);
+  if (Object.keys(fields).length) return form ? back(`problem=provider${kept()}`) : json(400, { error: "invalid", fields });
 
   const made = await createProvider(allowed.db, { userId: allowed.identity.userId, name: name as string, summary: summary as string, services: services as Service[] });
-  if (!made.ok) return form ? back("problem=provider") : json(400, { error: "invalid", fields: { services: "Each service may be named once." } });
-  return form ? back(`made=${encodeURIComponent(made.id)}`) : json(201, { id: made.id });
+  if (!made.ok) return form ? back(`problem=provider${kept()}`) : json(400, { error: "invalid", fields: { services: "Each service may be named once." } });
+  return form ? back(`made=${encodeURIComponent(made.id)}#provider-${encodeURIComponent(made.id)}`) : json(201, { id: made.id });
 }
 
 const readNote = (body: Body): string | null => text(bodyField(body, "note"), MAX_NOTE_LENGTH, false);
@@ -108,7 +114,7 @@ export async function handleProviderList(request: Request, env: AppEnv, provider
   if (providerId.length === 0 || providerId.length > 64) return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
 
   const result = await listProvider(allowed.db, { userId: allowed.identity.userId, providerId, note });
-  if (result.ok) return form ? redirect("/operator?listed=1") : json(201, { ok: true, feeInr: result.feeInr });
+  if (result.ok) return form ? redirect(`/operator?listed=1#provider-${encodeURIComponent(providerId)}`) : json(201, { ok: true, feeInr: result.feeInr });
   if (result.reason === "not_found") return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
   return form ? redirect(`/operator?problem=${result.reason}`) : json(409, { error: result.reason });
 }
@@ -125,7 +131,7 @@ export async function handleProviderUnlist(request: Request, env: AppEnv, provid
   if (providerId.length === 0 || providerId.length > 64) return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
 
   const result = await unlistProvider(allowed.db, { userId: allowed.identity.userId, providerId, note });
-  if (result.ok) return form ? redirect("/operator?unlisted=1") : json(201, { ok: true });
+  if (result.ok) return form ? redirect(`/operator?unlisted=1#provider-${encodeURIComponent(providerId)}`) : json(201, { ok: true });
   if (result.reason === "not_found") return form ? redirect("/operator?problem=missing") : json(404, { error: "not_found" });
   return form ? redirect("/operator?problem=not_listed") : json(409, { error: "not_listed" });
 }
@@ -152,7 +158,7 @@ export async function handleTermsSet(request: Request, env: AppEnv): Promise<Res
   if (note === null) fields.note = `Keep the note to text under ${MAX_NOTE_LENGTH} characters.`;
   if (Object.keys(fields).length) return form ? redirect("/operator?problem=fee") : json(400, { error: "invalid", fields });
   const terms = await setTerms(allowed.db, { userId: allowed.identity.userId, feeInr: fee, note: note as string });
-  return form ? redirect("/operator?fee=1") : json(201, { terms });
+  return form ? redirect("/operator?fee=1#op-terms") : json(201, { terms });
 }
 
 /** The pools of at least five companies, for the operator: counts only. A smaller pool is not listed, so its size is not published to anyone (C-04). */
