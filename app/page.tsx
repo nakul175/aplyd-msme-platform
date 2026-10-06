@@ -114,6 +114,13 @@ export default async function Home() {
             </p>
           ) : null}
           <p className="muted">Record created {formatDate(company.createdAt)}.</p>
+          {identity.companyId !== null && identity.role !== "operator" ? (
+            <p>
+              <a className="btn" href="/export">
+                Take your data with you
+              </a>
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="muted">No company is linked to this account, so there is no company record to show.</p>

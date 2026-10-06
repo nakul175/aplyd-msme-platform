@@ -458,11 +458,11 @@ for (const [name, check] of Object.entries(CHECKS)) {
   });
 }
 
-test("the database the test builds is the one the document describes: 16 tables, 15 migrations, 91 triggers", () => {
+test("the database the test builds is the one the document describes: 17 tables, 16 migrations, 98 triggers", () => {
   // These are the figures of 5 October 2026; the document's own counts table is held to the database above, so this only fails when both move together.
-  assert.equal(facts.tables.length, 16);
-  assert.equal(collected.migrationFiles.length, 15);
-  assert.equal(facts.triggers.length, 91);
+  assert.equal(facts.tables.length, 17);
+  assert.equal(collected.migrationFiles.length, 16);
+  assert.equal(facts.triggers.length, 98);
 });
 
 test("every table has a section, every section has a table, and no trigger is missing from the catalogue", () => {

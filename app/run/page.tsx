@@ -12,6 +12,7 @@ import { Arrow, Check } from "../_ui/icons.tsx";
 import { Meter, NotOwner, Notice, Page, SignedOut, Tag } from "../_ui/parts.tsx";
 import "./run.css";
 
+export const metadata = { title: "Measure" };
 export const dynamic = "force-dynamic";
 
 type Search = { saved?: string; problem?: string };

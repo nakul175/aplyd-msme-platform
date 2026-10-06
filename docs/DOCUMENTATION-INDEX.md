@@ -154,6 +154,10 @@ Each module under `modules/` has two records. The status page says what works, w
 | [modules/hosting/VALIDATION.md](../modules/hosting/VALIDATION.md) | What was run locally for the hosting module and what was not | developer, operator | The hosting module's dated results | Results dated 5 October 2026 |
 | [modules/demo/STATUS.md](../modules/demo/STATUS.md) | What the demonstration is (cast, seeder and script) and its known limits | developer, operator | The demo module's state and limits, where the code agrees | Last updated 5 October 2026 |
 | [modules/demo/VALIDATION.md](../modules/demo/VALIDATION.md) | What was run for the demonstration and what no person has seen | developer, tester | The demo module's dated results | Results dated 5 October 2026 |
+| [modules/quality/STATUS.md](../modules/quality/STATUS.md) | What the quality module measures (phone use, BR-UX-05, and the structural part of WCAG 2.1 AA, BR-UX-09), how to run it and what it does not measure | developer, tester | The quality module's state, numbers and limits | Last updated 6 October 2026 |
+| [modules/quality/VALIDATION.md](../modules/quality/VALIDATION.md) | What was run, the faults found on each page, and what the results do not show | developer, tester | The quality module's dated results | Results dated 6 October 2026 |
+| [modules/portability/STATUS.md](../modules/portability/STATUS.md) | What the export does, what it leaves out and its known limits | developer | The portability module's state and limits | Last updated 6 October 2026 |
+| [modules/portability/VALIDATION.md](../modules/portability/VALIDATION.md) | Results and mutation checks for the export | developer, tester | The portability module's dated results | Results dated 6 October 2026 |
 
 ## 4. Which test checks which document
 

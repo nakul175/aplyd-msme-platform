@@ -13,6 +13,7 @@ import { Check, Lock } from "../_ui/icons.tsx";
 import { Meter, NotOwner, Notice, Page, SignedOut, Tag } from "../_ui/parts.tsx";
 import "./deliver.css";
 
+export const metadata = { title: "Deliver" };
 export const dynamic = "force-dynamic";
 
 type Search = { made?: string; saved?: string; problem?: string };

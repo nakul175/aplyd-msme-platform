@@ -19,6 +19,7 @@ import { Arrow, Check } from "../_ui/icons.tsx";
 import { Meter, Notice, Page, PageHead, SignedOut, Tag } from "../_ui/parts.tsx";
 import "./diagnose.css";
 
+export const metadata = { title: "Decide" };
 export const dynamic = "force-dynamic";
 
 type Search = { a?: string; saved?: string; signed?: string; problem?: string; needs?: string };

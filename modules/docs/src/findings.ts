@@ -3,7 +3,7 @@
 // numbers are contiguous, rows are grouped by module, every source link and every cited path resolves, and the counts at the top are the
 // counts of the rows. Pure functions: they take text and, where they need to know what exists, a function that says so.
 
-export const FINDING_MODULES = ["platform", "factory", "diagnose", "procure", "deliver", "run", "journey", "hosting", "demo", "repository"] as const;
+export const FINDING_MODULES = ["platform", "factory", "diagnose", "procure", "deliver", "run", "journey", "hosting", "demo", "quality", "portability", "repository"] as const;
 export type FindingModule = (typeof FINDING_MODULES)[number];
 
 /** The words the sources use. The register does not rate a finding: where a source gives no severity the row says "not rated". */
