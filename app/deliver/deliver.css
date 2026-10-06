@@ -113,7 +113,7 @@
 }
 /* BR-DEPL-08: the worked example of a test, and the note under a test that lacks a number or a unit. */
 .dl-example { margin-top: var(--s-2); max-width: 46rem; }
-.dl-example summary { cursor: pointer; font-weight: 700; }
+.dl-example summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 700; }
 .dl-example-text { margin: var(--s-2) 0; padding: var(--s-2) var(--s-3); background: var(--surface-2); border-left: 3px solid var(--line-strong); border-radius: 0 var(--r-sm) var(--r-sm) 0; overflow-wrap: anywhere; }
 .dl-example-parts { display: grid; grid-template-columns: minmax(8rem, max-content) 1fr; gap: var(--s-1) var(--s-3); margin: 0 0 var(--s-2); }
 .dl-example-parts dt { font-weight: 700; }

@@ -101,5 +101,5 @@
 /* BR-RUN-09: corrections of a recorded number, and the collapsed form to make one. */
 .ru-corrections { list-style: none; margin: var(--s-1) 0 0; padding: 0; display: grid; gap: var(--s-1); overflow-wrap: anywhere; }
 .ru-correct { margin-top: var(--s-2); }
-.ru-correct summary { cursor: pointer; font-weight: 700; }
+.ru-correct summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 700; }
 .ru-expected, .ru-next { --muted: var(--muted-tint); }
