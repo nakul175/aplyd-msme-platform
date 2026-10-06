@@ -165,7 +165,7 @@ The author is an agent; no person has read this. Results are from the tree at th
 | `procure/unit/view` | 19 passed (2 more: `askState`, and the tags for ideas with something first, including the old call with none held back) |
 | `procure/unit/clusters`, `procure/unit/pool` | 2 and 5 passed |
 | `procure/static/rules`, `procure/static/problems` | 10 and 2 passed (whole static layer run once, 6 October, about 06:25 IST) |
-| `procure/integration/procure-api` | 36 passed: 34, plus the withdrawal note (open requirement, withdrawn with a note, withdrawn without one) and a refused add that keeps what was typed (an assertion added to the existing form-post test). Two existing expected redirects were changed (see below) |
+| `procure/integration/procure-api` | 36 passed: 34, plus the withdrawal note (open requirement, withdrawn with a note, withdrawn without one) and a refused add that keeps what was typed (an assertion added to the existing form-post test). Existing expected redirects were changed (see below) |
 | `procure/smoke/procure` | 6 passed against the built application |
 | `procure/browser/procure` | 3 passed (the unlist step now opens the question first and presses "Yes, unlist"; it checks that opening the question unlists nothing and that the address then names the row) |
 | `demo/smoke/interface`, `demo/smoke/demo` | 6 and 10 passed |
