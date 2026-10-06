@@ -4,12 +4,12 @@ import { recordAudit } from "../db/audit.ts";
 import { isCrossSite } from "../identity/cross-site.ts";
 import { resolveIdentity } from "../identity/resolve.ts";
 import { clearedSessionCookie, sessionCookie, signSession } from "../identity/session.ts";
-import { drain, json, redirect } from "./http.ts";
+import { drain, json, notSignedIn, redirect } from "./http.ts";
 
 /** GET: who am I. */
 export async function handleSessionRead(request: Request, env: AppEnv): Promise<Response> {
   const identity = await resolveIdentity(request, env);
-  return identity ? json(200, identity) : json(401, { error: "not_signed_in" });
+  return identity ? json(200, identity) : notSignedIn(request);
 }
 
 type SessionBody = { email: string; intent: string; form: boolean };

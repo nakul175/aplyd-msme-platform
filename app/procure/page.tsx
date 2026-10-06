@@ -6,13 +6,15 @@ import { presentAssessment } from "../../modules/diagnose/src/api/diagnose.ts";
 import { listAssessments, loadAssessment } from "../../modules/diagnose/src/db/assessments.ts";
 import { CLUSTERS, clusterLabel } from "../../modules/procure/src/clusters.ts";
 import { MAX_NOTE_LENGTH, presentRequirements } from "../../modules/procure/src/api/requirements.ts";
-import { procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState } from "../../modules/procure/src/view.ts";
+import { askedLabel, nothingLeftToAsk, procureCounts, procureSentence, procureTags, readyFirst, readyTone, requirementState } from "../../modules/procure/src/view.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
+import { formatDate } from "../_ui/dates.ts";
 import { Arrow, Check, Eye, Lock } from "../_ui/icons.tsx";
 import { Meter, Notice, NotOwner, Page, SignedOut, Tag } from "../_ui/parts.tsx";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Choose" };
 
 type Search = { made?: string; withdrawn?: string; problem?: string };
 
@@ -54,6 +56,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
   const counts = procureCounts({
     accepted: accepted.length,
     asked: alreadyAsked.length,
+    withdrawnAsked: alreadyAsked.filter((i) => asked.get(i.opportunityId)?.withdrawnAt != null).length,
     requirements: requirements.map((r) => ({ withdrawn: r.withdrawnAt !== null, engaged: engagedWith.has(r.id), providersListed: r.providers.length })),
   });
   const tags = procureTags(counts);
@@ -92,7 +95,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
               ))}
             </div>
           ) : null}
-          {counts.accepted > 0 ? <Meter done={counts.asked} of={counts.accepted} label={`${counts.asked} of ${counts.accepted} accepted ${counts.accepted === 1 ? "idea" : "ideas"} asked for`} /> : null}
+          {counts.accepted > 0 ? <Meter done={counts.asked} of={counts.accepted} label={askedLabel(counts)} /> : null}
           {counts.needsChoice > 0 && counts.ready > 0 ? (
             <p>
               <a href="#requirements">Jump to your requirements</a>
@@ -117,7 +120,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
         ) : (
           <>
             <p className="help">
-              From your assessment of {view.createdAt.slice(0, 10)}, signed off {view.signoff?.at.slice(0, 10)}.
+              From your assessment of {formatDate(view.createdAt)}{view.signoff ? `, signed off ${formatDate(view.signoff.at)}` : ""}.
             </p>
             {ready.length > 0 ? (
               <>
@@ -168,36 +171,41 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
               </>
             ) : (
               <div className="card flat">
-                <p>You have asked for every idea you accepted. Your requirements are below.</p>
+                <p>{nothingLeftToAsk(counts)}</p>
               </div>
             )}
-            {alreadyAsked.length > 0 ? (
-              <>
-                <p className="eyebrow">Already asked for</p>
-                <ul className="items">
-                  {alreadyAsked.map((item) => {
-                    const r = asked.get(item.opportunityId)!;
-                    return (
-                      <li key={item.opportunityId} className="card item" data-testid={`accepted-${item.opportunityId}`}>
-                        <div className="pr-top">
-                          <h3>{item.title}</h3>
-                          <div className="pr-tags">
-                            <Tag tone={r.withdrawnAt ? undefined : "ok"}>{r.withdrawnAt ? "Withdrawn" : "Asked for"}</Tag>
+            {[
+              { heading: "Already asked for", items: alreadyAsked.filter((i) => asked.get(i.opportunityId)?.withdrawnAt == null) },
+              { heading: "Withdrawn", items: alreadyAsked.filter((i) => asked.get(i.opportunityId)?.withdrawnAt != null) },
+            ].map((group) =>
+              group.items.length > 0 ? (
+                <div key={group.heading} className="pr-group">
+                  <p className="eyebrow">{group.heading}</p>
+                  <ul className="items">
+                    {group.items.map((item) => {
+                      const r = asked.get(item.opportunityId)!;
+                      return (
+                        <li key={item.opportunityId} className="card item" data-testid={`accepted-${item.opportunityId}`}>
+                          <div className="pr-top">
+                            <h3>{item.title}</h3>
+                            <div className="pr-tags">
+                              <Tag tone={r.withdrawnAt ? undefined : "ok"}>{r.withdrawnAt ? "Withdrawn" : "Asked for"}</Tag>
+                            </div>
                           </div>
-                        </div>
-                        <p className="pr-done">
-                          <Check />
-                          <span>
-                            <strong>Requirement recorded</strong> for {clusterLabel(r.cluster)}
-                            {r.withdrawnAt ? ", then withdrawn." : "."}
-                          </span>
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            ) : null}
+                          <p className="pr-done">
+                            <Check />
+                            <span>
+                              <strong>Requirement recorded</strong> for {clusterLabel(r.cluster)}
+                              {r.withdrawnAt ? ", then withdrawn." : "."}
+                            </span>
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null,
+            )}
           </>
         )}
       </section>
@@ -264,7 +272,7 @@ export default async function Procure({ searchParams }: { searchParams: Promise<
                     </div>
                   </div>
                   {r.withdrawnAt ? (
-                    <p className="muted">Withdrawn on {r.withdrawnAt.slice(0, 10)}. It no longer counts in any pool.</p>
+                    <p className="muted">Withdrawn on {formatDate(r.withdrawnAt)}. It no longer counts in any pool.</p>
                   ) : chosen ? (
                     <>
                       <div data-testid="engaged" className="pr-block pr-wide">

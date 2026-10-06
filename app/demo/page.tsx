@@ -6,6 +6,7 @@ import { PageHead, Tag } from "../_ui/parts.tsx";
 import "./demo.css";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Demonstration" };
 
 const STAGE_TEXT = { requirements: "has asked for ideas", provider_chosen: "has chosen a provider", plan_agreed: "has an agreed plan", running: "is running: a delivery accepted and paid" } as const;
 

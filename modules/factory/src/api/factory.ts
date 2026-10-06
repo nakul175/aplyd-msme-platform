@@ -4,7 +4,7 @@
 import type { AppEnv } from "../../../platform/src/env.ts";
 import { recordAudit } from "../../../platform/src/db/audit.ts";
 import { readTextWithin } from "../../../platform/src/api/body.ts";
-import { drain, json, redirect } from "../../../platform/src/api/http.ts";
+import { drain, json, notSignedIn, redirect } from "../../../platform/src/api/http.ts";
 import { isCrossSite } from "../../../platform/src/identity/cross-site.ts";
 import { resolveIdentity } from "../../../platform/src/identity/resolve.ts";
 import { canReadCompany, canWriteOwnCompany } from "../../../platform/src/identity/scope.ts";
@@ -20,7 +20,7 @@ const refuse = (db: D1Database, event: string, identity: Identity, requested: st
 export async function handleFactoryRead(request: Request, env: AppEnv, requestedId: string): Promise<Response> {
   if (!env.DB) return json(503, { error: "storage_unavailable" });
   const identity = await resolveIdentity(request, env);
-  if (!identity) return json(401, { error: "not_signed_in" });
+  if (!identity) return notSignedIn(request);
   if (!canReadCompany(identity, requestedId)) {
     await refuse(env.DB, "factory.read.denied", identity, requestedId);
     return json(404, { error: "not_found" });
@@ -83,7 +83,7 @@ export async function handleRevisionCreate(request: Request, env: AppEnv, reques
   const identity = await resolveIdentity(request, env);
   if (!identity) {
     await drain(request);
-    return json(401, { error: "not_signed_in" });
+    return notSignedIn(request);
   }
   if (!canReadCompany(identity, requestedId)) {
     await drain(request);

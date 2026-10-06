@@ -8,9 +8,11 @@ import { currentTerms, listAllProviders, listTermsHistory } from "../../modules/
 import { distinctListedFees, operatorSummary, serviceGroups } from "../../modules/procure/src/view.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
 import { resolveIdentityFromCookieHeader } from "../../modules/platform/src/identity/resolve.ts";
+import { formatDate } from "../_ui/dates.ts";
 import { Notice, PageHead, SignedOut, Tag } from "../_ui/parts.tsx";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Providers" };
 
 type Search = { made?: string; listed?: string; unlisted?: string; fee?: string; problem?: string };
 
@@ -110,10 +112,10 @@ export default async function Operator({ searchParams }: { searchParams: Promise
           {terms ? <Tag tone="ok">Fee in force</Tag> : <Tag tone="turn">Fee not decided</Tag>}
           {terms ? (
             <p data-testid="fee-now">
-              In force: <strong>{rupees(terms.feeInr)}</strong> (version {terms.version}, set <span className="op-nw">{terms.at.slice(0, 10)}</span>).
+              In force: <strong>{rupees(terms.feeInr)}</strong> (version {terms.version}, set <span className="op-nw">{formatDate(terms.at)}</span>).
             </p>
           ) : (
-            <p data-testid="fee-now">The fee has not been decided (OQ-11), so no provider can be listed.</p>
+            <p data-testid="fee-now">The fee has not been decided (OQ-11), so no provider can be listed. Set it below, and listing opens.</p>
           )}
         </div>
         <p className="help">Any fee set here is a SYNTHETIC placeholder, not a proposal: the real fee is an open question (OQ-11).</p>
@@ -161,55 +163,58 @@ export default async function Operator({ searchParams }: { searchParams: Promise
             <p>None yet. Add one in the form below, then list it so owners can choose it.</p>
           </div>
         ) : (
-          <div className="table-wrap" data-testid="providers">
-            <table className="op-table">
-              <thead>
-                <tr>
-                  <th scope="col">Provider</th>
-                  <th scope="col">What it serves</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">
-                    <span className="sr">Action</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {providers.map((p) => {
-                  const serves = serviceGroups(p.services, titleOf, clusterLabel);
-                  return (
-                    <tr key={p.id} data-testid={`provider-${p.name}`}>
-                      <td>
-                        <span className="op-name">{p.name}</span>
-                        {p.summary ? <span className="op-sub">{p.summary}</span> : null}
-                      </td>
-                      <td data-label="What it serves">{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
-                      <td data-label="Status">
-                        <div className="op-tags">
-                          <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
-                          {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
-                        </div>
-                      </td>
-                      <td>
-                        {p.listed ? (
-                          <form method="post" action={`/api/operator/providers/${p.id}/unlist`}>
-                            <button type="submit" aria-label={`Unlist ${p.name}`}>
-                              Unlist
-                            </button>
-                          </form>
-                        ) : (
-                          <form method="post" action={`/api/operator/providers/${p.id}/list`}>
-                            <button type="submit" className="primary" aria-label={`List ${p.name}`}>
-                              List
-                            </button>
-                          </form>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <p className="help op-scroll-hint">The table is wider than a phone. Scroll it sideways to see every column.</p>
+            <div className="table-wrap" data-testid="providers" role="region" aria-label="Providers table, scrolls sideways" tabIndex={0}>
+              <table className="op-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Provider</th>
+                    <th scope="col">What it serves</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">
+                      <span className="sr">Action</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {providers.map((p) => {
+                    const serves = serviceGroups(p.services, titleOf, clusterLabel);
+                    return (
+                      <tr key={p.id} data-testid={`provider-${p.name}`}>
+                        <td>
+                          <span className="op-name">{p.name}</span>
+                          {p.summary ? <span className="op-sub">{p.summary}</span> : null}
+                        </td>
+                        <td>{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
+                        <td>
+                          <div className="op-tags">
+                            <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
+                            {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
+                          </div>
+                        </td>
+                        <td>
+                          {p.listed ? (
+                            <form method="post" action={`/api/operator/providers/${p.id}/unlist`}>
+                              <button type="submit" aria-label={`Unlist ${p.name}`}>
+                                Unlist
+                              </button>
+                            </form>
+                          ) : (
+                            <form method="post" action={`/api/operator/providers/${p.id}/list`}>
+                              <button type="submit" className="primary" aria-label={`List ${p.name}`}>
+                                List
+                              </button>
+                            </form>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 
@@ -266,7 +271,7 @@ export default async function Operator({ searchParams }: { searchParams: Promise
         <p className="help">These are the pools you can take to providers.</p>
         <p className="muted">Only pools of at least five companies are shown, and only as a count: no company is named (C-04).</p>
         {pools.length === 0 ? (
-          <p>No pool has reached five companies.</p>
+          <p>No pool has reached five companies yet. A pool shows here once five or more companies ask for the same idea in the same cluster.</p>
         ) : (
           <ul className="op-pools">
             {pools.map((p) => (

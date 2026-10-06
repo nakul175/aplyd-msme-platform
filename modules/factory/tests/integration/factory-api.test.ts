@@ -460,3 +460,25 @@ test("the same mistakes always send the form back to the same address: the quest
   assert.equal(one, "/factory?problem=invalid&fields=employees,shifts,year_started");
   assert.equal(two, one);
 });
+
+test("a form post from the Describe page with no session, a tampered one or one that has ended is sent to the sign-in page with nothing saved, and a program still gets 401 JSON (BR-UX-06)", async () => {
+  const before = await count();
+  const cookie = await ownerA();
+  const tampered = cookie.slice(0, -2) + (cookie.endsWith("AA") ? "BB" : "AA");
+  const fields: [string, string][] = [["based_on", "1"], ["a.shifts", "two"], ["intent", "save"]];
+  const seen = async (res: Response) => ({ status: res.status, location: res.headers.get("location"), json: (res.headers.get("content-type") ?? "").startsWith("application/json") });
+  for (const jar of [undefined, tampered, "aplyd_session="]) {
+    const req = new Request(`${ORIGIN}/api/companies/${A}/factory/revisions`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, ...(jar ? { cookie: jar } : {}) }, body: new URLSearchParams(fields) });
+    assert.deepEqual(await seen(await handleRevisionCreate(req, env, A)), { status: 303, location: "/sign-in?expired=1", json: false }, String(jar));
+    assert.equal(req.bodyUsed, true, "the body was read and discarded");
+  }
+  const multipart = new FormData();
+  multipart.set("based_on", "1");
+  assert.deepEqual(await seen(await handleRevisionCreate(new Request(`${ORIGIN}/api/companies/${A}/factory/revisions`, { method: "POST", headers: { origin: ORIGIN }, body: multipart }), env, A)), { status: 303, location: "/sign-in?expired=1", json: false }, "multipart form");
+  assert.deepEqual(await seen(await save(A, undefined, { basedOn: 1, answers: { shifts: "two" } })), { status: 401, location: null, json: true }, "a program");
+  assert.equal(await count(), before, "nothing was saved");
+  assert.equal((await audits("factory.write.denied")).length, 0, "nobody was known, so nothing is audited");
+  // With a valid session the same form is saved as before.
+  assert.equal((await formPost(A, cookie, fields)).status, 303);
+  assert.equal(await count(), before + 1);
+});

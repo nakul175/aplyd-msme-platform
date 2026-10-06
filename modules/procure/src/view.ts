@@ -31,9 +31,11 @@ export function requirementState(input: { withdrawn: boolean; engaged: boolean; 
 export type ProcureCounts = {
   /** Ideas accepted in the latest signed-off assessment. */
   accepted: number;
-  /** Of those, the ones that already have a requirement (withdrawn or not). */
+  /** Of those, the ones asked for and not taken back. A withdrawn requirement is not counted: the owner took it back (FND-255). */
   asked: number;
-  /** Of those, the ones that have none yet. */
+  /** Of those, the ones whose requirement was withdrawn. A withdrawn requirement is not made again, so these are neither asked for nor ready. */
+  withdrawnAsked: number;
+  /** Of those, the ones that have no requirement yet. */
   ready: number;
   /** Open requirements for which the owner's turn is to choose a provider. */
   needsChoice: number;
@@ -45,11 +47,16 @@ export type ProcureCounts = {
 
 export type RequirementFacts = { withdrawn: boolean; engaged: boolean; providersListed: number };
 
-/** The counts the top of the page shows. `asked` cannot be more than `accepted`: a larger one is a caller's mistake and is held to it. */
-export function procureCounts(input: { accepted: number; asked: number; requirements: RequirementFacts[] }): ProcureCounts {
+/**
+ * The counts the top of the page shows. `input.asked` is the accepted ideas that have a requirement of any kind and `input.withdrawnAsked`
+ * the ones among them whose requirement was withdrawn; neither can be more than the number before it, and a larger one is a caller's
+ * mistake and is held to it. A withdrawn requirement counts as taken back, not as asked for, and its idea is not offered again.
+ */
+export function procureCounts(input: { accepted: number; asked: number; withdrawnAsked?: number; requirements: RequirementFacts[] }): ProcureCounts {
   const accepted = Math.max(0, input.accepted);
-  const asked = Math.min(Math.max(0, input.asked), accepted);
-  const counts: ProcureCounts = { accepted, asked, ready: accepted - asked, needsChoice: 0, waiting: 0, chosen: 0, withdrawn: 0 };
+  const withAny = Math.min(Math.max(0, input.asked), accepted);
+  const withdrawnAsked = Math.min(Math.max(0, input.withdrawnAsked ?? 0), withAny);
+  const counts: ProcureCounts = { accepted, asked: withAny - withdrawnAsked, withdrawnAsked, ready: accepted - withAny, needsChoice: 0, waiting: 0, chosen: 0, withdrawn: 0 };
   for (const r of input.requirements) {
     const key = requirementState(r).key;
     if (key === "withdrawn") counts.withdrawn += 1;
@@ -82,6 +89,19 @@ export type StatusTag = { text: string; tone: "ok" | "turn" | "brand" | undefine
  */
 export function readyTone(c: ProcureCounts): "turn" | "brand" {
   return c.needsChoice + c.waiting + c.chosen === 0 ? "turn" : "brand";
+}
+
+/** The words beside the bar. A requirement that was withdrawn is not counted as asked for; it is said once, apart. */
+export function askedLabel(c: ProcureCounts): string {
+  const base = `${c.asked} of ${c.accepted} accepted ${c.accepted === 1 ? "idea" : "ideas"} asked for`;
+  return c.withdrawnAsked > 0 ? `${base}. ${c.withdrawnAsked} withdrawn, which is not made again.` : base;
+}
+
+/** What the page says in place of the list of ideas to ask for, when none is left. A withdrawn idea is not offered again, and is not "asked for". */
+export function nothingLeftToAsk(c: ProcureCounts): string {
+  if (c.withdrawnAsked === 0) return "You have asked for every idea you accepted. Your requirements are below.";
+  if (c.asked === 0) return `You withdrew ${c.withdrawnAsked === 1 ? "the requirement" : "every requirement"} you made, and a withdrawn requirement is not made again. To ask again, make a new assessment.`;
+  return `You have asked for every other idea you accepted, and withdrew ${c.withdrawnAsked}. A withdrawn requirement is not made again. Your requirements are below.`;
 }
 
 /** The tags under the sentence: what is the owner's turn first, then what waits for somebody else, then what is done or closed. Counts of zero are left out. */

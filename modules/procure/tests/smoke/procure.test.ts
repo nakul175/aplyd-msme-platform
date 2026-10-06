@@ -161,7 +161,8 @@ test("withdrawing a requirement takes it out of the page's open list and leaves 
   assert.equal(res.headers.get("location"), "/procure?withdrawn=1");
   const html = await page(a, "/procure?withdrawn=1");
   assert.match(html, /Your requirement was withdrawn/);
-  assert.match(html, /Withdrawn on \d{4}-\d{2}-\d{2}\. It no longer counts in any pool/);
+  assert.match(html, /Withdrawn on \d{1,2} [A-Z][a-z]+ \d{4}\. It no longer counts in any pool/, "the date is written as an owner reads it (30 October 2026)");
+  assert.ok(!/Withdrawn on \d{4}-\d{2}/.test(html), "and not as an ISO date");
   assert.ok(!html.includes("Withdraw Keep every job"), "no withdraw button on a withdrawn requirement");
   const again = await form(a, `/api/companies/${A}/requirements/${mine.id}/withdraw`);
   assert.equal(again.headers.get("location"), "/procure?problem=withdrawn");

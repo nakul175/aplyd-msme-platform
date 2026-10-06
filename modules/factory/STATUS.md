@@ -47,3 +47,12 @@ This is slice 2, Describe: the owner describes the factory by answering a questi
 5. The page is server-rendered with a plain form post. It has no client-side checks beyond the browser's own `maxlength`; the server is the check. It was run in one browser engine (Chromium), see the platform limit 11.
 6. The browser tests were run only against the local Worker, not against a hosted environment.
 7. The inherited platform limits apply, in particular 1 (synthetic sign-in has no password), 8 (an authenticated person can flood the audit log with denied requests) and 9 (the baseline can be edited by hand).
+
+## Update, 6 October 2026: polish (slice 11d)
+
+- **The page has its own title**, "Describe: APLYD" (a visitor sees the same title), from a template in `app/layout.tsx` that every page uses.
+- **Dates are written the way an owner says them**: "Newest version: 2, a draft, saved 4 October 2026", and the same in the list of earlier versions and in the notice above an old version. They come from `formatDate` in `app/_ui/dates.ts`, which writes the UTC date of a timestamp. Anything that is not a real date comes back unchanged.
+- **A Save pressed after the session ended** goes to the sign-in page with "Your session has ended. Sign in again; what you typed was not saved." and nothing is written (platform STATUS, "a form post with no valid session"). The two answers of `handleRevisionCreate` and `handleFactoryRead` for a missing session come from `notSignedIn(request)`; a program call still gets 401 JSON.
+- **The numbers on the sections** are decoration: the style sheet gives them an empty alternative text (`content: counter(fcs) / ""`), so a browser that reads generated content should read a heading once and not as "1 About your unit". Not tried with a screen reader.
+- **The empty page says what will appear and what causes it** (BR-UX-07): "Nothing saved yet.", "A draft can be saved after answering just one question.", and in the list of earlier versions "No earlier versions yet. Your first save will be version 1." The words were already there; a smoke test (`demo/smoke/interface`) now pins them for an owner with nothing saved.
+- **Limits added.** The date is the UTC date: a description saved between midnight and 05:30 in India shows the day before. Whether to show Indian time is a decision for the owner of the interface guide; `formatDate` is the one place to change.

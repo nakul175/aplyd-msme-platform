@@ -172,3 +172,24 @@ Environment: a Linux container, Node v22.22.0, pnpm 11.25.0, 5 October 2026. The
 - Miniflare runs the same SQLite engine as D1 but is not Cloudflare's hosted D1. No hosted environment has been tested, so the behaviour of triggers, pragmas and `vars` on hosted Cloudflare is untested.
 - No load or concurrency testing. Timing differences between a denied and a missing company read were not measured.
 - These results do not promote any acceptance case. There is no acceptance register yet.
+
+## Session end on a form post (6 October 2026, branch `slice-11d-polish`, BR-UX-06)
+
+An agent wrote the change and its tests; no person has read it. It touches the identity response, a protected path. Run on 6 October 2026 after `pnpm build` of the tree that commit cbfd34f holds (the last change to a page; later commits change tests and documents only).
+
+| Check | Result |
+| --- | --- |
+| `platform/unit/refusal` (new): the helper for a no-session answer, form and program callers, the content types, the methods | 5 passed |
+| `platform/static/source-rules` | 9 passed (one new: the 401 body is written only in `http.ts`; every caller of `resolveIdentity(` uses `notSignedIn(request)`) |
+| `platform/integration/platform-api` | 29 passed (3 new: every `authorize*` check, the company read and the session read, for a form and for a program) |
+| `factory/integration/factory-api` | 35 passed (1 new: no cookie, an empty cookie, an altered cookie, a multipart form; a valid session still saves) |
+| `run/integration/run-api` | 29 passed; one assertion changed on purpose (see below) |
+| `platform/smoke/session-expiry` (new), on the built application over HTTP | 3 passed: no cookie, empty, altered and run-out cookies and a multipart form all get 303 to `/sign-in?expired=1`; a program call gets 401 JSON; the sign-in page shows the message only for `expired=1` |
+| `platform/browser/session-expired` (new), real Chromium | 3 passed: the Describe form is filled in, the cookie is cleared (and, in the second test, replaced by a validly signed token eight hours old), Save is pressed, the person lands on the sign-in page with the message and the typed text is not saved; a script's JSON post still gets 401 JSON |
+| `platform/browser/session-and-scope`, `platform/browser/pages` | see the factory and procure sections of the same date for the run that covered them; both unchanged |
+
+**One existing test was changed, and why.** `run/integration/run-api`, the test "a form post refused before the person is known is answered as the platform answers every module...", asserted that a form post with no session gets 401 JSON. That was the behaviour BR-UX-06 names as the fault, and the test's own register row (TC-UX-07) says it records today's behaviour and must change when this is fixed. It now asserts 303 to `/sign-in?expired=1` and adds an assertion that a JSON post still gets 401. Its title was kept because the test-case register cites it by title; the register row needs rewriting by its owner.
+
+**Mutation check.** With `notSignedIn` changed to always answer 401 JSON, four tests failed across the three files run (`unit/refusal`, `factory-api`, `platform-api`); restored afterwards. The smoke and browser tests were not mutated (that needs a rebuild).
+
+**What this does not show.** One browser engine; a local Worker; no hosted environment. The browser test ends the session by clearing the cookie and by planting an old signed token; it does not wait eight hours, and it does not test a session ended by changing `SESSION_SECRET`. Nothing here shows what the Sites dispatcher does in front of the Worker when its own session ends. No acceptance case is promoted: BR-UX-06 stays Partial (the other refusals in the list above are still JSON for a form).

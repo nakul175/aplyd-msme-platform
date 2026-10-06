@@ -700,12 +700,15 @@ test("the expected range says it is SYNTHETIC in the data as well as on the page
 });
 
 test("a form post refused before the person is known is answered as the platform answers every module: with JSON, and the page's own form never reaches it for another company", async () => {
+  // Since BR-UX-06 a form with no session is sent to /sign-in?expired=1 (303); every other refusal here is still JSON. The title is kept as the test-case
+  // register (docs/test/TEST-CASES.md, TC-UX-07) cites it by title; the register row is to be rewritten with this title.
   const p = await planned();
   const formTo = (path: string, cookie: string | undefined, headers: Record<string, string> = {}, body = "kind=baseline&value=5") =>
     new Request(`${ORIGIN}${path}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN, ...(cookie ? { cookie } : {}), ...headers }, body });
   const own = `/api/companies/${A}/engagements/${p.id}/outcomes`;
   const answer = async (res: Response) => ({ status: res.status, json: res.headers.get("content-type")?.startsWith("application/json") ?? false, location: res.headers.get("location") });
-  assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, undefined), env, A, p.id)), { status: 401, json: true, location: null }, "no session");
+  assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, undefined), env, A, p.id)), { status: 303, json: false, location: "/sign-in?expired=1" }, "no session: a person at the form is sent to sign in, not shown JSON (this was 401 JSON before BR-UX-06; changed on purpose)");
+  assert.equal((await handleOutcomeRecord(new Request(`${ORIGIN}${own}`, { method: "POST", headers: { "content-type": "application/json", origin: ORIGIN }, body: JSON.stringify({ kind: "baseline", value: 5 }) }), env, A, p.id)).status, 401, "no session, from a program: still 401 JSON");
   const b = await ownerB();
   assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, b), env, A, p.id)), { status: 404, json: true, location: null }, "another company's owner, naming this company");
   assert.deepEqual(await answer(await handleOutcomeRecord(formTo(own, await operator()), env, A, p.id)), { status: 404, json: true, location: null }, "the operator");
