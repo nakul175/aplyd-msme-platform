@@ -66,7 +66,7 @@ test("the operator sees that no fee is set, and nothing can be listed until it i
   assert.match(keptPage, /That provider could not be added/);
   assert.match(keptPage, /id="provider-name"[^>]*value="Kept Name &amp; Co"|value="Kept Name &amp; Co"[^>]*id="provider-name"/);
   assert.match(keptPage, /value="kept summary"/);
-  assert.ok(!(await page(op, "/operator?name=Stray%20Name")).includes("Stray Name"), "a name in the address is shown only after a refusal");
+  assert.ok(!/value="Stray Name"/.test(await page(op, "/operator?name=Stray%20Name")), "a name in the address fills the box only after a refusal of that form");
   const listing = (await getJson(op, "/api/operator/providers")) as { providers: { id: string; services: unknown[]; listed: boolean }[]; terms: unknown };
   assert.equal(listing.terms, null);
   assert.equal(listing.providers[0].services.length, 2, "one idea in two clusters");
@@ -144,9 +144,9 @@ test("the operator sets the fee and lists the provider; the owner then sees it f
   assert.match(html, /Fee ₹1,234/);
   assert.match(html, /Unlist Alpha Works/);
   // "Unlist" asks first: the button that acts is the second one, inside the disclosure (S5-19).
-  assert.match(html, /<details class="op-confirm"[^>]*><summary aria-label="Unlist Alpha Works">Unlist<\/summary><form method="post" action="\/api\/operator\/providers\/[0-9a-f-]{36}\/unlist"><p>Unlist Alpha Works\? Owners will no longer be offered it\./);
+  assert.match(html, /<details class="op-confirm"[^>]*><summary aria-label="Unlist Alpha Works">Unlist<\/summary><form action="\/api\/operator\/providers\/[0-9a-f-]{36}\/unlist" method="post"><p>Unlist Alpha Works\? Owners will no longer be offered it\./);
   assert.match(html, /aria-label="Yes, unlist Alpha Works"/);
-  assert.ok(!/<form method="post" action="\/api\/operator\/providers\/[0-9a-f-]{36}\/unlist"><button/.test(html), "no form unlists with one press");
+  assert.ok(!/<form action="\/api\/operator\/providers\/[0-9a-f-]{36}\/unlist" method="post"><button/.test(html), "no form unlists with one press");
 
   const a = await signIn("owner-a@synthetic.invalid");
   const owner = await page(a, "/procure");

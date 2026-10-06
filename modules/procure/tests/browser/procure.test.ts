@@ -142,7 +142,7 @@ test("the operator sets one fee, adds a provider and lists it; the owner then se
 
     // The operator can unlist: the owner's view no longer shows the provider.
     // "Unlist" asks first (S5-19): opening it changes nothing; the second button acts, and the page lands on the row that changed (S5-10).
-    await op.locator('[data-testid^="unlist-"] > summary').click();
+    await op.getByLabel("Unlist Alpha Works", { exact: true }).click();
     assert.equal(new URL(op.url()).searchParams.get("unlisted"), null, "opening the question unlists nothing");
     assert.match(await op.getByTestId("provider-Alpha Works").innerText(), /Listed/);
     await Promise.all([op.waitForURL((u) => u.searchParams.get("unlisted") === "1"), op.getByRole("button", { name: "Yes, unlist Alpha Works" }).click()]);

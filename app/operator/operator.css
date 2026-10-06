@@ -29,6 +29,7 @@
 /* The providers: always a table, so a screen reader keeps the column names. On a phone the table scrolls inside its own box (.table-wrap, focusable
    so it can be scrolled with a keyboard) and never makes the page scroll sideways. */
 .op-table { font-variant-numeric: normal; min-width: 36rem; }
+/* The column of actions is the second, so that "List" and "Unlist" are on the screen of a phone without scrolling the box sideways. */
 .op-table td { vertical-align: top; }
 .op-nw { white-space: nowrap; }
 .op-name { display: block; font-weight: 700; }

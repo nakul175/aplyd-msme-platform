@@ -174,11 +174,11 @@ export default async function Operator({ searchParams }: { searchParams: Promise
                 <thead>
                   <tr>
                     <th scope="col">Provider</th>
-                    <th scope="col">What it serves</th>
-                    <th scope="col">Status</th>
                     <th scope="col">
                       <span className="sr">Action</span>
                     </th>
+                    <th scope="col">Status</th>
+                    <th scope="col">What it serves</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -189,13 +189,6 @@ export default async function Operator({ searchParams }: { searchParams: Promise
                         <td>
                           <span className="op-name">{p.name}</span>
                           {p.summary ? <span className="op-sub">{p.summary}</span> : null}
-                        </td>
-                        <td>{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
-                        <td>
-                          <div className="op-tags">
-                            <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
-                            {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
-                          </div>
                         </td>
                         <td>
                           {p.listed ? (
@@ -218,6 +211,13 @@ export default async function Operator({ searchParams }: { searchParams: Promise
                             </form>
                           )}
                         </td>
+                        <td>
+                          <div className="op-tags">
+                            <Tag tone={p.listed ? "ok" : undefined}>{p.listed ? "Listed" : "Not listed"}</Tag>
+                            {p.listed && p.listedFeeInr !== null ? <Tag>Fee {rupees(p.listedFeeInr)}</Tag> : null}
+                          </div>
+                        </td>
+                        <td>{serves.length > 0 ? `Serves: ${serves.join("; ")}.` : "Serves nothing yet."}</td>
                       </tr>
                     );
                   })}
