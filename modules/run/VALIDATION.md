@@ -206,3 +206,16 @@ What changed is in [the status page](STATUS.md), "Slice 12d", and in the deliver
 | `pnpm build`, then `run/smoke/run` (changed: the refusal names the unit, gives the example and does not mention reviews; "42 late orders" is refused) and `demo/smoke/interface` | 7 and 5 passed |
 | `journey/unit/contrast` | 8 passed |
 | `node scripts/test.mjs static` | 28 of 29 suites pass; `docs/static/lld-sync` fails only on `app/diagnose/page.tsx` exporting `metadata` (a row this slice does not own; the Delivery and Results rows were corrected) |
+| `run/browser/run` (changed: the refused starting number goes to `baseline_invalid`, names the unit and does not mention reviews). First run failed on the old `?problem=invalid` wait; fixed, rebuilt, then | 4 passed |
+| `deliver/browser/deliver` (both runs) | 3 passed |
+| `platform/browser/pages`, `demo/browser/walk`, `demo/browser/phone`, `journey/browser/journey`, `quality/browser/accessibility` (once, first build) | 3, 2, 2, 1 and 5 passed |
+| `quality/browser/phone` (once, first build) | 3 passed, 2 failed. (1) The list of known offenders is now stale: every `tap-target` entry for "APLYD home" and "Skip to the page" (all pages, all personas) is no longer found, because both are now at least 44 pixels high (FND-270). The offender file belongs to the quality module and was not edited. (2) Three new `clipped-control` faults on `/operator` ("Unlist SYNTHETIC Provider 1" to "3"), a page this slice does not touch; not investigated further |
+| By hand, the demonstration's owner D on a local server (`APLYD_DEMO=true`): `/deliver` opens with the card "Write down your starting number" at the top and no "Nothing needs your decision"; after "delivered" there is no "Accept milestone 1", only Reject and the link; "42 late orders" is refused with the percent message; after 42 is recorded "Accept milestone 1" is offered and the card becomes "A delivery is waiting for your decision" | as described |
+
+The unit baselines of `deliver/unit/summary` (9 to 10), the new `deliver/unit/input` (5) and `run/unit/view` (9 to 10) were recorded with `--update-baseline` after the runs above.
+
+### What this does not show
+
+- No person who owns a factory has read the new card, the refusal or the summary sentence. No mutation checks were run.
+- The card's place depends on the journey's `nextStep` priority; when it fires a rule for another page (for example "Agree a plan" while a starting number could also be recorded on Results), Results keeps its own summary and the card is at the foot.
+- Dates on Results are still ISO (see the status page).

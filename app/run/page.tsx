@@ -149,7 +149,7 @@ export default async function Run({ searchParams }: { searchParams: Promise<Sear
       {views.length === 0 ? (
         <div className="card">
           <p className="muted" data-testid="no-engagements">
-            Nothing to look at yet. Choose a provider for one of your requirements on <a href="/procure">What you need</a>, agree a plan on <a href="/deliver">Delivery</a>, and come back.
+            Nothing to look at yet. Choose a provider for something you asked for on <a href="/procure">What you need</a>, agree a plan on <a href="/deliver">Delivery</a>, and come back.
           </p>
         </div>
       ) : (

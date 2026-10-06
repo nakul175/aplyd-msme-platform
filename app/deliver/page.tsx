@@ -123,7 +123,7 @@ export default async function Deliver({ searchParams }: { searchParams: Promise<
       {engagements.length === 0 ? (
         <div className="card">
           <p className="muted" data-testid="no-engagements">
-            No engagement yet. Choose a provider for one of your requirements on <a href="/procure">What you need</a>.
+            No engagement yet. Choose a provider for something you asked for on <a href="/procure">What you need</a>.
           </p>
         </div>
       ) : (

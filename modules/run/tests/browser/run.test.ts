@@ -94,8 +94,10 @@ test("an owner records the starting number before the work, and once a milestone
     assert.equal(await page.getByRole("button", { name: /^Record review/ }).count(), 0, "no review before an acceptance");
 
     await page.getByLabel(/^The number today, before the work/).fill("lots");
-    await Promise.all([page.waitForURL((u) => u.searchParams.get("problem") === "invalid"), page.getByRole("button", { name: "Record the starting number" }).click()]);
-    assert.match(await page.getByTestId("problem").innerText(), /Give a whole number/);
+    await Promise.all([page.waitForURL((u) => u.searchParams.get("problem") === "baseline_invalid"), page.getByRole("button", { name: "Record the starting number" }).click()]);
+    const refused = await page.getByTestId("problem").innerText();
+    assert.match(refused, /The starting number box takes a number only, in (percent|days|rupees a year): for example 42, not “42 late orders”\. Give a whole number/);
+    assert.doesNotMatch(refused, /review/i, "a starting number's refusal does not talk about reviews (S5-16)");
     assert.equal(await page.getByTestId("baseline").count(), 0, "nothing was recorded");
 
     await page.getByLabel(/^The number today, before the work/).fill("42");
