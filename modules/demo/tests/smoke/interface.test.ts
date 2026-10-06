@@ -61,7 +61,7 @@ test("an owner who has done nothing is told, on Describe and on Choose, what wil
 test("the operator who has set no fee and added no provider is told what will appear and what causes it", async () => {
   const operator = await cookieFor(app.base, "operator@synthetic.invalid");
   const html = await page(app.base, operator, "/operator");
-  assert.match(html, /The fee has not been decided \(OQ-11\), so no provider can be listed\. Set it below, and listing opens\./);
+  assert.match(html, /The fee has not been decided, so no provider can be listed\. Set it below, and listing opens\./);
   assert.match(html, /None yet\. Add one in the form below, then list it so owners can choose it\./, "the providers table");
   assert.match(html, /No pool has reached five companies yet\. A pool shows here once five or more companies ask for the same idea in the same cluster\./, "the pools");
   assert.match(html, /No provider has been added yet\./, "the count under Providers");
@@ -83,4 +83,12 @@ test("the operator's home says what the account is for, and that there is no com
   assert.match(html, /Keep the list of providers/);
   assert.match(html, /You see providers and counts, never a company(&#x27;|’|&rsquo;)s record\./);
   assert.match(html, /No company is linked to this account, so there is no company record to show\./);
+});
+
+test("the script page has one banner and no link or button on it is a small target to hit (FND-271, FND-270)", async () => {
+  const html = await page(demo.base, undefined, "/demo");
+  assert.equal((html.match(/role="note"/g) ?? []).length, 1, "the shared SYNTHETIC banner is the only note on the page");
+  assert.match(html, /class="notice" data-tone="warn"/, "the page's own note is still there, without a second banner role");
+  assert.match(html, /Everything in this demonstration is SYNTHETIC/);
+  assert.match(html, /<a href="\/sign-in">Go to the sign-in page<\/a>/);
 });

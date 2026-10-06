@@ -17,11 +17,13 @@ export default function Demo() {
   return (
     <>
       <PageHead title="Demonstration" lede={<p>A script for the person presenting: who to sign in as, where to start, what to do and what to say, one step at a time.</p>} />
-      <div className="notice" role="note" data-tone="warn">
+      <div className="notice" data-tone="warn">
         Everything in this demonstration is SYNTHETIC: invented companies, people, providers and figures. It is a walk through what the application does today, in about {minutes} minutes, led by a presenter.
       </div>
-      <p>
-        Sign in on the <a href="/sign-in">sign-in page</a>, choosing the person each step names. <a href="/">Home</a> has the links.
+      <p>Sign in on the sign-in page, choosing the person each step names. The home page has the links each step starts from.</p>
+      <p className="dm-links">
+        <a href="/sign-in">Go to the sign-in page</a>
+        <a href="/">Go to the home page</a>
       </p>
 
       <section className="dm-section" aria-labelledby="dm-people">

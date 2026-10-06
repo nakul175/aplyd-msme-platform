@@ -104,15 +104,30 @@ export function nothingLeftToAsk(c: ProcureCounts): string {
   return `You have asked for every other idea you accepted, and withdrew ${c.withdrawnAsked}. A withdrawn requirement is not made again. Your requirements are below.`;
 }
 
-/** The tags under the sentence: what is the owner's turn first, then what waits for somebody else, then what is done or closed. Counts of zero are left out. */
-export function procureTags(c: ProcureCounts): StatusTag[] {
+/** The tags under the sentence: what is the owner's turn first, then what waits for somebody else, then what is done or closed. Counts of zero are left out. `held` is how many of the ideas not yet asked for have something that comes first (S5-14); they are not called ready. */
+export function procureTags(c: ProcureCounts, held = 0): StatusTag[] {
   const tags: StatusTag[] = [];
-  if (c.ready > 0) tags.push({ text: `${plural(c.ready, "idea", "ideas")} ready to ask for`, tone: readyTone(c) });
+  const heldIdeas = Math.min(Math.max(0, held), c.ready);
+  if (c.ready - heldIdeas > 0) tags.push({ text: `${plural(c.ready - heldIdeas, "idea", "ideas")} ready to ask for`, tone: readyTone(c) });
+  if (heldIdeas > 0) tags.push({ text: `${plural(heldIdeas, "idea has", "ideas have")} something to do or check first`, tone: undefined });
   if (c.needsChoice > 0) tags.push({ text: `${plural(c.needsChoice, "requirement needs", "requirements need")} a provider`, tone: "turn" });
   if (c.waiting > 0) tags.push({ text: `${c.waiting} waiting for a provider to be listed`, tone: undefined });
   if (c.chosen > 0) tags.push({ text: `${plural(c.chosen, "provider", "providers")} chosen`, tone: "ok" });
   if (c.withdrawn > 0) tags.push({ text: `${c.withdrawn} withdrawn`, tone: undefined });
   return tags;
+}
+
+export type AskState = { key: "ready" | "check_first" | "do_first"; tag: string };
+
+/**
+ * Whether an idea that has no requirement yet is "Ready to ask for". It is only when the assessment stored with the idea names nothing that
+ * has to come first and nothing to check first (S5-14); the words are the ones the Decide page uses for the same fact. This reads the
+ * assessment and decides nothing: the owner may still make the requirement, and nothing here blocks it.
+ */
+export function askState(readiness: { needsFirst: readonly string[]; toCheck: readonly string[] }): AskState {
+  if (readiness.needsFirst.length > 0) return { key: "do_first", tag: "Needs something else first" };
+  if (readiness.toCheck.length > 0) return { key: "check_first", tag: "A few things to check first" };
+  return { key: "ready", tag: "Ready to ask for" };
 }
 
 /** Accepted ideas, those with no requirement yet first. Otherwise the order they came in. */

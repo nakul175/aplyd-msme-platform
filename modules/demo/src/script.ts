@@ -56,7 +56,7 @@ export const STEPS: Step[] = [
     open: "What to do about it",
     do: [
       "Make an assessment from version 2: five ideas, ranked, with the owner's own problems each one answers.",
-      "Open the costs, the risk and the source of each: the benefits are assumptions and say so. The three AI ideas are marked, and each says what must come first.",
+      "Open the costs, the risk and the source of each: the benefits are assumptions and say so. An idea that uses AI is marked, and an idea that needs something else first says what comes first.",
       "Accept all five (or reject one of the AI ideas, to show the decision is the owner's), then sign the assessment off.",
     ],
     say: "A rule-based ranking, not a model: the same answers always give the same list, and a person can check it by hand. An AI idea gets no advantage for being AI. The library is SYNTHETIC.",
@@ -69,10 +69,10 @@ export const STEPS: Step[] = [
     signInAs: WALKED_COMPANY.owner,
     open: "What you need",
     do: [
-      `For the first idea, choose the cluster "SYNTHETIC cluster 1" and make the requirement. The page says that at least 5 companies in the cluster have asked for the same thing, and lists the providers offered for it.`,
+      `For the first idea, read the line that says what a cluster is, choose the cluster "SYNTHETIC cluster 1" and make the requirement. The page says that at least 5 companies in the cluster have asked for the same thing, and lists the providers offered for it.`,
       `For the second idea, choose "SYNTHETIC cluster 2" and make the requirement. The page says that fewer than 5 have asked and shows no number.`,
     ],
-    say: "A pool's size is shown only from five companies, and then only in steps of five, so a small pool never identifies who is in it (C-04). The providers shown are those the operator listed.",
+    say: "A cluster is a group of factories, and the three here are made up. The cluster cannot be changed after the button is pressed. A pool's size is shown only from five companies, and then only in steps of five, so a small pool never identifies who is in it (C-04). The providers shown are those the operator listed.",
     labels: ["What you need", "Which cluster do you ask in?", "Which provider do you want to work with?"],
   },
   {
@@ -81,7 +81,11 @@ export const STEPS: Step[] = [
     minutes: 2,
     signInAs: WALKED_COMPANY.owner,
     open: "What you need",
-    do: ["Choose one of the providers listed for the first idea.", "On the delivery page add one milestone: what is delivered, how the owner will check it, a date and a price; then agree the plan."],
+    do: [
+      "Read the line at the top of the providers: APLYD does not put the owner in touch with the provider, so the owner has to contact them.",
+      "Choose one of the providers listed for the first idea.",
+      "On the delivery page add one milestone: what is delivered, how the owner will check it, a date and a price. Type the date as year, month, day (for example 2026-12-15) and the price as digits only (for example 50000), with no commas. Then agree the plan.",
+    ],
     say: "The owner writes the test they will accept the work by before any work starts. The platform holds and moves no money here and does not contact the provider: the owner records what happens.",
     labels: ["Add this milestone", "Agree this plan"],
   },
@@ -92,7 +96,7 @@ export const STEPS: Step[] = [
     signInAs: WALKED_COMPANY.owner,
     open: "Results",
     do: [
-      "Record the starting number before anything is accepted (say, 42 late orders, and how it was counted).",
+      "Record the starting number before anything is accepted. The box takes a percent, as a whole number: type 40, meaning 40 percent of last quarter's orders went out late, and say in the second box how it was counted. Do not type words or a unit.",
       "On the delivery page record that the milestone was delivered and accept it; back on the results page, show the days on which the 30, 90 and 180 day reviews open.",
     ],
     say: "The numbers are the owner's own, typed in; nothing is measured by the platform. A review cannot be recorded until its day, and the application's clock cannot be moved, so the three reviews are shown as dates only.",

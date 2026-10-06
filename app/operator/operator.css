@@ -45,7 +45,16 @@
 .op-pools li + li { margin-top: 0; }
 .op-pools li:first-child { border-top: 0; }
 
-.op-end > p { max-width: none; }
+.op-end > p, p.op-end { max-width: none; }
+/* Links on a line of their own are tap targets: at least 44 px high (FND-270). */
+.op-end a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+
+/* "Unlist" asks first: a plain disclosure that opens a second button, so nothing is unlisted by one press and no script is needed (S5-19). */
+.op-confirm > summary { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0.55rem 1.1rem; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--fg); font-weight: 650; cursor: pointer; list-style: none; }
+.op-confirm > summary::-webkit-details-marker { display: none; }
+.op-confirm[open] > summary { border-color: var(--danger); color: var(--danger); }
+.op-confirm > form { display: grid; gap: var(--s-2); margin-top: var(--s-2); max-width: 22rem; }
+.op-confirm > form p { margin: 0; font-size: 0.9375rem; }
 
 @media (max-width: 40rem) {
   .op-wide .actions > button { width: 100%; }
