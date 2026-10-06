@@ -1,0 +1,10 @@
+{
+  "updatedAt": "2026-10-05",
+  "reason": "Slice 11c: portability module, the export of one company's records (BR-DATA-03)",
+  "suites": {
+    "browser/export": 3,
+    "integration/export-api": 10,
+    "static/scope": 7,
+    "unit/bundle": 10
+  }
+}

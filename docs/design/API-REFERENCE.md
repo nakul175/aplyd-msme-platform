@@ -2,7 +2,7 @@
 
 Version 0.1. 5 October 2026. Status: draft, not reviewed by a person.
 
-This reference lists every HTTP operation of the APLYD MSME platform as it is built (AS BUILT): 29 operations in 23 route files under `app/api`. For each it says who may call it and what everyone else gets, the content types, the request fields and their limits, every response with its error code, the rows and audit entries it writes, and whether repeating it is safe. It also says how the same operation answers a person at a form and a program. Every record the operations handle is SYNTHETIC, and no person has reviewed any of the code or of this text. The pages the browser shows are not operations here: they only read, and they send their forms to these operations (section 5).
+This reference lists every HTTP operation of the APLYD MSME platform as it is built (AS BUILT): 30 operations in 24 route files under `app/api`. For each it says who may call it and what everyone else gets, the content types, the request fields and their limits, every response with its error code, the rows and audit entries it writes, and whether repeating it is safe. It also says how the same operation answers a person at a form and a program. Every record the operations handle is SYNTHETIC, and no person has reviewed any of the code or of this text. The pages the browser shows are not operations here: they only read, and they send their forms to these operations (section 5).
 
 How this relates to the other documents: the [BRD](../brd/BRD.md) says what the platform must do, and each entry names the requirements it serves; the [FSD](../fsd/FSD.md) says what the screens and rules do with these operations; the [data dictionary](DATA-DICTIONARY.md) describes the tables they write and the audit events they cause; the [HLD](HLD.md) and [LLD](LLD.md) say how the modules are built; [Security and privacy](SECURITY-AND-PRIVACY.md) holds the threats; the [test cases](../test/TEST-CASES.md) exercise them.
 
@@ -41,6 +41,7 @@ One row for each exported method of each route file. Paths have their parameters
 | API-27 | GET | `/api/operator/listing-terms` | Procure | operator |
 | API-28 | POST | `/api/operator/listing-terms` | Procure | operator |
 | API-29 | GET | `/api/operator/pools` | Procure | operator |
+| API-30 | GET | `/api/companies/{id}/export` | Portability | member |
 
 ## 2. Conventions and shared behaviour
 
@@ -1682,6 +1683,85 @@ Response 200.
 }
 ```
 
+### API-30 GET /api/companies/{id}/export
+
+| Item | Detail |
+| --- | --- |
+| Purpose | Gives the caller's own company's records as one JSON file to save: the company, every version of the factory description, every assessment with its decisions and sign-offs, every requirement (withdrawn ones too), every engagement with its milestones and events, and every baseline and review. The file names its format and version, carries a `readme` that explains each section and what is left out, and is marked SYNTHETIC. Every read is bound to the caller's company, never to the id in the URL. |
+| Serves | BR-DATA-03, BR-GOV-05 |
+| Caller | A person of the company in the URL, its owner or a member: a signed-in person whose company is that company. |
+| Everyone else | Not signed in: 401 `not_signed_in`. Signed in with another company, or as the operator, who has none: 404 `not_found`, the same answer as for a company that does not exist, and an audit entry `company.export.denied` is written. No database bound: 503 `storage_unavailable`. |
+| Content types | None sent. The answer is JSON, indented, with `content-disposition: attachment` and a file name `aplyd-records-{id}-{date}.json`. |
+| Body limit | None. No body is read, and the query string is ignored. |
+| Side effects | A success writes one audit entry `company.export` with the format `version` and the number of `records`. A refusal writes `company.export.denied`. No record is changed. |
+| Idempotency | Safe to repeat. Each call writes its own `company.export` entry. The file differs only in `exportedAt` while the records stay the same. |
+| Form post | no |
+
+| Field | Form field | Type | Required | Limits and meaning |
+| --- | --- | --- | --- | --- |
+| `id` (in the path) | same | string | yes | The company id. Compared with the caller's own company; it is never used to look anything up. |
+
+| Status | Code or body | When | Form post |
+| --- | --- | --- | --- |
+| 200 | Body with `format`, `version`, `synthetic`, `tag`, `exportedAt`, `companyId`, `readme`, `counts`, `company`, `factoryDescriptions`, `assessments`, `requirements`, `engagements` and `measurements` | The id is the caller's company. Every list is oldest first. Nothing of another company is in it, and nothing of the provider register, the listing terms, the pools, the audit log or a session: an engagement names only the `chosenProvider` by id and name. Audit entry `company.export`. | none |
+| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | none |
+| 404 | `not_found` | The id is not the caller's company, or the company row is gone. Audit entry `company.export.denied` for the first case. | none |
+| 503 | `storage_unavailable` | The platform has no database bound. | none |
+
+Response 200, shortened: the `readme` texts and the record lists are cut to one entry each.
+
+```json
+{
+  "format": "aplyd-msme-company-records",
+  "version": 1,
+  "synthetic": true,
+  "tag": "SYNTHETIC",
+  "exportedAt": "2026-10-06T01:00:00.000Z",
+  "companyId": "company-synthetic-a",
+  "readme": {
+    "title": "Your company's records from the APLYD MSME platform",
+    "about": ["This file holds every record your company made on the APLYD MSME platform, as they were when the file was made."],
+    "format": "JSON, as UTF-8 text.",
+    "sections": { "company": "The company record." },
+    "notIncluded": [{ "what": "Other companies' records.", "why": "They belong to those companies." }]
+  },
+  "counts": {
+    "factoryDescriptions": 1,
+    "assessments": 0,
+    "ideas": 0,
+    "decisions": 0,
+    "signOffs": 0,
+    "requirements": 0,
+    "withdrawnRequirements": 0,
+    "engagements": 0,
+    "milestones": 0,
+    "engagementEvents": 0,
+    "measurements": 0
+  },
+  "company": {
+    "id": "company-synthetic-a",
+    "name": "SYNTHETIC Company A",
+    "synthetic": true,
+    "createdAt": "2026-10-04T00:00:00.000Z"
+  },
+  "factoryDescriptions": [
+    {
+      "revision": 1,
+      "createdAt": "2026-10-04T00:00:00.000Z",
+      "createdBy": "user-synthetic-owner-a",
+      "confirmed": true,
+      "questionnaireVersion": 1,
+      "note": "SYNTHETIC first description",
+      "answers": { "products": "SYNTHETIC school uniforms and cotton shirts" }
+    }
+  ],
+  "assessments": [],
+  "requirements": [],
+  "engagements": [],
+  "measurements": []
+}
+```
+
 ## 4. Error codes
 
 Every code an operation can answer with, as the `error` field of the body (`status` for `degraded`). The sync test compares this list with the codes written in the source. A status can repeat: `not_found` is 404 everywhere, and `invalid` and `bad_request` are 400.
@@ -1690,11 +1770,11 @@ Every code an operation can answer with, as the `error` field of the body (`stat
 | --- | --- | --- | --- |
 | `bad_request` | 400 | The body cannot be read, or is JSON that is not one object; in API-06, a note or confirm of the wrong type. | API-03, API-06, API-08, API-10, API-11, API-13, API-14, API-15, API-18, API-19, API-21, API-24, API-25, API-26, API-28 |
 | `invalid` | 400 | A field is missing or wrong. The body holds `fields`, a map of field name to sentence. | API-06, API-10, API-11, API-13, API-14, API-15, API-18, API-19, API-21, API-24, API-25, API-26, API-28 |
-| `not_signed_in` | 401 | No valid session. | API-02, API-04, API-05, API-06, API-07, API-08, API-09, API-10, API-11, API-12, API-13, API-14, API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-22, API-23, API-24, API-25, API-26, API-27, API-28, API-29 |
+| `not_signed_in` | 401 | No valid session. | API-02, API-04, API-05, API-06, API-07, API-08, API-09, API-10, API-11, API-12, API-13, API-14, API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-22, API-23, API-24, API-25, API-26, API-27, API-28, API-29, API-30 |
 | `unknown_user` | 401 | No synthetic user has the address given at sign-in. | API-03 |
 | `cross_site_refused` | 403 | A change that another website sent. | API-03, API-06, API-08, API-10, API-11, API-13, API-14, API-15, API-18, API-19, API-21, API-24, API-25, API-26, API-28 |
 | `forbidden` | 403 | The caller is a member and not the owner, or is not the operator. | API-06, API-08, API-10, API-11, API-13, API-14, API-15, API-18, API-19, API-21, API-23, API-24, API-25, API-26, API-27, API-28, API-29 |
-| `not_found` | 404 | No such record for the caller's company, or the company in the path is not the caller's, or a provider does not exist. The same answer for all. | API-04, API-05, API-06, API-07, API-08, API-09, API-10, API-11, API-12, API-13, API-14, API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-25, API-26 |
+| `not_found` | 404 | No such record for the caller's company, or the company in the path is not the caller's, or a provider does not exist. The same answer for all. | API-04, API-05, API-06, API-07, API-08, API-09, API-10, API-11, API-12, API-13, API-14, API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-25, API-26, API-30 |
 | `already_agreed` | 409 | The plan is already agreed. | API-19 |
 | `already_engaged` | 409 | The requirement has an engagement with another provider. | API-15 |
 | `already_listed` | 409 | The provider is listed. | API-25 |
@@ -1735,7 +1815,7 @@ Every code an operation can answer with, as the `error` field of the body (`stat
 | `unsupported_content_type` | 415 | The content type is not JSON or form, or there is a body and no type. | API-03, API-06, API-08, API-10, API-11, API-13, API-14, API-15, API-18, API-19, API-21, API-24, API-25, API-26, API-28 |
 | `degraded` | 503 | Health only: the field is `status`, not `error`. The database is unavailable or a required trigger is missing. | API-01 |
 | `sign_in_not_available` | 503 | Sign-in is refused: not a synthetic environment, no database, or no usable secret. | API-03 |
-| `storage_unavailable` | 503 | The platform has no database bound. | API-04, API-05, API-06, API-07, API-08, API-09, API-10, API-11, API-12, API-13, API-14, API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-22, API-23, API-24, API-25, API-26, API-27, API-28, API-29 |
+| `storage_unavailable` | 503 | The platform has no database bound. | API-04, API-05, API-06, API-07, API-08, API-09, API-10, API-11, API-12, API-13, API-14, API-15, API-16, API-17, API-18, API-19, API-20, API-21, API-22, API-23, API-24, API-25, API-26, API-27, API-28, API-29, API-30 |
 
 ## 5. Pages that post forms
 
