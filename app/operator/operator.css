@@ -59,3 +59,9 @@
 @media (max-width: 40rem) {
   .op-wide .actions > button { width: 100%; }
 }
+
+/* Where a redirect lands (S5-10): the row or the card that changed is marked, so the owner of the page sees what happened without scrolling back to the top. */
+.op-table tr[id] { scroll-margin-top: 4.5rem; }
+.op-table tr[id]:target > td { background: var(--surface-2); }
+.card#op-terms { scroll-margin-top: 4.5rem; }
+.card#op-terms:target { outline: 3px solid var(--brand); outline-offset: 2px; }

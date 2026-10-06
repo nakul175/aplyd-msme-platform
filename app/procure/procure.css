@@ -74,8 +74,8 @@
 .pr-contact { max-width: none; padding: var(--s-2) var(--s-3); border-left: 4px solid var(--line-strong); background: var(--surface-2); border-radius: var(--r-sm); color: var(--fg); }
 
 /* The card that just changed, where a redirect lands (S5-10). */
-.card[id] { scroll-margin-top: 4.5rem; }
-.card[id]:target { outline: 3px solid var(--brand); outline-offset: 2px; }
+.pr-section .card[id] { scroll-margin-top: 4.5rem; }
+.pr-section .card[id]:target { outline: 3px solid var(--brand); outline-offset: 2px; }
 
 @media (max-width: 40rem) {
   .pr-wide .actions > button, .pr-wide .actions > .btn { width: 100%; }
