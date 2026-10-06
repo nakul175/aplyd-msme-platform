@@ -1,11 +1,16 @@
 import { env } from "cloudflare:workers";
 import { headers } from "next/headers";
+import { Fragment } from "react";
 import { presentAssessment, DECISIONS, MAX_NOTE_LENGTH, notOwnerMessage } from "../../modules/diagnose/src/api/diagnose.ts";
 import { listAssessments, loadAssessment, loadLatestAssessmentId } from "../../modules/diagnose/src/db/assessments.ts";
+import { compareAssessments } from "../../modules/diagnose/src/compare.ts";
+import type { Comparison } from "../../modules/diagnose/src/compare.ts";
 import type { Item } from "../../modules/diagnose/src/engine.ts";
 import { MAX_ITEMS, POINTS } from "../../modules/diagnose/src/engine.ts";
+import { READINESS_WORDS, gapView } from "../../modules/diagnose/src/gaps.ts";
+import type { Blocker, GapView } from "../../modules/diagnose/src/gaps.ts";
 import { afterSignOff, decisionWord, firstUndecided, hasAssessmentFrom, relationToConfirmed, scoreLine, signOffState, signOffWords } from "../../modules/diagnose/src/progress.ts";
-import { loadLatest } from "../../modules/factory/src/db/revisions.ts";
+import { loadLatest, loadRevision } from "../../modules/factory/src/db/revisions.ts";
 import { loadFacts } from "../../modules/journey/src/facts.ts";
 import { nextStep } from "../../modules/journey/src/progress.ts";
 import type { AppEnv } from "../../modules/platform/src/env.ts";
@@ -21,7 +26,7 @@ type Search = { a?: string; saved?: string; signed?: string; problem?: string; n
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const range = (r: { low: number; high: number }) => (r.low === r.high ? rupees(r.low) : `${rupees(r.low)} to ${rupees(r.high)}`);
 const UNIT: Record<string, string> = { percent: "percent", days: "days", rupees_per_year: "rupees a year" };
-const READINESS: Record<string, string> = { ready: "Ready to start", check: "A few things to check first", needs_first: "Needs something else first" };
+const READINESS = READINESS_WORDS;
 const FIT: Record<string, string> = {
   within: "Fits within your yearly budget.",
   stretch: "Could stretch your yearly budget.",
@@ -62,6 +67,284 @@ function Money({ item }: { item: Item }) {
   );
 }
 
+const KIND_TAG: Record<Blocker["kind"], string> = { first: "Do first", check: "Check", answer: "Answer needed", money: "Cost" };
+
+/** One line of "what stands in the way": the idea, what kind of thing it is, and the line in plain words. */
+function BlockerLine({ b }: { b: Blocker }) {
+  return (
+    <li>
+      <strong>{b.title}.</strong> <Tag>{KIND_TAG[b.kind]}</Tag> {b.words}
+    </li>
+  );
+}
+
+/**
+ * Where the factory stands in five parts, and what stands between each part and the ideas. It reads the stored assessment, the answers it
+ * was made from and the library, and is readable without the list of ideas. Which part a question belongs to is this page's choice, and says so.
+ */
+function Stand({ gaps, newest }: { gaps: GapView; newest: boolean }) {
+  return (
+    <section className="card dg-stand" id="stand" aria-label="Where your factory stands" data-testid="stand">
+      <h2>Where your factory stands</h2>
+      <p>
+        This is what your answers say about five parts of your factory, and what stands between each part and the ideas on this page. You can read it without reading the ideas. Each line comes from the same rules that ranked the ideas, so "Nothing in the way" means nothing that those rules check.
+      </p>
+      {gaps.state === "all_left_out" ? (
+        <p data-testid="stand-all-left-out">
+          Every idea that matches the problems you named was left out, because your answers say the problem it solves does not seem to be there. So there are no ideas to rank. What was left out, and the answer behind it, is under each part.
+        </p>
+      ) : null}
+      {gaps.state === "no_match" ? <p data-testid="stand-no-match">No idea in the library matches the problems you named, so there is nothing to hold your factory up against. The five parts below still show your answers.</p> : null}
+      <div className="dg-areas">
+        {gaps.areas.map((a) => (
+          <div key={a.id} className="dg-area" data-testid={`area-${a.id}`}>
+            <h3>
+              {a.label}{" "}
+              {a.state === "not_assessed" ? <Tag>Not assessed</Tag> : a.heldUp > 0 ? <Tag tone="turn">{a.heldUp === 1 ? "1 idea held up" : `${a.heldUp} ideas held up`}</Tag> : <Tag tone="ok">Nothing in the way</Tag>}
+            </h3>
+            <p className="muted dg-about">{a.about}</p>
+            {a.whyNot ? <p data-testid={`area-${a.id}-not-assessed`}><strong>Not assessed.</strong> {a.whyNot}</p> : null}
+            {a.blockers.length ? (
+              <>
+                <p className="dg-sub">What stands in the way</p>
+                <ul className="dg-between">
+                  {a.blockers.map((b, i) => (
+                    <BlockerLine key={`${b.opportunityId}-${b.kind}-${i}`} b={b} />
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {a.inPlace.length ? (
+              <>
+                <p className="dg-sub">Left out because of your answers</p>
+                <ul className="dg-between">
+                  {a.inPlace.map((l) => (
+                    <li key={l.opportunityId}>{l.words}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <details className="dg-more dg-stand-answers" data-testid={`area-${a.id}-answers`}>
+              <summary>Your answers in this part ({a.standing.length})</summary>
+              <dl className="facts dg-stand-facts">
+                {a.standing.map((q) => (
+                  <Fragment key={q.question}>
+                    <dt>{q.label}</dt>
+                    <dd>{q.answer ?? <span className="muted">Not answered</span>}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </details>
+          </div>
+        ))}
+      </div>
+      {gaps.unplaced.length || gaps.unplacedInPlace.length ? (
+        <div className="dg-area" data-testid="area-unplaced">
+          <h3>Not placed in a part</h3>
+          <p className="muted dg-about">{gaps.placed ? "The library does not say which part these belong to." : "This assessment was made with an earlier version of the library, so these cannot be placed in a part."}</p>
+          <ul className="dg-between">
+            {gaps.unplaced.map((b, i) => (
+              <BlockerLine key={`${b.opportunityId}-${b.kind}-${i}`} b={b} />
+            ))}
+            {gaps.unplacedInPlace.map((l) => (
+              <li key={l.opportunityId}>{l.words}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {gaps.rankedBelowCap > 0 ? <p className="muted">{gaps.rankedBelowCap === 1 ? "One more idea matches" : `${gaps.rankedBelowCap} more ideas match`} your problems but ranked below the first {MAX_ITEMS}, so it is not looked at here.</p> : null}
+      {gaps.ideas.length ? (
+        <details className="dg-more" data-testid="stand-by-idea">
+          <summary>Idea by idea: what stands in the way</summary>
+          <ul className="dg-by-idea">
+            {gaps.ideas.map((i) => (
+              <li key={i.opportunityId}>
+                <strong>
+                  {i.rank}. {i.title}.
+                </strong>{" "}
+                {READINESS_WORDS[i.readiness]}.
+                {i.blockers.length ? (
+                  <ul className="dg-between">
+                    {i.blockers.map((b, n) => (
+                      <li key={`${b.kind}-${n}`}>
+                        <Tag>{KIND_TAG[b.kind]}</Tag> {b.words}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <> Nothing that the rules check stands in the way.</>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {gaps.needsAnswers && newest ? (
+        <div className="dg-answer-next">
+          <p>Where a line says you did not answer a question, answer it in your description and confirm it. Then make a new assessment: the lines and the ideas change, and the comparison below shows what moved.</p>
+          <p>
+            <a className="btn" href="/factory">
+              Answer the missing questions
+            </a>
+          </p>
+        </div>
+      ) : null}
+      <p className="muted help">
+        Which part a question belongs to is a choice made for this page, not a finding. The ideas and the figures are SYNTHETIC placeholders, and the cost is compared with the top of your budget band, which is an assumption.
+      </p>
+    </section>
+  );
+}
+
+const place = (n: number) => `place ${n}`;
+
+/** What changed between this assessment and the one before it: the answers that differ, and the ideas that moved, came in or dropped out. */
+function Compare({ cmp, earlier, later }: { cmp: Comparison; earlier: { revision: number; date: string }; later: { revision: number; date: string } }) {
+  const up = cmp.moved.filter((m) => m.direction === "up");
+  const down = cmp.moved.filter((m) => m.direction === "down");
+  const used = cmp.answers?.filter((a) => a.usedByRules) ?? [];
+  const unused = cmp.answers?.filter((a) => !a.usedByRules) ?? [];
+  return (
+    <section className="card dg-compare" id="compare" aria-label="What changed since the earlier assessment" data-testid="compare">
+      <h2>What changed since the earlier assessment</h2>
+      <p data-testid="compare-which">
+        This assessment is from version {later.revision} of your description (<span className="dg-date">{later.date}</span>). The one before it is from version {earlier.revision} (<span className="dg-date">{earlier.date}</span>). Both are kept as they were.
+      </p>
+      {cmp.sameDescription ? (
+        <p>
+          Both were made from version {later.revision} of your description, so none of your answers changed.
+          {cmp.libraryChanged ? " The library of ideas is a different version." : ""}
+          {cmp.engineChanged ? " The ranking rules are a different version." : ""}
+        </p>
+      ) : cmp.answers === null ? (
+        <p>One of the two descriptions could not be read, so your answers are not compared.</p>
+      ) : used.length === 0 && unused.length === 0 ? (
+        <p>No answer is different between the two versions of your description.</p>
+      ) : (
+        <>
+          {used.length ? (
+            <>
+              <h3>Your answers that changed</h3>
+              <ul className="dg-changes" data-testid="compare-answers">
+                {used.map((a) => (
+                  <li key={a.key}>
+                    <strong>{a.label}</strong> Was: {a.before}. Now: {a.after}.
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>None of the answers the rules read changed.</p>
+          )}
+          {unused.length ? (
+            <details className="dg-more">
+              <summary>Other answers that changed ({unused.length})</summary>
+              <ul className="dg-changes">
+                {unused.map((a) => (
+                  <li key={a.key}>
+                    <strong>{a.label}</strong> {a.before === "" ? "Changed." : `Was: ${a.before}. Now: ${a.after}.`} The rules do not use this answer.
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </>
+      )}
+      {cmp.nothingMoved ? (
+        <p data-testid="compare-nothing-moved">No idea moved, came in or dropped out: the same ideas are in the same order.</p>
+      ) : (
+        <>
+          {up.length ? (
+            <>
+              <h3>Ideas that moved up</h3>
+              <ul className="dg-changes" data-testid="compare-up">
+                {up.map((m) => (
+                  <li key={m.opportunityId}>
+                    <strong>{m.title}.</strong> From {place(m.from)} to {place(m.to)}. {m.because.join(" ")}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {down.length ? (
+            <>
+              <h3>Ideas that moved down</h3>
+              <ul className="dg-changes" data-testid="compare-down">
+                {down.map((m) => (
+                  <li key={m.opportunityId}>
+                    <strong>{m.title}.</strong> From {place(m.from)} to {place(m.to)}. {m.because.join(" ")}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {cmp.entered.length ? (
+            <>
+              <h3>Ideas that came in</h3>
+              <ul className="dg-changes" data-testid="compare-entered">
+                {cmp.entered.map((e) => (
+                  <li key={e.opportunityId}>
+                    <strong>{e.title}.</strong> Now in {place(e.rank)}. {e.before}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {cmp.dropped.length ? (
+            <>
+              <h3>Ideas that dropped out</h3>
+              <ul className="dg-changes" data-testid="compare-dropped">
+                {cmp.dropped.map((d) => (
+                  <li key={d.opportunityId}>
+                    <strong>{d.title}.</strong> Was in {place(d.wasRank)}. {d.now}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+        </>
+      )}
+      {cmp.changedInPlace.length ? (
+        <>
+          <h3>Ideas that kept their place but changed</h3>
+          <ul className="dg-changes" data-testid="compare-changed">
+            {cmp.changedInPlace.map((c) => (
+              <li key={c.opportunityId}>
+                <strong>{c.title}.</strong> Still in {place(c.rank)}. {c.because.join(" ")}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {cmp.steady > 0 ? <p className="muted">{cmp.steady === 1 ? "One idea stayed" : `${cmp.steady} ideas stayed`} in the same place with nothing changed.</p> : null}
+      <p className="muted help">The comparison only reads the two assessments and the two versions of your description. Nothing in it is new advice, and nothing here can be changed.</p>
+    </section>
+  );
+}
+
+/** What the page says in place of the comparison when there is nothing to compare, and why. */
+function NothingToCompare({ why, newestId }: { why: "only_one" | "earliest"; newestId: string | null }) {
+  return (
+    <section className="card dg-compare" aria-label="What changed since the earlier assessment" data-testid="compare-empty">
+      <h2>What changed since the earlier assessment</h2>
+      {why === "only_one" ? (
+        <p>You have one assessment so far, so there is nothing to compare it with. When you confirm a changed description and make a new assessment, this shows which ideas moved up or down, which came in or dropped out, and which of your answers caused it.</p>
+      ) : (
+        <>
+          <p>This is your earliest assessment, so there is nothing before it to compare with. The newer one shows what changed since this one.</p>
+          {newestId ? (
+            <p>
+              <a className="btn" href={`/diagnose?a=${encodeURIComponent(newestId)}`}>
+                Open your newest assessment
+              </a>
+            </p>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default async function Diagnose({ searchParams }: { searchParams: Promise<Search> }) {
   const e = env as unknown as AppEnv;
   const q = await searchParams;
@@ -88,6 +371,14 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
   const wanted = q.a && q.a.length <= 64 ? q.a : await loadLatestAssessmentId(db, companyId);
   const record = wanted ? await loadAssessment(db, companyId, wanted) : null;
   const view = record ? await presentAssessment(record) : null;
+  // The answers each assessment was made from (read for this company only), and the assessment made just before this one, for the two
+  // views below. They are read, never written; nothing here makes a record.
+  const at = view ? all.findIndex((a) => a.id === view.id) : -1;
+  const earlierId = at >= 0 ? (all[at + 1]?.id ?? null) : null;
+  const earlierRecord = earlierId ? await loadAssessment(db, companyId, earlierId) : null;
+  const [shownDescription, earlierDescription] = await Promise.all([record ? loadRevision(db, companyId, record.factoryRevisionNo) : null, earlierRecord ? loadRevision(db, companyId, earlierRecord.factoryRevisionNo) : null]);
+  const gaps = view ? gapView(view.result, shownDescription?.answers ?? null) : null;
+  const cmp = view && earlierRecord ? compareAssessments(earlierRecord.result, view.result, earlierDescription?.answers ?? null, shownDescription?.answers ?? null, earlierRecord.factoryRevisionNo === view.factoryRevisionNo) : null;
   const decisionOf = new Map((view?.standing ?? []).map((s) => [s.opportunityId, s]));
   const signed = view?.signoff ?? null;
   const decided = view ? view.result.items.filter((i) => decisionOf.has(i.opportunityId)).length : 0;
@@ -159,6 +450,23 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
         <MakeForm primary />
       )}
 
+      {view ? null : (
+        <section className="card dg-stand" aria-label="Where your factory stands" data-testid="stand-empty">
+          <h2>Where your factory stands</h2>
+          {all.length ? (
+            <p>Open one of your assessments below to see where your factory stands on data, people, systems, money and quality, and what stands between it and each idea.</p>
+          ) : (
+            <>
+              <p>
+                This will show where your factory stands on data, people, systems, money and quality, and what stands between it and each idea. It appears once you have made your first assessment
+                {confirmed ? "." : ", which needs a description of your factory that you have confirmed."}
+              </p>
+              <p>After you confirm a changed description and make a second assessment, it will also show what changed: which ideas moved, and which of your answers caused it.</p>
+            </>
+          )}
+        </section>
+      )}
+
       {view ? (
         <section className="dg-assessment" aria-label="Assessment" data-testid="assessment">
           <div className="dg-head">
@@ -172,6 +480,10 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
               Drafted by a set of rules on {view.createdAt.slice(0, 10)}, not by an AI model. You check it: decide on each idea below, then sign it off. Library version {view.libraryVersion}, engine version {view.engineVersion}.
             </p>
             {view.result.inputs.problems.length ? <p className="dg-problems">Problems you named: {view.result.inputs.problems.join("; ")}.</p> : <p className="dg-problems">You named no problems, so there is nothing to match.</p>}
+            <p className="muted dg-jump" data-testid="jump">
+              {cmp ? "What changed since the earlier assessment is just below. " : ""}
+              <a href="#stand">Go to where your factory stands</a>, which comes after the ideas.
+            </p>
           </div>
 
           <section className={signed || ready ? "card tint dg-signoff-card" : "card dg-signoff-card"} aria-label="Sign-off" data-testid="signoff">
@@ -246,9 +558,15 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
             )}
           </section>
 
+          {cmp && earlierRecord ? (
+            <Compare cmp={cmp} earlier={{ revision: earlierRecord.factoryRevisionNo, date: earlierRecord.createdAt.slice(0, 10) }} later={{ revision: view.factoryRevisionNo, date: view.createdAt.slice(0, 10) }} />
+          ) : null}
+
           {view.result.items.length === 0 ? (
             <Notice tone="warn" data-testid="no-items">
-              Nothing in the library matches the problems you named. Naming "something else" cannot be matched.
+              {view.result.leftOut.length > 0
+                ? "Every idea that matches the problems you named was left out, because your answers say the problem it solves does not seem to be there. Under \"Where your factory stands\" each one is listed with the answer behind it."
+                : 'Nothing in the library matches the problems you named. Naming "something else" cannot be matched.'}
             </Notice>
           ) : (
             <h2 className="dg-ideas-title">The ideas, ranked</h2>
@@ -288,6 +606,9 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
                       </p>
                     ) : null}
                     <Money item={item} />
+                    <p className="muted help" data-testid={`figures-${item.opportunityId}`}>
+                      Where these figures come from: {item.source === "assumption" ? "an assumption (SYNTHETIC placeholder). No study, quotation or measurement stands behind them." : `the source register, ${item.source}.`}
+                    </p>
                     {item.readiness.needsFirst.length || item.readiness.toCheck.length ? (
                       <div className="dg-first">
                         {item.readiness.needsFirst.length ? (
@@ -301,7 +622,11 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
                           </p>
                         ) : null}
                       </div>
-                    ) : null}
+                    ) : (
+                      <p className="muted" data-testid={`first-${item.opportunityId}`}>
+                        Nothing the library asks for first is missing.
+                      </p>
+                    )}
                     <div className="dg-notes">
                       <p>
                         <strong>Hidden costs to expect:</strong> {item.costs.hidden.join("; ")}.
@@ -354,6 +679,10 @@ export default async function Diagnose({ searchParams }: { searchParams: Promise
               );
             })}
           </ol>
+
+          {gaps ? <Stand gaps={gaps} newest={!confirmed || relationToConfirmed(view.factoryRevisionNo, confirmed.revision) === "newest"} /> : null}
+
+          {cmp ? null : <NothingToCompare why={all.length <= 1 ? "only_one" : "earliest"} newestId={all[0]?.id ?? null} />}
 
           <details className="card">
             <summary>How the ideas were ranked</summary>

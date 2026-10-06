@@ -86,3 +86,30 @@
 /* A long label that has to wrap would leave its arrow stranded at the far edge of a full-width button, so a phone gets the words alone. */
 @media (max-width: 28rem) { .dg-make-card button .icon { display: none; } }
 .dg-make button, .dg-make-card button, .dg-signoff-form button { text-wrap: balance; }
+
+/* Where your factory stands, and what changed since the earlier assessment: two cards above the ideas. Plain lists, no table, so a phone needs no sideways scroll. */
+.dg-stand, .dg-compare { display: grid; gap: var(--s-4); min-width: 0; overflow-wrap: anywhere; }
+.dg-stand > *, .dg-compare > * { margin-top: 0; }
+.dg-stand > p, .dg-compare > p { max-width: 70ch; }
+.dg-areas { display: grid; gap: var(--s-4); }
+@media (min-width: 62rem) { .dg-areas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dg-area { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); padding: var(--s-4); display: grid; gap: var(--s-3); align-content: start; min-width: 0; }
+.dg-area > * { margin-top: 0; }
+.dg-area h3 { font-size: 1.0625rem; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.dg-about { font-size: 0.9375rem; }
+.dg-stand-facts { row-gap: var(--s-2); }
+.dg-sub { font-weight: 650; }
+.dg-between, .dg-changes, .dg-by-idea { list-style: none; padding: 0; display: grid; gap: var(--s-2); }
+.dg-between li, .dg-changes li, .dg-by-idea li { margin: 0; }
+.dg-between > li { border-left: 4px solid var(--brand); padding-left: var(--s-3); }
+.dg-changes > li { border-left: 4px solid var(--brand); padding-left: var(--s-3); }
+.dg-by-idea { gap: var(--s-4); margin-top: var(--s-2); }
+.dg-by-idea ul { margin-top: var(--s-2); }
+.dg-compare h3 { font-size: 1.0625rem; margin-top: var(--s-2); }
+.dg-answer-next { display: grid; gap: var(--s-3); border-top: 1px solid var(--line); padding-top: var(--s-4); }
+.dg-answer-next > * { margin-top: 0; }
+.dg-stand .btn, .dg-compare .btn { justify-self: start; min-height: 2.75rem; }
+@media (max-width: 30rem) { .dg-stand .btn, .dg-compare .btn { justify-self: stretch; } }
+.dg-stand-answers > .facts { margin-left: 1.25rem; margin-top: var(--s-2); }
+/* A link a finger has to hit: at least 44 pixels tall, and still part of its sentence. */
+.dg-jump a, .dg-list a { display: inline-flex; align-items: center; min-height: 2.75rem; }
