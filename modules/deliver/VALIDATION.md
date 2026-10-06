@@ -160,3 +160,32 @@ The baselines of `deliver/unit/summary` (8 to 9) and the new `deliver/unit/test-
 - **An empty test is still refused**, not flagged, because the database requires the text; the BRD row asks for a flag (see the status page).
 - **No mutation checks** were run for the page or `src/test-quality.ts`. An agent looked at the page at 390 pixels wide in Chromium (the warning beside Accept for the demonstration's owner D, the worked example open for owner E; no sideways scroll); not in the dark scheme or at desktop width. The new CSS uses only existing tokens; `journey/unit/contrast` passes (8) and was not changed.
 - **The warning is shown only in the decision form.** An owner who accepts through the JSON interface is not warned; the database still refuses a late starting number.
+
+## Slice 12d (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 12d". The author is an agent; no person has read it and no separate agent has reviewed it.
+
+### What was run (branch `slice-12d-deliver-measure`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `deliver/unit/input` (new: prices with commas, ₹, Rs, INR and "/-"; refused prices; dates from the box and day first; a day that does not exist; the boxes sentence; the cookie's attributes, round trip, foreign or malformed cookie, values cut to the box's limit) | 5 passed |
+| `deliver/unit/summary` (new: the sentence when the next step is on another page) | 10 passed |
+| `deliver/unit/reads`, `deliver/unit/state`, `deliver/unit/test-quality`, `deliver/static/rules` | 3, 7, 4 and 9 passed |
+| `deliver/integration/deliver-api` | 32 passed (87 s) |
+| `pnpm typecheck` | no error |
+| `pnpm build`, then `deliver/smoke/deliver` (changed: no Accept and the notice before the starting number, Accept after it, the shared card at the top before the engagements with the right rule and link, no "Nothing needs your decision", the contact sentence, the eyebrow; the refused milestone names "Due date" and "Price" and keeps the values from the cookie, the address carries none; a day-first date and "₹1,25,000" are saved; the cookie is cleared by the save; at the delivery cap Reject is offered and Accept is not) | 8 passed |
+
+The browser suite and the shared suites are recorded in the run module's record for this slice.
+
+### Tests changed, and why
+
+- `smoke/deliver` and `browser/deliver` accepted milestone 1 with no starting number. The page no longer offers that (S5-03, the sponsor's brief), so the smoke test now asserts its absence and records a number first, and the browser test follows the notice's link to Results, records 42 and comes back. The cap case asserts Reject instead of Accept.
+- `browser/deliver` typed "2026-02-30" into the due date. A date box cannot hold a day that does not exist, so the refused value is now the price ("1000 rupees"); the test also checks the values are kept. Its title, and the row TC-DEPL-26 in `docs/test/TEST-CASES.md`, say so.
+- `browser/deliver` pressed "Close this engagement"; it now opens the fold and presses "Close this engagement now".
+
+### What this does not show
+
+- No person who owns a factory has used the new card, notice or form. No mutation checks were run.
+- The cookie is not cleared on read. A refused form, then a visit to `/deliver?problem=invalid` within five minutes, shows the values again.
+- A date typed into the date box in a browser without date support is read day first; a browser that sends month-first text is not handled (none of the supported browsers does).

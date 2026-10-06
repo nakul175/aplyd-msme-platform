@@ -190,3 +190,19 @@ The built application was run locally with the demonstration cast (`APLYD_DEMO=t
 - **The health check does not yet know the new triggers** (STATUS limit 20).
 - **The drizzle snapshot chain** had a stale CHECK text for `outcome_events`; the rebuild drizzle-kit wrote was removed by hand (STATUS limit 21). `static/migrations` (`drizzle-kit check`) passes, which checks the chain, not the SQL.
 - **Two Workers racing** a correction and a close, or a baseline and a close, were not run; the handler reads the engagement and the trigger decides the rest.
+
+## Slice 12d (6 October 2026)
+
+What changed is in [the status page](STATUS.md), "Slice 12d", and in the deliver module's record for the same slice. The author is an agent; no person has read it and no separate agent has reviewed it.
+
+### What was run (branch `slice-12d-deliver-measure`, Linux container, Node 22, 6 October 2026)
+
+| Check | Result |
+| --- | --- |
+| `run/unit/view` (new: the sentence when the next step is on another page; this page's own turn still comes first) | 10 passed |
+| `run/unit/state`, `run/static/rules` (the new key `baseline_invalid` is sent by the API and has a message on `/run`) | 7 and 10 passed |
+| `platform/static/page-lookups` (the problem text is looked up with `Object.hasOwn`) | 2 passed |
+| `run/integration/run-api` (changed: an empty or worded starting number goes to `baseline_invalid`; a baseline with a review field keeps `invalid`) | 36 passed (96 s) |
+| `pnpm build`, then `run/smoke/run` (changed: the refusal names the unit, gives the example and does not mention reviews; "42 late orders" is refused) and `demo/smoke/interface` | 7 and 5 passed |
+| `journey/unit/contrast` | 8 passed |
+| `node scripts/test.mjs static` | 28 of 29 suites pass; `docs/static/lld-sync` fails only on `app/diagnose/page.tsx` exporting `metadata` (a row this slice does not own; the Delivery and Results rows were corrected) |
