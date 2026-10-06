@@ -174,3 +174,27 @@ The page was opened in Chromium for owner A with two assessments (the second aft
 - **The engine's own sentences contain the word "gap"** (the reason for a left-out idea). They are shown as written, in the comparison and in the existing list of left-out ideas. Changing them needs a new engine version and new pins.
 - **The page is long on a phone** (about 11,000 pixels at 390 pixels wide, two assessments, folds closed).
 - **Sources**: the statement of where figures come from is true because the library cites none. It was checked against the library in the test, not against `docs/sources.md`.
+
+## Wave 2, slice 12c: the Decide page in the order an owner uses it (6 October 2026)
+
+Branch `slice-12c-decide-journey`, run by the agent that wrote it, on 6 October 2026, on a shared two-core machine, after `pnpm build` (exit 0). Not reviewed by a person. What changed is in [STATUS.md](STATUS.md), "Wave 2, slice 12c".
+
+### Run, with results
+
+- `node --test modules/diagnose/tests/unit/*.ts`: 60 passed, 0 failed (nothing in them changed).
+- `node scripts/test.mjs smoke --only diagnose/smoke/diagnose`: 9 passed (8 before). The new test asks for `/diagnose?a=<id>&a=not-an-id` and gets the page for the first value (status 200), finds the sentence under each benefit figure, posts a decision as a form and gets `303` to `/diagnose?a=<id>&saved=<idea>#idea-<idea>`, and finds the "saved" line on that idea's card and "1 of 5 ideas decided".
+- `node scripts/test.mjs integration --only diagnose/integration/diagnose-api`: 34 passed. One assertion was changed, not weakened: the location after a saved decision now ends in `#idea-<idea>` (S5-10).
+- `node scripts/test.mjs static`: 28 of 29 suites passed. `docs/static/lld-sync` failed on `metadata` exported by `app/diagnose/page.tsx`, `app/deliver/page.tsx` and `app/run/page.tsx` and not listed in the LLD file tables, and on the two new journey exports. The diagnose and journey rows were brought up to date; the deliver and run rows are another owner's and still fail that suite.
+- Browser suites: see below.
+
+### Test assertions changed, and why
+
+- `tests/browser/diagnose.test.ts`: the sign-off date reads "6 October 2026" (`formatDate`), so the pattern is `\d{1,2} [A-Z][a-z]+ \d{4}` instead of `\d{4}-\d{2}-\d{2}`. "checked just now: it matches" is now inside a closed "How this is checked", so the test reads the plain sentence ("Nothing in this list has changed since you signed it."), opens the fold, and then still finds "checked just now: it matches". It also checks that the drafting line no longer asks for decisions after sign-off.
+- `tests/browser/gaps.test.ts`: the jump line says the comparison "comes after the ideas and the sign-off", because it moved after them (S5-09).
+- `tests/integration/diagnose-api.test.ts`: the redirect after a decision (above).
+
+### What this does not show
+
+- No owner has used the new order. Whether the count line and the "saved" line on the card are enough, without a sticky bar, has not been tried. No sticky "2 of 5 decided" bar was built.
+- The benefit sentence says the library does not say which way a figure goes, because the library (`Benefit`: measure, unit, low, high, `basis: "assumption"`) holds no direction. Saying "could fall by" needs that field in the library, which is a library change for its owner.
+- Chromium only, a local Worker, synthetic sign-in. No real phone, no screen reader.
