@@ -74,7 +74,7 @@ The scope rule is the platform's own (`modules/platform/src/identity/scope.ts`).
 
 ### 2.4 The order of the checks
 
-A change under a company, in this order: (1) a request that another website sent, 403 `cross_site_refused`; (2) no database, 503 `storage_unavailable`; (3) no valid session, 401 `not_signed_in`; (4) a company that is not the caller's, 404 `not_found`, audited; (5) a caller who is not the owner, 403 `forbidden`, audited; (6) the content type, size and syntax of the body, 415, 413 and 400 `bad_request`; (7) the fields, 400 `invalid`; (8) the data, 404 or 409. A read skips (1) and (6) to (7). An operator change runs (1) to (3), then refuses anyone who is not the operator, then (6) to (8). The sign-in operation runs (1), then (6), then its own checks.
+A change under a company, in this order: (1) a request that another website sent, 403 `cross_site_refused`; (2) no database, 503 `storage_unavailable`; (3) no valid session, 401 `not_signed_in` (a form post: a 303 to `/sign-in?expired=1`); (4) a company that is not the caller's, 404 `not_found`, audited; (5) a caller who is not the owner, 403 `forbidden`, audited; (6) the content type, size and syntax of the body, 415, 413 and 400 `bad_request`; (7) the fields, 400 `invalid`; (8) the data, 404 or 409. A read skips (1) and (6) to (7). An operator change runs (1) to (3), then refuses anyone who is not the operator, then (6) to (8). The sign-in operation runs (1), then (6), then its own checks.
 
 Two results follow. A signed-out request with a wrong content type gets 401, not 415, because the body is not looked at until the person is known. And the body of a refused request is read and thrown away, so that the connection can be used again. [Certain]
 
@@ -94,7 +94,7 @@ It applies to every method except GET, HEAD and OPTIONS, which here means to eve
 
 A form post is one whose content type is `application/x-www-form-urlencoded`. Once the person is known and the body is read, a form post is answered with a 303 redirect to the page that sent it, with a short query that says what happened. The query holds fixed words and identifiers, URL-encoded: the id of what was just made, or the assessment id the sender named in the path. It never holds the text of a field, except `fields=` in API-06, which holds question keys checked against the questionnaire. A program (JSON, or no body) gets JSON.
 
-Refusals before that point are always JSON, form or not: 403 cross-site, 503, 401, 404 for a company, 403 forbidden, 413, 415 and 400 `bad_request`. A person at a form whose session has ended therefore sees the JSON of the refusal at the address of the operation (section 6). The Form post column says JSON for those rows.
+Refusals before that point are JSON, form or not: 403 cross-site, 503, 404 for a company, 403 forbidden, 413, 415 and 400 `bad_request`. One refusal is not: a form post with no valid session (no cookie, a cookie that does not verify, an expired one, or a user that is gone) is answered with a 303 redirect to `/sign-in?expired=1`, where the sign-in page says "Your session has ended. Sign in again; what you typed was not saved." (`notSignedIn` and `isFormPost` in `modules/platform/src/api/http.ts`, commit 2a87003). A form post here is one whose method is not GET, HEAD or OPTIONS and whose content type is urlencoded or multipart. A program that sends JSON, or no body, still gets 401 JSON. The Form post column says JSON for the other refusals and the 303 for the 401 rows.
 
 Field names differ. A form uses short names (`opportunity`, `in_use`, `test`, `due`, `amount`, `a.<key>`), and JSON uses camel case (`opportunityId`, `inUse`, `acceptanceTest`, `dueOn`, `agreedInr`). Each entry lists both. A redirect carries `location` and `cache-control: no-store`, and goes to one of the pages `/`, `/sign-in`, `/factory`, `/diagnose`, `/procure`, `/deliver`, `/run` and `/operator`.
 
@@ -381,7 +381,7 @@ Response 200, abridged (the answers are shortened).
 | 201 | Body with `revision`, `confirmed` | Saved. `confirmed` is true only if it was asked for and every required answer is there. | 303 to `/factory?saved={revision}`, with `&confirmed=1` if confirmed, and `&missing={keys}` when a form asked to confirm and was saved as a draft instead |
 | 400 | `invalid` | `basedOn` is not an integer of 0 or more, or the note is too long or has refused characters, or the answers are refused, or (JSON only) a confirmation lacks required answers. The body holds `fields`, a map of key to message. | 303 to `/factory?problem=request` (basedOn), `problem=note`, or `problem=invalid&fields={sorted question keys}` |
 | 400 | `bad_request` | The body cannot be read, is not one JSON object, or has a `note` or `confirm` of the wrong type. | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `factory.write.denied`. | JSON |
 | 404 | `not_found` | The company in the URL is not the caller's own (the operator has none) or does not exist. Audit entry `factory.write.denied` with the first 64 characters of the id. | JSON |
@@ -510,7 +510,7 @@ Response 200.
 | 200 | Body with `id`, `created` false, `factoryRevisionNo` | An assessment for this description, library and engine already existed. | 303 to `/diagnose?a={id}` |
 | 201 | Body with `id`, `created` true, `factoryRevisionNo` | A new assessment was made. | 303 to `/diagnose?a={id}` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `assessment.write.denied`. | JSON |
 | 404 | `not_found` | The company in the URL is not the caller's own (the operator has none) or does not exist. Audit entry `assessment.write.denied` with the first 64 characters of the id. | JSON |
@@ -636,7 +636,7 @@ Response 200, abridged (one item, and only some of its keys).
 | 201 | Body with `ok` true | The decision was recorded. | 303 to `/diagnose?a={aid}&saved={opportunity}` |
 | 400 | `invalid` | A field is wrong, or the item is not in this assessment. The body holds `fields`. | 303 to `/diagnose?a={aid}&problem=decision` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `assessment.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the assessment does not exist for the caller's company. | 303 to `/diagnose?problem=missing` for the second case |
@@ -689,7 +689,7 @@ Response 201.
 | 201 | Body with `ok` true, `digest` | Signed off. `digest` is 64 hexadecimal characters. | 303 to `/diagnose?a={aid}&signed=1` |
 | 400 | `invalid` | The note is refused. The body holds `fields.note`. | 303 to `/diagnose?a={aid}&problem=note` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `assessment.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the assessment does not exist for the caller's company. | 303 to `/diagnose?problem=missing` for the second case |
@@ -801,7 +801,7 @@ Response 200.
 | 201 | Body with `id`, `created` true, `cluster` | A requirement was made. | 303 to `/procure?made={id}` |
 | 400 | `invalid` | A field is wrong, or the item is not in that assessment. The body holds `fields`. | 303 to `/procure?problem=request` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `requirement.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the assessment does not exist for it. | 303 to `/procure?problem=missing` for the second case |
@@ -857,7 +857,7 @@ Response 201.
 | 201 | Body with `ok` true | The requirement was withdrawn. | 303 to `/procure?withdrawn=1` |
 | 400 | `invalid` | The note is refused. The body holds `fields.note`. | 303 to `/procure?problem=note` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `requirement.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the requirement does not exist for it, or the id is over 64 characters. | 303 to `/procure?problem=missing` for the second case |
@@ -909,7 +909,7 @@ Response 201.
 | 201 | Body with `id`, `created` true | An engagement was opened. | 303 to `/deliver?made=1` |
 | 400 | `invalid` | `providerId` is missing or over 64 characters. The body holds `fields.providerId`. | 303 to `/procure?problem=engage` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `engagement.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the requirement does not exist for it, or an id is over 64 characters. | 303 to `/procure?problem=missing` for the second case |
@@ -1060,7 +1060,7 @@ Response 200, abridged (one milestone).
 | 201 | Body with `id`, `seq` | The milestone was added. | 303 to `/deliver?saved=milestone` |
 | 400 | `invalid` | A field is wrong. The body holds `fields`. | 303 to `/deliver?problem=invalid` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `engagement.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the engagement does not exist for it. | 303 to `/deliver?problem=missing` for the second case |
@@ -1119,7 +1119,7 @@ Response 201.
 | 201 | Body with `ok` true | The event was recorded. | 303 to `/deliver?saved={kind}` |
 | 400 | `invalid` | A field is wrong, or one is given that the kind does not take. The body holds `fields`. | 303 to `/deliver?problem=invalid` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `engagement.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the engagement does not exist for it. | 303 to `/deliver?problem=missing` for the second case |
@@ -1262,7 +1262,7 @@ Response 200.
 | 201 | Body with `ok` true | The measurement or the correction was recorded. | 303 to `/run?saved={kind}` (`/run?saved=correction` for a correction) |
 | 400 | `invalid` | A field is wrong, or one is given that a baseline or a correction does not take. The body holds `fields`. | 303 to `/run?problem=invalid`; for a correction, 303 to `/run?problem=correction_invalid` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is a member of the company and not its owner. Audit entry `outcome.write.denied`. | JSON |
 | 404 | `not_found` | The company is not the caller's (audited), or the engagement does not exist for it, or the id is over 64 characters, or a correction names a row that is not a baseline or review of this engagement of this company. | 303 to `/run?problem=missing` for the second, third and fourth cases |
@@ -1422,7 +1422,7 @@ Response 200.
 | 201 | Body with `id` | The provider was entered. | 303 to `/operator?made={id}` |
 | 400 | `invalid` | A field is wrong, or (JSON) a service is named twice. The body holds `fields`. | 303 to `/operator?problem=provider` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is not the operator. Audit entry `operator.write.denied`, requested `operator`. | JSON |
 | 413 | `too_large` | The body is over the limit (see Body limit). | JSON |
@@ -1476,7 +1476,7 @@ Response 201.
 | 201 | Body with `ok` true, `feeInr` | The provider was listed. `feeInr` is the fee on the new row, in whole rupees. | 303 to `/operator?listed=1` |
 | 400 | `invalid` | The note is refused. The body holds `fields.note`. | 303 to `/operator?problem=note` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is not the operator. Audit entry `operator.write.denied`, requested `operator`. | JSON |
 | 404 | `not_found` | No provider has that id, or it is over 64 characters. | 303 to `/operator?problem=missing` |
@@ -1528,7 +1528,7 @@ Response 201.
 | 201 | Body with `ok` true | The provider was unlisted. | 303 to `/operator?unlisted=1` |
 | 400 | `invalid` | The note is refused. The body holds `fields.note`. | 303 to `/operator?problem=note` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is not the operator. Audit entry `operator.write.denied`, requested `operator`. | JSON |
 | 404 | `not_found` | No provider has that id, or it is over 64 characters. | 303 to `/operator?problem=missing` |
@@ -1615,7 +1615,7 @@ Response 200.
 | 201 | Body with `terms` | The new version: `version`, `at`, `feeInr`, `note`. | 303 to `/operator?fee=1` |
 | 400 | `invalid` | The fee or the note is refused. The body holds `fields`. | 303 to `/operator?problem=fee` |
 | 400 | `bad_request` | The body cannot be read, or is JSON that is not one object (malformed, empty with a JSON type, an array, null or a scalar). | JSON |
-| 401 | `not_signed_in` | No valid session: no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | JSON |
+| 401 | `not_signed_in` | No valid session (a form post is sent to the sign-in page, section 2.7; a program gets this JSON): no cookie, a bad or expired token, a user that no longer exists, or a platform with no database or no usable secret. | 303 to `/sign-in?expired=1` |
 | 403 | `cross_site_refused` | A change that another website sent (section 2.5). Checked first, before the session. | JSON |
 | 403 | `forbidden` | The caller is not the operator. Audit entry `operator.write.denied`, requested `operator`. | JSON |
 | 413 | `too_large` | The body is over the limit (see Body limit). | JSON |
@@ -1687,7 +1687,7 @@ Response 200.
 
 | Item | Detail |
 | --- | --- |
-| Purpose | Gives the caller's own company's records as one JSON file to save: the company, every version of the factory description, every assessment with its decisions and sign-offs, every requirement (withdrawn ones too), every engagement with its milestones and events, and every baseline and review. The file names its format and version, carries a `readme` that explains each section and what is left out, and is marked SYNTHETIC. Every read is bound to the caller's company, never to the id in the URL. |
+| Purpose | Gives the caller's own company's records as one JSON file to save: the company, every version of the factory description, every assessment with its decisions and sign-offs, every requirement (withdrawn ones too), every engagement with its milestones and events, and every baseline and review. The file names its format and version, carries a `readme` that explains each section and what is left out, and is marked SYNTHETIC. Every read is bound to the caller's company, never to the id in the URL. It does not hold the corrections written to a starting number or a review since migration 0015: the file shows each number as it was first recorded (section 6, item 10). |
 | Serves | BR-DATA-03, BR-GOV-05 |
 | Caller | A person of the company in the URL, its owner or a member: a signed-in person whose company is that company. |
 | Everyone else | Not signed in: 401 `not_signed_in`. Signed in with another company, or as the operator, who has none: 404 `not_found`, the same answer as for a company that does not exist, and an audit entry `company.export.denied` is written. No database bound: 503 `storage_unavailable`. |
@@ -1847,7 +1847,8 @@ Differences between the handlers, the status pages and the requirements, found w
 | 5 | `modules/run/src/api/outcomes.ts` (`reviewNo`), `modules/factory/src/api/factory.ts` (`note`, `confirm`) | A JSON `reviewNo` must be a number while `value` also takes digits in text. In API-06 a `note` or `confirm` of the wrong type is 400 `bad_request`, but every other wrong field is 400 `invalid` with `fields`. | A program must know which fields are strict, and which code to expect. |
 | 6 | `modules/procure/src/db/providers.ts` (`listProvider`) | `no_service` is a refusal that cannot be reached through the operations: a provider is created with at least one service, and its services cannot be added to afterwards from the application. | None. It is a guard for a direct write [Likely]. |
 | 7 | `modules/procure/src/api/providers.ts` (`handlePools`) | The operator's pool list gives the exact count of a pool of five or more, where an owner is told only the largest multiple of five reached. | By design while the floor for pool members is open (OQ-14, C-04). The operator can see a count that an owner cannot. |
-| 8 | `modules/platform/src/api/authorize.ts`; the pages | A refusal before the body is read is JSON even for a form post. A person whose session ended while a form was open sees raw JSON at the address of the operation. | A rough edge for a person; nothing is lost or leaked. [Likely] |
+| 8 | `modules/platform/src/api/authorize.ts`; `modules/platform/src/api/http.ts`; the pages | Corrected on 6 October 2026 (commit 2a87003) for the one refusal an owner meets most: a form post with no valid session is now a 303 to `/sign-in?expired=1` with a message, not raw JSON. The other refusals that come before the body is read (403 cross-site, 403 forbidden, 404 for a company, 413, 415, 503 and 400 `bad_request`) are still JSON for a form post, so a person who meets one at a form sees JSON at the address of the operation. | A rough edge for a person; nothing is lost or leaked. [Likely] |
 | 9 | no rate limit on any operation | Sign-in and writes are not rate limited, and nothing caps the audit entries one person can cause by repeated refused requests. Sign-out does not revoke a token. | BR-ID-07 and BR-NFR-12 are not built. |
+| 10 | `modules/portability/src/read.ts` (`readExportInput`); `listCorrections` in `modules/run/src/db/outcomes.ts` | API-30 reads `listOutcomes` and not `listCorrections`, so the rows of `outcome_corrections` are not in the file. The `readme` does not say so. | A person who corrected a number and then takes the file gets the number as first recorded. Recorded as FSD 12.1 item 42 and LLD 9.16. [Certain] |
 
 Items that rest on a reading and not on a test are tagged where they appear, and section 2.10 lists what could not be determined.

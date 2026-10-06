@@ -33,6 +33,7 @@ This document describes how the APLYD MSME platform is built, module by module a
    - [4.7 The journey module](#47-the-journey-module)
    - [4.8 The demo module](#48-the-demo-module)
    - [4.9 Hosting, scripts and the documentation readers](#49-hosting-scripts-and-the-documentation-readers)
+   - [4.10 The portability module](#410-the-portability-module)
 - [5. The pages layer](#5-the-pages-layer)
    - [5.1 How a page is built](#51-how-a-page-is-built)
    - 5.2 The shared frame and parts in app/_ui/
@@ -75,6 +76,7 @@ This document describes how the APLYD MSME platform is built, module by module a
    - [9.13 From section 6.5: Configuration names](#913-from-section-65-configuration-names)
    - [9.14 From section 7.5: How a test is added](#914-from-section-75-how-a-test-is-added)
    - [9.15 From section 8.6: Add an audit event](#915-from-section-86-add-an-audit-event)
+   - [9.16 From section 4.10: The portability module](#916-from-section-410-the-portability-module)
 
 ## 1. Introduction
 
@@ -82,7 +84,7 @@ This document describes how the APLYD MSME platform is built, module by module a
 
 This is the low-level design (LLD) of the APLYD MSME platform as it was built on 5 October 2026. It is for a developer who is about to change the code. For each module it says what each file is for and what it exports, how a request travels through it, what it reads and writes, what it refuses and with which answer, and what must not be broken.
 
-The code was read at commit 21fd329 of the branch slice-10-interface. The journey module (4.7), the shared page frame (5.2) and the statements that depend on them were read again at commit f35b835, after the next-step rules were rewritten. On 6 October 2026 the statements about behaviour in sections 1 to 9 were read again against commit b741f59 of the branch docs-11-review (about 200 statements, each checked in the code); those that no longer matched were corrected in place, and the files tables, counts and lists of the documentation module were brought up to that commit. Everything in the application is SYNTHETIC. No person has reviewed the code (AGENTS.md; HANDOVER.md, "Merged without review"), and no person has reviewed this document.
+The code was read at commit 21fd329 of the branch slice-10-interface. The journey module (4.7), the shared page frame (5.2) and the statements that depend on them were read again at commit f35b835, after the next-step rules were rewritten. On 6 October 2026 the statements about behaviour in sections 1 to 9 were read again against commit b741f59 of the branch docs-11-review (about 200 statements, each checked in the code); those that no longer matched were corrected in place, and the files tables, counts and lists of the documentation module were brought up to that commit. Later on 6 October 2026 the slices of wave 1 (11a to 11d, the portability module, the quality tests, the journey property tests and the hosting changes) were merged; section 4.10 is new, and sections 2.1, 4.3, 4.5, 4.6, 4.8, 4.9, 5, 6 and 9 were brought up to commit 696640e by reading the changed files and tests. That pass did not re-check every older statement, and it ran no test other than the documentation tests. Everything in the application is SYNTHETIC. No person has reviewed the code (AGENTS.md; HANDOVER.md, "Merged without review"), and no person has reviewed this document.
 
 This document does not repeat what the other design documents already hold. Tables, columns, triggers and indexes are in [the data dictionary](DATA-DICTIONARY.md). The REST operations are in [the API reference](API-REFERENCE.md). Screens, rules and messages are in [the functional specification](../fsd/FSD.md). The architecture and its decisions are in [the high-level design](HLD.md). Where this document needs one of them, it points to it. Where the code and one of them disagree, the code is followed, and the difference is listed under "Found while writing" at the end of the section and collected in section 9.
 
@@ -138,14 +140,14 @@ None found.
 
 ### 2.1 Directories
 
-The repository has one application, in one tree. Counts below were taken from the working tree on 5 October 2026.
+The repository has one application, in one tree. Counts below were taken from the working tree on 5 October 2026 and taken again on 6 October 2026, after the slices of wave 1 (base commit 696640e).
 
 | Path | Holds | Notes |
 | --- | --- | --- |
-| `app/` | The Next.js layer: 9 page files (named page.tsx), 23 route files (named route.ts), `app/layout.tsx`, `app/globals.css`, the shared frame and parts in `app/_ui/`, and one CSS file per page | Every page and route file exports `dynamic = "force-dynamic"`. The pages and routes are thin: they call a module (section 5) |
+| `app/` | The Next.js layer: 10 page files (named page.tsx), 24 route files (named route.ts), `app/layout.tsx`, `app/globals.css`, the shared frame and parts in `app/_ui/`, and one CSS file per page | Every page and route file exports `dynamic = "force-dynamic"`. The pages and routes are thin: they call a module (section 5) |
 | `worker/` | `worker/index.ts`, the one Worker entry | It hands every request to vinext and adds the security headers to the answer (3.1) |
-| `modules/` | Ten module directories: `modules/platform/`, `modules/factory/`, `modules/diagnose/`, `modules/procure/`, `modules/deliver/`, `modules/run/`, `modules/journey/`, `modules/demo/`, `modules/hosting/` and `modules/docs/` | The table headed "The modules" below. Each module has a `src/` and a `tests/` directory |
-| `drizzle/` | The migrations `drizzle/0000_init.sql` to `drizzle/0014_review_fixes.sql`, and `drizzle/meta/` with the journal `drizzle/meta/_journal.json` and one snapshot for each migration | Applied by tools only, never by the Worker (3.7). An applied migration is never edited (AGENTS.md; HLD 5.9) |
+| `modules/` | Twelve module directories: `modules/platform/`, `modules/factory/`, `modules/diagnose/`, `modules/procure/`, `modules/deliver/`, `modules/run/`, `modules/journey/`, `modules/demo/`, `modules/hosting/`, `modules/docs/`, `modules/portability/` and `modules/quality/` | The table headed "The modules" below. Each module has a `tests/` directory; `modules/quality/` has no `src/` directory |
+| `drizzle/` | The migrations `drizzle/0000_init.sql` to `drizzle/0015_run_corrections.sql`, and `drizzle/meta/` with the journal `drizzle/meta/_journal.json` and one snapshot for each migration | Applied by tools only, never by the Worker (3.7). An applied migration is never edited (AGENTS.md; HLD 5.9) |
 | `scripts/` | `scripts/test.mjs` (the test runner), `scripts/check-documentation.mjs`, `scripts/check-traceability.mjs`, `scripts/check-test-docs.mjs`, `scripts/local-db.mjs`, `scripts/serve.mjs` (the demonstration launcher) and `scripts/mutation/` (a mutation tool and its README) | Section 4.9 and section 6 |
 | `docs/` | `docs/brd/`, `docs/design/`, `docs/fsd/`, `docs/ops/`, `docs/test/`, and the root documents `docs/decisions.md`, `docs/open-questions.md`, `docs/thesis.md`, `docs/sources.md`, `docs/saha-lessons.md`, `docs/ten-owner-test.md` and `docs/DEVELOPMENT.md` | The documents are read as data by the readers in `modules/docs/src/` (section 4.9) |
 | `.github/workflows/` | `.github/workflows/ci.yml` and `.github/workflows/docs.yml` | Section 7 |
@@ -159,18 +161,20 @@ The table gives each module's role as its own STATUS page and HLD 3.3 state it, 
 
 | Module | Role | Files in `src/` | Files in `tests/` | Tables it owns | Pages | Section |
 | --- | --- | --- | --- | --- | --- | --- |
-| `modules/platform/` | Identity, session, the scope rule, audit, body bounds, health, the guard lists, the migration applier, the test kit | 17 | 26 | `companies`, `users`, `audit_events` | `/`, `/sign-in` | 4.1 |
+| `modules/platform/` | Identity, session, the scope rule, audit, body bounds, health, the guard lists, the migration applier, the test kit | 17 | 29 | `companies`, `users`, `audit_events` | `/`, `/sign-in` | 4.1 |
 | `modules/factory/` | Describe: the questionnaire and the factory record kept as versions | 5 | 7 | `factory_revisions` | `/factory` | 4.2 |
-| `modules/diagnose/` | Decide: the rules engine, the synthetic library, assessments, decisions, sign-off | 7 | 11 | `assessments`, `assessment_events` | `/diagnose` | 4.3 |
+| `modules/diagnose/` | Decide: the rules engine, the synthetic library, assessments, decisions, sign-off, the gap view and the comparison of two assessments | 9 | 14 | `assessments`, `assessment_events` | `/diagnose` | 4.3 |
 | `modules/procure/` | Choose: requirements, pools, the provider registry, the one listing fee | 9 | 9 | `requirements`, `requirement_events`, `providers`, `provider_services`, `listing_terms`, `provider_events` | `/procure`, `/operator` | 4.4 |
-| `modules/deliver/` | Deliver: the chosen provider, the plan, deliveries, acceptances, payments the owner noted, the close | 5 | 8 | `engagements`, `milestones`, `engagement_events` | `/deliver` | 4.5 |
-| `modules/run/` | Measure: the baseline and the reviews at 30, 90 and 180 days | 5 | 7 | `outcome_events` | `/run` | 4.6 |
-| `modules/journey/` | The next-step logic and the facts it reads, and the browser test that walks the journey | 2 | 5 | none | none | 4.7 |
-| `modules/demo/` | The cast, the seeder, the presenter script and its tests | 5 | 7 | none | `/demo` | 4.8 |
+| `modules/deliver/` | Deliver: the chosen provider, the plan, deliveries, acceptances, payments the owner noted, the close, the help for writing an acceptance test | 6 | 9 | `engagements`, `milestones`, `engagement_events` | `/deliver` | 4.5 |
+| `modules/run/` | Measure: the baseline, the reviews at 30, 90 and 180 days, and corrections to a number | 5 | 7 | `outcome_events`, `outcome_corrections` | `/run` | 4.6 |
+| `modules/journey/` | The next-step logic and the facts it reads, the property tests, and the browser test that walks the journey | 2 | 8 | none | none | 4.7 |
+| `modules/demo/` | The cast, the seeder, the presenter script and its tests, and the tests of date and colour rules | 5 | 11 | none | `/demo` | 4.8 |
 | `modules/hosting/` | The gate and gateway for the demonstration host | 2 | 6 | none | none | 4.9 |
 | `modules/docs/` | Readers that read the documents as data, and their tests | 10 | 22 | none | none | 4.9 |
+| `modules/portability/` | Export: one company's records as one file | 3 | 6 | none | `/export` | 4.10 |
+| `modules/quality/` | Browser tests that measure every page on a phone, for accessibility, on a slow connection and with scripts off | 0 | 13 | none | none | 7.1 |
 
-The 16 tables are the 3 of the platform and 13 of the domain modules. Only `modules/platform/` and `modules/factory/` have a seed file (`modules/platform/db/seed-synthetic.sql` and `modules/factory/db/seed-synthetic.sql`); `seedFiles` in `modules/platform/src/db/migrate.ts` finds a seed by that file name, platform first. Four modules keep recorded mutations in a `mutations/` directory: `modules/platform/mutations/`, `modules/procure/mutations/`, `modules/deliver/mutations/` and `modules/run/mutations/`. `modules/docs/` has no STATUS or VALIDATION page.
+The 17 tables are the 3 of the platform and 14 of the domain modules (the run module owns two since migration 0015). Only `modules/platform/` and `modules/factory/` have a seed file (`modules/platform/db/seed-synthetic.sql` and `modules/factory/db/seed-synthetic.sql`); `seedFiles` in `modules/platform/src/db/migrate.ts` finds a seed by that file name, platform first. Four modules keep recorded mutations in a `mutations/` directory: `modules/platform/mutations/`, `modules/procure/mutations/`, `modules/deliver/mutations/` and `modules/run/mutations/`. `modules/docs/` has no STATUS or VALIDATION page.
 
 ### 2.2 The ownership rule
 
@@ -194,6 +198,8 @@ Each STATUS page opens with the paths its module claims. The claims, read from t
 | Journey (`modules/journey/STATUS.md`) | `modules/journey/` only | It says it adds no code to the application and no page (see Found while writing) |
 | Demo (`modules/demo/STATUS.md`) | `modules/demo/`, `app/demo/page.tsx`, a change to `scripts/serve.mjs` | The change to the hosting module's launcher `scripts/serve.mjs` |
 | Hosting (`modules/hosting/STATUS.md`) | `modules/hosting/`, `Dockerfile`, `.dockerignore`, `.do/app.yaml`, `scripts/serve.mjs` | None |
+| Portability (`modules/portability/STATUS.md`) | `modules/portability/`, `app/export/`, `app/api/companies/[id]/export/` | One entry in `docs/design/API-REFERENCE.md` (API-30) and two audit events in `docs/design/DATA-DICTIONARY.md` |
+| Quality (`modules/quality/STATUS.md`) | `modules/quality/` only | None. It adds no code to the application and no page |
 
 What enforces the rule in the code is limited. The modules are directories, not packages, and the compiler accepts an import across them (HLD 3.3; AD-24). No file under `.github/` names a code owner. No test checks which module imports which; the one test that walks imports is the check that the three files that read headers outside the Worker cannot be reached from the Worker (`modules/platform/tests/static/source-rules.test.ts`). What the tests do pin is the data-layer door: in the five domain modules a static test fails if a page, a route or another module queries that module's tables itself (`modules/factory/tests/static/scope-rules.test.ts`, `modules/diagnose/tests/static/scope-rules.test.ts`, `modules/procure/tests/static/rules.test.ts`, `modules/deliver/tests/static/rules.test.ts`, `modules/run/tests/static/rules.test.ts`). The ordering of the modules, which section 2.3 measures, is a convention in HLD 3.4.
 
@@ -607,7 +613,7 @@ A text id is not a secret and gives no access: every read is bound to the person
 - In tests, a date is reached in one of three ways. An integration test of the run module passes a clock to `handleOutcomeRecord` or `handleOutcomeRead` (`now: () => Date`), so it can stand on either side of a review date. The pure functions `nextStep`, `stageStatuses`, `stageLine` (`modules/journey/src/progress.ts`) and `reviewSlots` (`modules/run/src/state.ts`) take `now` as an argument, and `dueAt` takes the acceptance time, so a unit test fixes the instant. A smoke or browser test runs the built application with the real clock and adds past-dated delivered and accepted rows to the Worker's own throwaway database with `exec` of `startBuiltApp` (`modules/run/tests/browser/run.test.ts`); the triggers still apply. `seedDemo` takes an optional `now` for the milestone dates (`modules/demo/src/seed.ts`). A data layer that stamps with `new Date().toISOString()` has no argument for a clock.
 - The database compares times in one place: the trigger `outcome_events_review_is_due` (`drizzle/0013_run_guards.sql`) uses `julianday`, while `reviewSlots` in `modules/run/src/state.ts` uses milliseconds (already recorded in FSD 12.1, item 20).
 
-**Times and dates in text.** A timestamp is an ISO 8601 string in UTC, for example `2026-10-04T00:00:00.000Z`, as the seed writes it. A page shows a date as the first ten characters (`createdAt.slice(0, 10)` in `app/page.tsx`). A milestone's due date is a calendar date, `YYYY-MM-DD`, in `milestones.due_on`: the data layer checks it with `isCalendarDate` in `modules/deliver/src/state.ts` and the trigger `milestones_due_is_a_date` checks it again. A review is due 30, 90 and 180 days after the first acceptance (`REVIEW_DAYS` in `modules/run/src/state.ts`).
+**Times and dates in text.** A timestamp is an ISO 8601 string in UTC, for example `2026-10-04T00:00:00.000Z`, as the seed writes it. A page shows a date in words (`formatDate` in `app/_ui/dates.ts`, "30 October 2026") on the home, Describe, Choose and operator pages. The Decide, Deliver and Results pages still show the first ten characters (`createdAt.slice(0, 10)`, "2026-10-30") in places (section 9.12). A milestone's due date is a calendar date, `YYYY-MM-DD`, in `milestones.due_on`: the data layer checks it with `isCalendarDate` in `modules/deliver/src/state.ts` and the trigger `milestones_due_is_a_date` checks it again. A review is due 30, 90 and 180 days after the first acceptance (`REVIEW_DAYS` in `modules/run/src/state.ts`).
 
 **Money.** Money is a whole number of rupees in an integer column. The code has no fractions and no paise. Four columns carry money, and a static test in each of the procure and deliver modules pins the list (`modules/procure/tests/static/rules.test.ts`, `modules/deliver/tests/static/rules.test.ts`).
 
@@ -694,15 +700,15 @@ Two things follow. A reworded message in a new migration turns a typed refusal i
 4. `applyMigrations(db, { seed })` runs each statement with `db.prepare(sql).run()`, one by one, not in a transaction.
 5. It is called by the integration tests (`createTestEnvironment` in `modules/platform/tests/support/d1.ts`). `migrationStatements` and `seedStatements` are called by `scripts/serve.mjs` and `modules/platform/tests/support/worker.ts`; `scripts/local-db.mjs` calls `modules/platform/src/db/migrate.ts` too. The Worker never imports that file, because it reads the file system.
 
-**The guards.** The database holds 91 triggers: 42 that make 14 tables append-only (`<table>_no_update`, `<table>_no_delete`, `<table>_no_replace`) and 49 that enforce a rule about what may be inserted. The migrations hold 93 `CREATE TRIGGER` statements; `drizzle/0014_review_fixes.sql` drops two and creates them again, so 91 stand. The two tables that are not append-only are `companies` and `users`.
+**The guards.** The database holds 98 triggers: 45 that make 15 tables append-only (`<table>_no_update`, `<table>_no_delete`, `<table>_no_replace`) and 53 that enforce a rule about what may be inserted. The migrations hold 100 `CREATE TRIGGER` statements; `drizzle/0014_review_fixes.sql` drops two and creates them again, so 98 stand (counted on 6 October 2026 from the SQL files and from `modules/platform/src/db/guards.ts`). The two tables that are not append-only are `companies` and `users`.
 
 | Name in `modules/platform/src/db/guards.ts` | What it is |
 | --- | --- |
-| `APPEND_ONLY_TABLES` | For each of the 14 tables, its three trigger names |
-| `RULE_TRIGGERS` | For each of 12 tables, the names of its rule triggers (49 in all) |
-| `ALL_APPEND_ONLY_TRIGGERS` | The 42 names, flat |
-| `ALL_REQUIRED_TRIGGERS` | All 91 names, flat |
-| `REQUIRED_TRIGGERS_BY_TABLE` | All 91 as `{ table, name }`, so a trigger of the right name on the wrong table is not taken for the real one |
+| `APPEND_ONLY_TABLES` | For each of the 15 tables, its three trigger names |
+| `RULE_TRIGGERS` | For each of 13 tables, the names of its rule triggers (53 in all) |
+| `ALL_APPEND_ONLY_TRIGGERS` | The 45 names, flat |
+| `ALL_REQUIRED_TRIGGERS` | All 98 names, flat |
+| `REQUIRED_TRIGGERS_BY_TABLE` | All 98 as `{ table, name }`, so a trigger of the right name on the wrong table is not taken for the real one |
 
 Three things use the lists.
 
@@ -740,7 +746,7 @@ Section 3 describes how the pieces work together (the pipeline in 3.1, the respo
 
 | File | Holds | Exports |
 | --- | --- | --- |
-| `modules/platform/src/api/http.ts` | The three answer helpers. `json(status, body, headers)` sets `content-type` and `cache-control: no-store`. `redirect(location, extra)` answers 303 with `location` and `no-store`. `drain(request)` reads a body to its end and drops it. `notSignedIn(request)` is the one answer to a call that has no valid session: for a form post (`isFormPost`: a method other than GET, HEAD or OPTIONS with a urlencoded or multipart body) it is a 303 to `EXPIRED_LOCATION` (`/sign-in?expired=1`), and for any other caller it is 401 `{"error":"not_signed_in"}` (BR-UX-06) | `drain`, `json`, `redirect`, `EXPIRED_LOCATION`, `isFormPost`, `notSignedIn` |
+| `modules/platform/src/api/http.ts` | The answer helpers. `json(status, body, headers)` sets `content-type` and `cache-control: no-store`. `redirect(location, extra)` answers 303 with `location` and `no-store`. `drain(request)` reads a body to its end and drops it. `notSignedIn(request)` is the one answer to a call that has no valid session: for a form post (`isFormPost`: a method other than GET, HEAD or OPTIONS with a urlencoded or multipart body) it is a 303 to `EXPIRED_LOCATION` (`/sign-in?expired=1`), and for any other caller it is 401 `{"error":"not_signed_in"}` (BR-UX-06) | `drain`, `json`, `redirect`, `EXPIRED_LOCATION`, `isFormPost`, `notSignedIn` |
 | `modules/platform/src/api/body.ts` | The body reader of 3.2: the `Body` and `BodyProblem` types, `MAX_BODY_CHARACTERS` (64 * 1024), `readTextWithin` (reads in pieces, abandons a body past four bytes for each character allowed), `readBody` (form, JSON object, or empty; otherwise a problem), `problemStatus` (415, 413 or 400), `takeBody` (the body or the refusal `Response`) and `bodyField` | `Body`, `BodyProblem`, `MAX_BODY_CHARACTERS`, `readTextWithin`, `readBody`, `problemStatus`, `takeBody`, `bodyField` |
 | `modules/platform/src/api/authorize.ts` | The checks before any work, one function for each kind of endpoint: `authorizeCompanyRead`, `authorizeCompanyWrite`, `authorizeSignedIn` and `authorizeOperator`, with the order in 3.2. The types `Allowed` and `OperatorAllowed` are what a successful check returns. The private `refuse` writes the audit row of a refusal with `requested` cut to 64 characters | `Allowed`, `OperatorAllowed`, `authorizeCompanyRead`, `authorizeCompanyWrite`, `authorizeSignedIn`, `authorizeOperator` |
 | `modules/platform/src/api/session.ts` | The two handlers of `/api/session`: `handleSessionRead` (who am I) and `handleSessionWrite` (synthetic sign-in, or sign-out when `intent` is `sign-out`). A private `readBody` reads the form or JSON body for this route only. Flows below | `handleSessionRead`, `handleSessionWrite` |
@@ -792,14 +798,16 @@ The module has 18 test files in five layers (`unit`, `static`, `integration`, `s
 | `modules/platform/tests/unit/session.test.ts` | 10 tests of `signSession`, `verifySession`, `readCookie`: a signed token verifies; another secret, a changed payload, an expiry, malformed tokens, an empty signature and bad claims with a genuine signature are refused; one token has one spelling; a cookie found by name; a name that appears twice is refused | `none` |
 | `modules/platform/tests/static/conflict-markers.test.ts` | 2 tests of `scripts/check-documentation.mjs` on a small tree of its own: a clean tree passes (a Markdown heading underlined with equals signs is not a marker); a marker in a document, code, SQL or JSON fails and names the file and line | `none` |
 | `modules/platform/tests/static/page-lookups.test.ts` | 2 tests: the rule sees an unguarded message lookup and accepts a guarded one; no page looks a message up by a key from the address without `Object.hasOwn`. Applies to every page | `unguardedLookups` |
-| `modules/platform/tests/static/source-rules.test.ts` | 8 tests of rules from AGENTS.md: request code reads only allow-listed headers; the three files in `HOST_PROCESS_FILES` cannot be reached from the Worker; the import walk finds what it should; the header rule accepts and reports the right forms; no tracked file is a secret, a database, build output or a source document; the environment template holds names only; the Worker entry adds the security headers to every response it returns | `HOST_PROCESS_FILES` |
+| `modules/platform/tests/static/source-rules.test.ts` | 9 tests of rules from AGENTS.md: request code reads only allow-listed headers; the three files in `HOST_PROCESS_FILES` cannot be reached from the Worker; the import walk finds what it should; the header rule accepts and reports the right forms; no tracked file is a secret, a database, build output or a source document; the environment template holds names only; the Worker entry adds the security headers to every response it returns | `HOST_PROCESS_FILES` |
 | `modules/platform/tests/integration/append-only-keys.test.ts` | 2 tests: every unique key of every append-only table is looked at by a BEFORE INSERT trigger that names it as `NEW.<column>`, so `INSERT OR REPLACE` cannot delete a row through a key; and the check can fail (a plain primary key, a composite key and a partial index) | `none` |
-| `modules/platform/tests/integration/platform-api.test.ts` | 26 tests of the handlers against a real D1 database in Miniflare: health; sign-in and own company; the scope rule both ways; the operator reads no company; tampered and doubled cookies; identity never from a header; a removed user loses access; unknown and non-synthetic users; no sign-in outside a synthetic environment or without a secret; cross-site refused with the body read; form redirects; the audit rows; the audit triggers; cookie attributes; the eight hours; near-miss ids; 64 characters of a refused id; content types; sign-out | `none` |
+| `modules/platform/tests/integration/platform-api.test.ts` | 29 tests of the handlers against a real D1 database in Miniflare: health; sign-in and own company; the scope rule both ways; the operator reads no company; tampered and doubled cookies; identity never from a header; a removed user loses access; unknown and non-synthetic users; no sign-in outside a synthetic environment or without a secret; cross-site refused with the body read; form redirects; the audit rows; the audit triggers; cookie attributes; the eight hours; near-miss ids; 64 characters of a refused id; content types; sign-out | `none` |
 | `modules/platform/tests/smoke/built-app.test.ts` | 12 tests of the built application in a local Worker over HTTP: health; the pages; sign-in and the API; the scope rule; cross-site refused; sign-in refused outside a synthetic environment and with no environment name; the build carries no environment name; the headers on every kind of answer; 415 and a crafted multipart type; the health guard; a message key such as `constructor` is no message | `none` |
+| `modules/platform/tests/smoke/session-expiry.test.ts` | 3 tests of the built application: a form post with no valid session goes to the sign-in page whatever is wrong with the session; a program call with no session keeps its 401 and JSON body; the sign-in page says the session ended, in a live alert, and not without the mark `expired=1`. | none |
 | `modules/platform/tests/browser/cross-origin.test.ts` | 5 tests in a real browser: a sign-in post with a foreign `Origin` is refused and sets no cookie; the same post from the application's own origin works; `null` and a look-alike origin are refused; a foreign origin cannot sign a person out; a real cross-site form post is refused | `none` |
 | `modules/platform/tests/browser/harness.test.ts` | 8 tests of the browser layer itself: the order in which a browser is chosen; a path that names nothing is an error; a browser that cannot be launched fails with a clear message; with no browser a suite fails and does not skip; the browser and the Worker are closed when a test throws, never finishes or the process is killed; a page can reach nothing but the application | `none` |
 | `modules/platform/tests/browser/pages.test.ts` | 3 tests: the home page and the sign-in page render with the SYNTHETIC banner; the sign-in page lists only synthetic users; a refused person is told so | `none` |
 | `modules/platform/tests/browser/session-and-scope.test.ts` | 8 tests: sign-in through the form; the cookie is HttpOnly, SameSite=Lax, Secure and eight hours long; a script cannot read or replace it; the own company is shown and reachable; the other company is a 404 that shows nothing; the second owner sees only their company; a browser that never signed in is refused; sign-out clears the cookie | `none` |
+| `modules/platform/tests/browser/session-expired.test.ts` | 3 tests in a real browser: the cookie is gone when Save is pressed, or has run out, and the person lands on the sign-in page with the message and nothing is saved; a program call from the same browser still gets JSON and a 401. | none |
 | `modules/platform/tests/support/browser.ts` | Starts the built application in a local Worker and drives a headless Chromium through `playwright-core`. It never downloads a browser and throws when none can be launched, so a browser suite fails and is never skipped. `chooseBrowser` picks `APLYD_CHROMIUM_PATH` first, then the preinstalled Chromium, then Google Chrome. `useBrowserHarness` and `withBrowserHarness` close the browser and the Worker on every exit. Used by the browser tests of this module and of `factory`, `diagnose`, `procure`, `deliver`, `run`, `journey` and `demo` | `CHROMIUM_ENV`, `PREINSTALLED_CHROMIUM`, `TEST_TIMEOUT_MS`, `SETUP_TIMEOUT_MS`, `TEARDOWN_TIMEOUT_MS`, `BrowserChoice`, `chooseBrowser`, `launchBrowser`, `BrowserHarness`, `startBrowserHarness`, `useBrowserHarness`, `withBrowserHarness` |
 | `modules/platform/tests/support/d1.ts` | A real D1 database from Miniflare with the migrations and the synthetic seed applied (`createTestEnvironment`, which also builds an `AppEnv` with a test secret that is not a real one), and request builders: `post` (JSON, with `origin` set), `get` and `cookieFrom` (the `name=value` part of `set-cookie`). Used by the integration tests of this module and of `factory`, `diagnose`, `procure`, `deliver`, `run` and `journey` | `TEST_SECRET`, `createTestEnvironment`, `ORIGIN`, `post`, `get`, `cookieFrom` |
 | `modules/platform/tests/support/header-rule.ts` | The header-read rule as a function over source text, so the rule can be tested itself: `headerReadProblems` reports every read of a `headers` value other than a plain `.get` of a name in `ALLOWED_HEADERS`; writing a header is not a read (3.3) | `ALLOWED_HEADERS`, `headerReadProblems` |
@@ -1193,6 +1201,8 @@ The problem `other_problem` ("something else") is addressed by no entry, so it n
 | `modules/diagnose/src/library.ts` | The library, its types and the budget ceilings. `LIBRARY_VERSION` is bumped by hand. | `LIBRARY_VERSION`, `Condition`, `Prerequisite`, `Range`, `Benefit`, `Opportunity`, `LIBRARY`, `BUDGET_CEILING` |
 | `modules/diagnose/src/engine.ts` | The ranking: the points, the judgement of a condition, affordability, and `diagnose`. Pure; the same answers always give the same result. | `ENGINE_VERSION`, `MAX_ITEMS`, `Truth`, `Readiness`, `Affordability`, `Item`, `LeftOut`, `Result`, `evaluate`, `POINTS`, `affordability`, `diagnose` |
 | `modules/diagnose/src/digest.ts` | The sign-off fingerprint: canonical JSON, the decision standing on each item, and the SHA-256. Pure apart from the Web Crypto call. | `StandingDecision`, `canonicalJson`, `standingDecisions`, `digestOf` |
+| `modules/diagnose/src/gaps.ts` | Where the factory stands (BR-DIAG-08): the five parts, which part each question belongs to (`AREA_OF_QUESTION`), the lines of what stands in the way, placed by part and idea by idea, and the plain words for readiness and fit with the budget. Pure: it takes a stored result, the answers of the description it was made from and a library, and writes nothing. | `AreaId`, `AREAS`, `AREA_OF_QUESTION`, `READINESS_WORDS`, `FIT_WORDS`, `questionLabel`, `answerWords`, `questionsRead`, `BlockerKind`, `Blocker`, `Standing`, `InPlace`, `Area`, `IdeaGap`, `GapView`, `gapView` |
+| `modules/diagnose/src/compare.ts` | What changed since the earlier assessment (BR-DIAG-11): the answers that differ, the ideas that moved, came in, dropped out or changed in what they need, with the reason taken from the stored points. Pure: it takes two stored results and the two sets of answers. | `Moved`, `Entered`, `Changed`, `Dropped`, `AnswerChange`, `Comparison`, `diffAnswers`, `compareAssessments` |
 | `modules/diagnose/src/progress.ts` | What the page says about where the owner is: sign-off state, the next undecided idea, the pointer onward after a sign-off, whether an assessment is from the newest confirmed description, the short decision words and the score sentence. Pure. It declares its own `TurnLike` type so that the module does not import the journey. | `SignOffState`, `signOffState`, `signOffWords`, `firstUndecided`, `TurnLike`, `Onward`, `afterSignOff`, `Relation`, `relationToConfirmed`, `hasAssessmentFrom`, `Decision`, `DECISION_WORD`, `decisionWord`, `scoreLine` |
 | `modules/diagnose/src/api/diagnose.ts` | The five handlers, `presentAssessment`, the decision values, the note reader (`readNote`) and the answer to a sign-off (`signOffAnswer`). It uses `authorizeCompanyRead`, `authorizeCompanyWrite` and `takeBody` from the platform. | `MAX_NOTE_LENGTH`, `DECISIONS`, `DecisionValue`, `notOwnerMessage`, `presentAssessment`, `handleAssessmentList`, `handleAssessmentRead`, `handleAssessmentCreate`, `handleDecisionCreate`, `handleSignOff`, `signOffAnswer` |
 | `modules/diagnose/src/db/assessments.ts` | All reads and writes of `assessments` and `assessment_events`, each bound to the company id from the identity. | `EventRow`, `AssessmentRecord`, `AssessmentSummary`, `listAssessments`, `loadAssessment`, `loadLatestAssessmentId`, `CreateResult`, `createAssessment`, `MAX_DECISIONS`, `DecisionResult`, `appendDecision`, `SignOffResult`, `appendSignOff` |
@@ -1206,7 +1216,7 @@ Routes and the page:
 | `app/api/companies/[id]/assessments/[aid]/route.ts` | API-09 (read one) | `dynamic`, `GET` |
 | `app/api/companies/[id]/assessments/[aid]/decisions/route.ts` | API-10 (decide) | `dynamic`, `POST` |
 | `app/api/companies/[id]/assessments/[aid]/signoff/route.ts` | API-11 (sign off) | `dynamic`, `POST` |
-| `app/diagnose/page.tsx` | SCR-04. It imports `presentAssessment`, `DECISIONS`, `MAX_NOTE_LENGTH`, `notOwnerMessage`, `listAssessments`, `loadAssessment`, `loadLatestAssessmentId`, `MAX_ITEMS`, `POINTS`, the helpers of `progress.ts`, `loadLatest` from the factory module, and `loadFacts` and `nextStep` from the journey. | `dynamic`, `default` |
+| `app/diagnose/page.tsx` | SCR-04. It imports `presentAssessment`, `DECISIONS`, `MAX_NOTE_LENGTH`, `notOwnerMessage`, `listAssessments`, `loadAssessment`, `loadLatestAssessmentId`, `MAX_ITEMS`, `POINTS`, the helpers of `progress.ts`, `loadLatest` from the factory module, and `loadFacts` and `nextStep` from the journey. | `dynamic`, `default`, `metadata` |
 
 Records and tests. For this document I ran the unit and static test files of this module on 5 October 2026 with `node --test` (39 tests, all passed). The integration, smoke and browser files were not run.
 
@@ -1219,12 +1229,15 @@ Records and tests. For this document I ran the unit and static test files of thi
 | `modules/diagnose/tests/unit/digest.test.ts` | 3 tests of canonical JSON, the standing decision and the digest | none |
 | `modules/diagnose/tests/unit/pins.test.ts` | 3 tests that hold the library and the engine's output to recorded hashes (see Rules) | none |
 | `modules/diagnose/tests/unit/progress.test.ts` | 7 tests of the page helpers | none |
+| `modules/diagnose/tests/unit/gaps.test.ts` | 15 tests of `gapView`: the five parts in order, each line in the part of its question, the same lines read by part and by idea, the ordering inside a part, unanswered and not-assessed parts, a library of another version, the plain words, and that nothing is changed | none |
+| `modules/diagnose/tests/unit/compare.test.ts` | 11 tests of `compareAssessments` and `diffAnswers`: the answers that changed, ideas moving, entering and leaving with their reasons, ideas that only changed in what they need, the same description under another library version, and that nothing is changed | none |
 | `modules/diagnose/tests/unit/not-owner.test.ts` | 1 test of `notOwnerMessage` | none |
 | `modules/diagnose/tests/static/scope-rules.test.ts` | 4 tests: every query on the assessment tables is bound to a company and none changes a row; pages and routes do not query them; only this data layer touches them | none |
 | `modules/diagnose/tests/static/problems.test.ts` | 1 test: every `?problem=` key the handlers send has a message on the page and every message is sent | none |
 | `modules/diagnose/tests/integration/diagnose-api.test.ts` | 34 tests of all five operations against a migrated local database | none |
 | `modules/diagnose/tests/smoke/diagnose.test.ts` | 8 tests through a running Worker | none |
 | `modules/diagnose/tests/browser/diagnose.test.ts` | 8 tests in a browser | none |
+| `modules/diagnose/tests/browser/gaps.test.ts` | 4 tests in a browser: the empty state, one assessment (five parts, no sideways scroll and 44 pixel targets at 390 wide), a second assessment that shows what moved, and every idea left out | none |
 
 #### Data read and written
 
@@ -1415,6 +1428,17 @@ The page also tells a signed-in person who is not an owner what the page is for,
 | The constant 200 and the trigger's 200 are one number | not derived | "the number in the database trigger is the one in the code" |
 | Every `?problem=` key has a message | none in code | `modules/diagnose/tests/static/problems.test.ts` |
 | A decision always carries a value, and a note is within 500 characters in the table | the triggers `assessment_events_decision_needs_a_value`, `assessment_events_note_is_short` | integration tests on a decision with no value and on notes |
+
+#### Slice 11a: where your factory stands, and what changed (6 October 2026)
+
+Written from the code at commit 696640e, not run. Two sections and one honesty line were added to the Decide page without a new operation, table or migration; the engine, the library and the data layer were not touched.
+
+- **Flow.** `app/diagnose/page.tsx` loads the assessment it shows with `loadAssessment` (bound to the signed-in person's company), then the description version it was made from with `loadRevision`, and calls `gapView(result, answers)` (`Stand` draws it). When an older assessment exists it loads that one and its description the same way and calls `compareAssessments(earlier, later, earlierAnswers, laterAnswers, sameVersion)` (`Compare` draws it). Both calls are pure. A description that cannot be read gives `null` answers; the views then say so and still show the lines the stored result holds.
+- **Rules.** Every line is something the engine already judged, put in the part its question belongs to; no rule, threshold or score was added. `AREA_OF_QUESTION` is the one place a question is given a part, and a unit test requires that every question the library reads is in a part and every question in a part is read. A part is "not assessed" when the library cannot support it. Lines are placed with the current library only when the result was made with the same `LIBRARY_VERSION`; otherwise they are shown unplaced. The comparison takes its reasons from the stored points (problems answered, readiness, fit with the budget, a missing answer, risk) and says so when an idea's own points did not change. When the two assessments were made from one description it says that any difference comes from another library or ranking-rules version.
+- **Refusals.** None of its own. An assessment id from another company is a 404 as before and the page shows none of the two sections for it (browser test). The comparison is with the next older assessment only.
+- **The line on each idea** ("Where these figures come from") is drawn in the idea card of the page: the register entry when the library names one (none does) or "an assumption (SYNTHETIC placeholder)". The browser test reads each idea's source from the library.
+- **Titles.** The page sets `metadata = { title: "Decide" }` (section 5.1).
+- **Not here.** No level or rating of a part, no skills or staffing (no rule reads them), no choice of which earlier assessment to compare, no side-by-side layout.
 
 #### Found while writing
 
@@ -1736,7 +1760,7 @@ The tables are described in [DATA-DICTIONARY.md](DATA-DICTIONARY.md) and the fiv
 | `modules/deliver/src/db/schema.ts` | The Drizzle declarations of the three tables, their keys, indexes and CHECKs. It declares no trigger. | `engagements`, `milestones`, `engagementEvents` |
 | `modules/deliver/src/db/engagements.ts` | The data layer: two reads (`listEngagements`, `loadEngagement`) and three conditional appends (`createEngagement`, `addMilestone`, `appendEvent`). Also the shared read fragment `SELECT_ENGAGEMENTS` and the private `assemble`. It re-exports `MilestoneKind`. | `MilestoneRecord`, `EventRow`, `EngagementRecord`, `listEngagements`, `loadEngagement`, `CreateResult`, `createEngagement`, `MilestoneInput`, `AddMilestoneResult`, `addMilestone`, `EventResult`, `appendEvent`, `MilestoneKind` |
 | `modules/deliver/src/api/engagements.ts` | The five handlers, the presenters that turn a record into what a viewer needs, and the private field readers `readText` and `readAmount`. | `PresentedMilestone`, `PresentedEngagement`, `presentEngagement`, `presentEngagements`, `handleEngagementList`, `handleEngagementRead`, `handleEngagementCreate`, `handleMilestoneAdd`, `handleEngagementEvent` |
-| `app/deliver/page.tsx` | The Delivery page (SCR-06): the summary card, one card per engagement, and the forms. | `default`, `dynamic` |
+| `app/deliver/page.tsx` | The Delivery page (SCR-06): the summary card, one card per engagement, and the forms. | `default`, `dynamic`, `metadata` |
 | `app/deliver/deliver.css` | The page's own styles. | `none` |
 | `app/api/companies/[id]/requirements/[rid]/engagement/route.ts` | Route for choosing a provider. | `dynamic`, `POST` |
 | `app/api/companies/[id]/engagements/route.ts` | Route for the company's engagements. | `dynamic`, `GET` |
@@ -1889,6 +1913,8 @@ Only `plan_agreed` and `closed` are engagement-level; the other four kinds are m
 | At most 14 deliveries of a milestone (RULE-37) | `MAX_DELIVERIES`; `nextKinds(state, deliveries)` offers nothing at the cap | `engagement_events_delivery_limit` | `too_many_deliveries` |
 | A payment is for an accepted milestone, once, with a whole amount from 1 to 100,000,000; only a payment has an amount (RULE-38) | `readAmount`; the handler's check that no other kind carries an amount | `engagement_events_payment_needs_an_acceptance`, `engagement_events_payment_has_an_amount`, `engagement_events_amount_is_whole`; CHECK `engagement_events_shape` | `wrong_state`, `invalid` |
 | A note is at most 500 characters | `readText` with `MAX_NOTE_LENGTH` | `engagement_events_note_is_short` (500 characters and 2,000 bytes) | `invalid` |
+| A saved acceptance test is checked for a number and a unit, and a missing one is said on the page; this never stops a save (BR-DEPL-08; slice 11b, commit 9591ddf). An empty test is refused as before | `testQuality` and `testFlagSentence` in `modules/deliver/src/test-quality.ts`, called by `app/deliver/page.tsx` | CHECK `milestones_test` and trigger `milestones_text_is_not_blank` refuse an empty test | `invalid` for an empty test; none for a flag |
+| While the engagement is open and no starting number is recorded, a warning stands beside the button that accepts a milestone (FND-183; slice 11b, commit 0f6012e) | `acceptEndsBaseline` in `modules/deliver/src/summary.ts`, called by `app/deliver/page.tsx` | none | none (a notice, MSG-207) |
 | The engagement is closed once, and nothing is recorded after | `appendEvent` | `engagement_events_one_close`, `engagement_events_closed_is_final`; unique index `engagement_events_one_close` | `closed` |
 | The status is worked out, never stored (RULE-39) | `statusOf`, `milestoneState` | none (nothing to hold) | none |
 | The records are never changed | none: the data layer has no UPDATE, DELETE or REPLACE | `engagements_no_update`, `engagements_no_delete`, `engagements_no_replace`, and the same three for `milestones` and for `engagement_events` | an error that is thrown, not a named refusal |
@@ -1950,12 +1976,13 @@ What a change must not break, with the test that notices.
 
 #### Tests it owns
 
-The counts are the ones recorded in `modules/deliver/tests/baseline.json`. I counted the same number of `test(` blocks in each file, and ran the three unit files and the static file with `node --test` (7, 3, 8 and 9 tests passed). I did not run the integration, smoke or browser files.
+The counts are the ones recorded in `modules/deliver/tests/baseline.json`. The baseline holds 75 tests in eight suites after slice 11b (on 5 October 2026 it held 63 in seven). I did not run these suites on 6 October 2026.
 
 | Test file | Layer | What it checks |
 | --- | --- | --- |
 | `modules/deliver/tests/unit/state.test.ts` | unit, 7 | The state of a milestone, `nextKinds` at and before the delivery cap, `statusOf`, `isCalendarDate`, that the state table agrees with the trigger text (a text match, not a run), and that the limits equal the migrations' numbers. |
-| `modules/deliver/tests/unit/summary.test.ts` | unit, 8 | The words and counts of `deliverySummary`, `acceptedLabel`, `primaryAction` and `firstWaitingDecision`. |
+| `modules/deliver/tests/unit/summary.test.ts` | unit, 9 | The words and counts of `deliverySummary`, `acceptedLabel`, `primaryAction` and `firstWaitingDecision`. |
+| `modules/deliver/tests/unit/test-quality.test.ts` | unit, 4 | `testQuality` and `testFlagSentence`: an empty test is flagged as empty and only that; a vague test is flagged for a missing number, a missing unit or both; a test with a number (digits or words) and a unit (a word or a symbol) is not flagged; the sentence names what is missing in plain words and says nothing for an unflagged test. |
 | `modules/deliver/tests/unit/reads.test.ts` | unit, 3 | With a fake database that records each statement: a single read asks only for that engagement's milestones and events, every statement carries the company, and an over-long id is not looked up. |
 | `modules/deliver/tests/static/rules.test.ts` | static, 9 | Append-only queries, company-bound reads, parent-checked inserts, the data layer as the only door, the money columns, no reference to the listing fee, and the message-key and `saved` word contracts. |
 | `modules/deliver/tests/integration/deliver-api.test.ts` | integration, 32 | The real handlers on a real D1 (Miniflare) with the real migrations: the choice, the plan, the order, the cap, scope for another company, the operator and a member, cross-site refusal, form answers, every refusal by direct SQL, D-03. Its helper is `modules/platform/tests/support/d1.ts`. |
@@ -1995,7 +2022,7 @@ The table is described in [DATA-DICTIONARY.md](DATA-DICTIONARY.md) and the two o
 | `modules/run/src/db/schema.ts` | The Drizzle declarations of `outcome_events` and `outcome_corrections`, their keys, indexes and CHECKs. It declares no trigger. | `outcomeEvents`, `outcomeCorrections` |
 | `modules/run/src/db/outcomes.ts` | The data layer: two reads (`listOutcomes`, `listCorrections`), two appends (`recordBaseline`, `recordReview`) that share the private `append`, and the append of a correction (`recordCorrection`). | `OutcomeRow`, `listOutcomes`, `RecordResult`, `recordBaseline`, `recordReview`, `CorrectionRow`, `listCorrections`, `CorrectionResult`, `recordCorrection` |
 | `modules/run/src/api/outcomes.ts` | The two handlers (a correction is a kind of the POST), the presenter that builds what a viewer needs, the current value of a corrected number, and the private field reader `readValue`. | `PresentedOutcomes`, `Corrected`, `corrected`, `presentOutcomes`, `handleOutcomeRead`, `handleOutcomeRecord` |
-| `app/run/page.tsx` | The Results page (SCR-07): the summary card, one card for each engagement and the forms. | `default`, `dynamic` |
+| `app/run/page.tsx` | The Results page (SCR-07): the summary card, one card for each engagement and the forms. | `default`, `dynamic`, `metadata` |
 | `app/run/run.css` | The page's own styles; every class begins `ru-`. | `none` |
 | `app/api/companies/[id]/engagements/[eid]/outcomes/route.ts` | Route for reading and recording measurements. | `dynamic`, `GET`, `POST` |
 | `drizzle/0012_run_tables.sql` | The table `outcome_events` and its three indexes. | `none` |
@@ -2014,6 +2041,7 @@ The route file has the same shape as the deliver routes, with a `GET` and a `POS
 | Table | Written by | Read by | Notes |
 | --- | --- | --- | --- |
 | `outcome_events` | `recordBaseline`, `recordReview` (through `append`) | `listOutcomes`, called by `presentOutcomes` and by `modules/journey/src/facts.ts` `loadFacts` | One row for each baseline or review. Never changed. `listOutcomes` is the module's only read, and it is bound to the company and the engagement. |
+| `outcome_corrections` | `recordCorrection` | `listCorrections`, called by `presentOutcomes` | One row for each correction: the id of the number it corrects, the new number and the reason. Never changed. Added by migration 0015. |
 | `engagements` | not written | the `EXISTS` test inside the insert of `append` | The one statement of the module's own that names another table. |
 | `audit_events` | `auditIfChanged` in the same batch as each append | not read by this module | See below. |
 
@@ -2033,9 +2061,10 @@ Audit entries written:
 | --- | --- | --- |
 | `outcome.baseline` | `append` inserted a baseline | `engagement`, `review` (always 0) |
 | `outcome.review` | `append` inserted a review | `engagement`, `review` (the number, 1 to 3) |
+| `outcome.corrected` | `recordCorrection` inserted a correction | `engagement`, `outcome` (the id of the number it corrects) |
 | `outcome.read.denied`, `outcome.write.denied` | `authorizeCompanyRead` or `authorizeCompanyWrite` refused with 404 or 403 (written by the platform, not by the batch) | `requested` (the first 64 characters of the company id in the URL) |
 
-The audit insert is `WHERE changes() > 0` inside one atomic `db.batch`, so a refused append (a trigger aborts it) writes no audit row.
+The audit insert is `WHERE changes() > 0` inside one atomic `db.batch`, so a refused append (a trigger aborts it) writes no audit row. A correction is written the same way, by `recordCorrection`.
 
 #### Main flows
 
@@ -2133,7 +2162,12 @@ sequenceDiagram
 | A baseline has no review number, verdict or use; a review has all three | the two branches in `handleOutcomeRecord` | CHECK `outcome_events_shape`, which names every needed column as NOT NULL as well as in range | `invalid` |
 | A review number is 1, 2 or 3 | `isReviewNo`; the form converts only `1`, `2`, `3`; JSON must send a number | CHECK `outcome_events_shape` | `invalid` |
 | One baseline for each engagement (RULE-40) | `append` maps the message | unique index `outcome_events_one_baseline`; trigger `outcome_events_one_baseline_only` ("a baseline is recorded once") | `baseline_exists` |
-| The baseline is taken before anything is accepted (RULE-40) | `presentOutcomes` `canRecordBaseline` hides the form | trigger `outcome_events_baseline_before_acceptance` ("a baseline is recorded before anything is accepted") | `baseline_too_late` |
+| The baseline is taken before anything is accepted (RULE-40) | `baselineBlock` in `modules/run/src/state.ts` (the order is recorded, too late, closed, no plan); `presentOutcomes` sets `canRecordBaseline` from it and hides the form | trigger `outcome_events_baseline_before_acceptance` ("a baseline is recorded before anything is accepted") | `baseline_too_late` |
+| No baseline on a closed engagement (BR-RUN-03; slice 11b, commit a717271) | `baselineBlock` gives `closed`; `handleOutcomeRecord` answers before the insert | trigger `outcome_events_baseline_not_after_close` ("a baseline is not taken on a closed engagement") | `baseline_closed` |
+| No baseline before the plan is agreed (slice 11b, commit a717271) | `baselineBlock` gives `no_plan`; the page says "Not yet" and points to Delivery | trigger `outcome_events_baseline_needs_an_agreed_plan` ("a baseline needs an agreed plan") | `baseline_no_plan` |
+| A correction names one baseline or review recorded for the same engagement of the same company, gives a whole number from 0 to `MAX_VALUE` and a reason of 1 to 500 characters, and carries nothing else (BR-RUN-09) | `recordCorrectionFrom` in `modules/run/src/api/outcomes.ts`; `recordCorrection` checks the named row in the same statement | CHECKs `outcome_corrections_value` and `outcome_corrections_reason`; triggers `outcome_corrections_value_is_whole` and `outcome_corrections_names_an_outcome` | `correction_invalid`; `not_found` for a row that is not this engagement's |
+| A correction does not change the number it corrects: both stay, and the latest correction is the current value | `corrected` in `modules/run/src/api/outcomes.ts`; `presentOutcomes` shows both | `outcome_corrections_no_update`, `outcome_corrections_no_delete`, `outcome_corrections_no_replace` | an error that is thrown |
+| A correction is allowed whether or not the engagement is closed, and writes the audit event `outcome.corrected` in the same batch | `recordCorrection` (`auditIfChanged`) | none | none |
 | One review of each number for each engagement (RULE-41) | `append` maps the message | unique index `outcome_events_one_review`; trigger `outcome_events_one_review_each` ("this review is recorded once") | `review_exists` |
 | A review needs an accepted milestone (RULE-41) | `reviewSlots` gives `waiting`, so the page draws no form | trigger `outcome_events_review_needs_an_acceptance` ("a review needs an accepted milestone") | `nothing_accepted` |
 | A review is recorded only from its day: 30, 90 and 180 days after the first acceptance (RULE-41) | `REVIEW_DAYS`, `dueAt`, `reviewSlots` (milliseconds) | trigger `outcome_events_review_is_due` ("this review is not due yet"), which compares `julianday(NEW.at)` with `julianday` of the first acceptance plus 30, 90 or 180 | `not_due` |
@@ -2173,6 +2207,9 @@ A refusal has a key. The data layer returns it as `reason`; the handler turns it
 | `not_found` | an engagement id that is empty or over 64 characters; `append` when no row was inserted | 404 `not_found` | `/run?problem=missing` | `PROBLEMS.missing` | MSG-144 |
 | `baseline_exists` | `append` | 409 | `/run?problem=baseline_exists` | `PROBLEMS.baseline_exists` | MSG-139 |
 | `baseline_too_late` | `append` | 409 | `/run?problem=baseline_too_late` | `PROBLEMS.baseline_too_late` | MSG-140 |
+| `baseline_closed` | `handleOutcomeRecord` (from `baselineBlock`); `append` | 409 | `/run?problem=baseline_closed` | `PROBLEMS.baseline_closed` | MSG-201 (the JSON answer is MSG-205) |
+| `baseline_no_plan` | `handleOutcomeRecord` (from `baselineBlock`); `append` | 409 | `/run?problem=baseline_no_plan` | `PROBLEMS.baseline_no_plan` | MSG-202 (the JSON answer is MSG-205) |
+| `correction_invalid` | `recordCorrectionFrom` | 400 `{ error: "invalid", fields }` | `/run?problem=correction_invalid` | `PROBLEMS.correction_invalid` | MSG-203 (the field messages are MSG-206) |
 | `review_exists` | `append` | 409 | `/run?problem=review_exists` | `PROBLEMS.review_exists` | MSG-141 |
 | `nothing_accepted` | `append` | 409 | `/run?problem=nothing_accepted` | `PROBLEMS.nothing_accepted` | MSG-142 |
 | `not_due` | `append` | 409 | `/run?problem=not_due` | `PROBLEMS.not_due` | MSG-143 |
@@ -2181,7 +2218,7 @@ The field messages the JSON answer carries in `fields` (the form shows only `PRO
 
 | Field | Message | Sent when | FSD |
 | --- | --- | --- | --- |
-| `kind` | `Say whether this is a baseline or a review.` | `kind` is neither | MSG-145 |
+| `kind` | `Say whether this is a baseline, a review or a correction.` | `kind` is none of the three | MSG-145 |
 | `value` | `Give a whole number from 0 to 1000000000.` | `readValue` returns null | MSG-146 |
 | `note` | `Keep the note to text under 500 characters.` | not text, too long, or a refused character | MSG-147 |
 | `reviewNo` | `Say which review: 1, 2 or 3.` | a review with no number from 1 to 3 | MSG-148 |
@@ -2189,7 +2226,7 @@ The field messages the JSON answer carries in `fields` (the form shows only `PRO
 | `inUse` | `Say whether it is still in use.` | a review with no use from `IN_USE` | MSG-150 |
 | `reviewNo`, `verdict` or `inUse` | `A baseline has no review number, verdict or use.` | a baseline that carries one | MSG-151 |
 
-The success notices are `saved=baseline` (MSG-136) and `saved=review` (MSG-137); the JSON success is 201 `{ ok: true }` (MSG-153) and the five 409 answers are MSG-152. A visitor on `/run` sees `SignedOut` (MSG-135) and a person who is not an owner sees `NotOwner` (MSG-10 when the account has no company, MSG-198 when it has one and is not its owner; `app/run/page.tsx` passes `hasCompany` to `NotOwner` to choose the words). The platform's refusals before the module's own code (401 `not_signed_in`, 404 `not_found`, 403 `forbidden`, 403 `cross_site_refused`, 503 `storage_unavailable`, and 415, 413 and 400 for the body) are described in [HLD.md](HLD.md) section 4.3 and in API-REFERENCE.md section 2.
+The success notices are `saved=baseline` (MSG-136), `saved=review` (MSG-137) and `saved=correction` (MSG-204: "The correction is recorded. The number it corrects stays on record, marked as corrected."); the JSON success is 201 `{ ok: true }` (MSG-153) and the five 409 answers are MSG-152. A visitor on `/run` sees `SignedOut` (MSG-135) and a person who is not an owner sees `NotOwner` (MSG-10 when the account has no company, MSG-198 when it has one and is not its owner; `app/run/page.tsx` passes `hasCompany` to `NotOwner` to choose the words). The platform's refusals before the module's own code (401 `not_signed_in`, 404 `not_found`, 403 `forbidden`, 403 `cross_site_refused`, 503 `storage_unavailable`, and 415, 413 and 400 for the body) are described in [HLD.md](HLD.md) section 4.3 and in API-REFERENCE.md section 2.
 
 `PROBLEMS.invalid` on the page prints the limit with `MAX_VALUE.toLocaleString("en-IN")`, so it reads "1,00,00,00,000"; the field message in the JSON answer prints plain digits. Both are as MSG-138 and MSG-146 give them.
 
@@ -2204,21 +2241,21 @@ What a change must not break, with the test that notices.
 5. **The page offers what the database would accept.** `reviewSlots`, `canRecordBaseline` and the forms mirror the triggers. The unit test reads `drizzle/0013_run_guards.sql` and `drizzle/0012_run_tables.sql` and compares the day counts, the limits and the lists of verdicts and uses with the code; an integration test runs each refusal against the real triggers by direct SQL.
 6. **Nothing recorded here changes what APLYD earns (D-03).** The static test pins the column list of `outcome_events` (`id`, `engagement_id`, `company_id`, `at`, `user_id`, `kind`, `review_no`, `value`, `verdict`, `in_use`, `note`) and forbids `fee`, `commission`, `price`, `amount`, `rupee`, `inr` and `payment` in the table's text. It forbids `fee_inr`, `listing_terms`, `currentTerms` and `provider_events` in every application file of `modules/run/` and `app/run/` (tests are not scanned), forbids `SUM`, `AVG`, `MAX`, `MIN` and `COUNT` in a query of `outcome_events`, and forbids the words "fee", "commission" and "rupee" and the rupee sign on the page.
 7. **A write and its audit row succeed or fail together.** They are one `db.batch`.
-8. **A message key has a place on the page and a page message has a sender; the `saved` words are `baseline` and `review`.** Held by the static test.
+8. **A message key has a place on the page and a page message has a sender; the `saved` words are `baseline`, `review` and `correction`.** Held by the static test.
 9. **The first acceptance means the same to the page and to the trigger.** Both take the `accepted` event with the lowest id of the engagement. Renaming the kind, or reordering events in `modules/deliver/src/db/engagements.ts`, changes when a review is due. Section 4.5 has the other half.
 10. **The journey module reads this module's reads.** `modules/journey/src/facts.ts` calls `listOutcomes` and `modules/journey/src/progress.ts` calls `reviewSlots`. A change to the fields of `OutcomeRow` or to the states of `ReviewState` reaches the home page and every stage strip (section 4.7).
 11. **The control-character rule for a note is the factory's.** `hasControlCharacters` lives in `modules/factory/src/questionnaire.ts` and is also used by the deliver, procure and diagnose handlers (RULE-12 says the other notes use the same test). Changing it changes the note rule of every one of them.
 
 #### Tests it owns
 
-The counts are the ones in `modules/run/tests/baseline.json` (63 in all). I counted the same number of top-level `test(` blocks in each file, and ran the two unit files and the static file with `node --test` (6, 9 and 8 tests passed). I did not run the integration, smoke or browser files.
+The counts are the ones in `modules/run/tests/baseline.json` (73 in all after slice 11b; 63 on 5 October 2026). I did not run these suites on 6 October 2026.
 
 | Test file | Layer | What it checks |
 | --- | --- | --- |
-| `modules/run/tests/unit/state.test.ts` | unit, 6 | `reviewSlots` at 30, 90 and 180 days to the millisecond, the waiting state, a recorded slot, review numbers, and that the day counts, limits and vocabularies equal the migrations' (a text match, not a run). |
+| `modules/run/tests/unit/state.test.ts` | unit, 7 | `reviewSlots` at 30, 90 and 180 days to the millisecond, the waiting state, a recorded slot, review numbers, and that the day counts, limits and vocabularies equal the migrations' (a text match, not a run). |
 | `modules/run/tests/unit/view.test.ts` | unit, 9 | The label of each state, the latest recorded review, the count, the first open review, the sentence of `resultsSummary`, and the target of the link at the top. |
-| `modules/run/tests/static/rules.test.ts` | static, 8 | Append-only queries, company-bound reads, one parent-checked insert, the data layer as the only door, the column list, no reference to the listing fee, and the message-key and `saved` contracts. It reads SQL string literals with `modules/platform/tests/support/sql-rules.ts`. |
-| `modules/run/tests/integration/run-api.test.ts` | integration, 29 | The real handlers on a real D1 (Miniflare) with the real migrations and a handed-in clock: the baseline and its limits, each review on its day, the first acceptance against the latest, late and independent reviews, field checks, scope for another company, the operator, a visitor and a member, cross-site refusal, every refusal by direct SQL, form answers, two engagements of one company, the next idea, a withdrawn requirement, and D-03. Its helper is `modules/platform/tests/support/d1.ts`. |
+| `modules/run/tests/static/rules.test.ts` | static, 10 | Append-only queries, company-bound reads, one parent-checked insert, the data layer as the only door, the column list, no reference to the listing fee, and the message-key and `saved` contracts. It reads SQL string literals with `modules/platform/tests/support/sql-rules.ts`. |
+| `modules/run/tests/integration/run-api.test.ts` | integration, 36 | The real handlers on a real D1 (Miniflare) with the real migrations and a handed-in clock: the baseline and its limits, each review on its day, the first acceptance against the latest, late and independent reviews, field checks, scope for another company, the operator, a visitor and a member, cross-site refusal, every refusal by direct SQL, form answers, two engagements of one company, the next idea, a withdrawn requirement, and D-03. Its helper is `modules/platform/tests/support/d1.ts`.  Since slice 11b it also holds: a baseline refused with a plain reason on a closed engagement or before the plan is agreed, and by the database for any writer; a wrong number corrected by a new record that names it, with both visible and the latest as the current value; the field checks of a correction; a correction that names another engagement's or company's number refused as not found; and the correction table's own rules for any writer. The static file also holds the rules of `outcome_corrections` (append-only, company-bound reads, one checked insert, only the data layer touches it, no money column). |
 | `modules/run/tests/smoke/run.test.ts` | smoke, 7 | The built application over HTTP: the empty page, set-up, the baseline form and its refusals, the dates after the first acceptance and an early review sent back, the next idea, another company. The tests share state and run in order ([FND-154](../FINDINGS.md)). |
 | `modules/run/tests/browser/run.test.ts` | browser, 4 | An owner in Chromium: the baseline, then the dates; a due review recorded from the page with the change and the next idea shown; a stale review form and a missing baseline; another owner's page. A review that is due needs an acceptance dated in the past, which the test adds with `exec` from `modules/platform/tests/support/worker.ts` (the page's clock cannot be moved). |
 
@@ -2472,12 +2509,14 @@ What a change must not break, with what notices it.
 
 #### Tests it owns
 
-The counts are the ones in `modules/journey/tests/baseline.json`: `unit/progress` 36, `unit/contrast` 8, `integration/facts` 7 and `browser/journey` 1. With `node --test` I ran `modules/journey/tests/unit/progress.test.ts` (36 passed), `modules/journey/tests/unit/contrast.test.ts` (8 passed) and `modules/diagnose/tests/unit/progress.test.ts` (7 passed). I did not run the integration or the browser file.
+The counts are the ones in `modules/journey/tests/baseline.json`: `unit/progress` 36, `unit/contrast` 8, `unit/properties` 27, `unit/properties-exhaustive` 5, `integration/facts` 7 and `browser/journey` 1 (84 in all after wave 1; 52 in four suites on 5 October 2026). I did not run these suites on 6 October 2026.
 
 | Test file | Layer | What it checks |
 | --- | --- | --- |
 | `modules/journey/tests/unit/progress.test.ts` | unit, 36 | At least one test asserts each of the 18 keys. It also checks the plural in the titles of rules 5, 9 and 18, the order of some rules (an unsigned assessment before work in progress; a delivery before a review, a plan and a provider; the starting number before a waiting delivery; `keep_going` before `waiting_for_listing`; `waiting_for_listing` before `ask_for_more`), `isOwnersTurn` for all 18 keys, one current stage or none, done and todo, the monotonic done rule, `STAGES`, the two name tests, `milestoneStatesOf`, the lines under the stages, a newer draft, and a time that cannot be read. It builds the facts by hand and draws no page. |
 | `modules/journey/tests/unit/contrast.test.ts` | unit, 8 | Reads the colour tokens of `app/globals.css` and measures 34 text and ground pairs at 4.5 to 1 and 6 edge pairs at 3 to 1, in the light set and the two dark sets (six tests from one loop), that the two dark sets are the same colours, and that the ratio function gives known values. It measures only the pairs written in the file. |
+| `modules/journey/tests/unit/properties.test.ts` | unit, 27 | Property tests of `nextStep` and `stageStatuses` over at least 5,000 generated cases from fixed seeds: it never throws and names one documented key; the same facts and time give the same answer; time only opens reviews; the rule that fires is the first, in the documented order, whose condition holds (also pair by pair); all 18 keys are reached; the strip never shows a finished stage after one not started; no raw key or `undefined` in any words; random companies walked forward event by event never go back to an earlier stage except by the documented steps; an owner who does what each step asks always reaches the end. |
+| `modules/journey/tests/unit/properties-exhaustive.test.ts` | unit, 5 | The same rules over a small world checked exhaustively: 360 prefixes, 1,080 single engagements, 24 hand-chosen ones, 18 late prefixes; every ordered pair of the 24 and every ordered triple of 8; the world reaches all 18 keys and at least 130 of the 171 pairs of rules holding together. |
 | `modules/journey/tests/integration/facts.test.ts` | integration, 7 | `loadFacts` and `nextStep` on a real D1 (Miniflare) with the real migrations and the synthetic seed. One test follows an owner through the real handlers, from a confirmed description to a closed engagement, and asserts the key and the facts at each step: `diagnose`, `decide`, `sign_off`, `make_requirement`, `choose_provider`, `agree_plan`, `record_baseline` before and after a delivery, `judge_delivery`, `keep_going`, `review_due` (with a later date), `close_engagement` and `ask_for_more`. The others cover a signed-off company that rejected every idea (`new_assessment`), a withdrawn request that is not offered again, a request with no listed provider (`waiting_for_listing`, then `choose_provider` once one is listed), a newer draft of the description, another company's facts and an id that does not exist, and a newer unsigned assessment next to an older signed-off one. Its helper is `modules/platform/tests/support/d1.ts`. |
 | `modules/journey/tests/browser/journey.test.ts` | browser, 1 | One owner in Chromium from the home page through every stage by the pages' own links and buttons, with the operator listing a provider in a second context; the listing fee on no owner page (D-03); no page, console or request error; and a second company's owner seeing none of it. Its helpers are `modules/platform/tests/support/browser.ts` and `modules/platform/tests/support/ui.ts`. It does not follow a page's own next-step button and does not read the strip or the card ([FND-179](../FINDINGS.md), [FND-181](../FINDINGS.md), [FND-182](../FINDINGS.md)). |
 
@@ -2703,8 +2742,12 @@ The counts are the ones in `modules/demo/tests/baseline.json`. I ran the four un
 | `modules/demo/tests/static/script-labels.test.ts` | static, 3 | Every label of every step is a substring of the combined text of the page files under `app/` and the source files of every other module; the home page or those sources hold every `open` text; no label repeats within a step and none is shorter than four characters. It lists files with `git ls-files`. See the first item below. |
 | `modules/demo/tests/smoke/demo.test.ts` | smoke, 10 | The launcher, started twice (with and without `APLYD_DEMO`), against the built application: it prints MSG-195 only in demonstration mode; the cast signs in and is listed on the sign-in page; the operator sees one fee, three listed providers and the first pool; the finished example's plan, payment and starting number; the other companies' stages; A has only its description and B has nothing; the seeder's client is refused at the public address (401); walking A shows "at least 5" for the first requirement and no number for the second, with the providers the cast gives; no owner-readable page or answer shows the fee (D-03); `/demo` exists only in demonstration mode and lists the eight steps. Helpers: `modules/hosting/tests/support/launcher.ts`. |
 | `modules/demo/tests/browser/walk.test.ts` | browser, 2 | The script page lists the cast and the eight steps and the sign-in page lists everyone the script names; then Chromium follows the eight steps as written, signed in as the people named, through the launcher and its gate, with every request to another origin blocked and no page error. Helpers: `modules/hosting/tests/support/launcher.ts`, `modules/platform/tests/support/browser.ts` and `modules/platform/tests/support/ui.ts`. |
+| `modules/demo/tests/unit/dates.test.ts` | unit, 6 | `formatDate`: an ISO date in words with no leading zero; a timestamp reads as its UTC date; all twelve months; a leap day in a leap year only; text that is not a real date comes back as it was; the pages that use the helper no longer cut a timestamp to ten characters. |
+| `modules/demo/tests/unit/ui-contrast.test.ts` | unit, 10 | The two tokens `--muted-tint` and `--edge-tint` in all three colour sets (secondary text at 6.9 to 1 or more, a control edge at 3.5 to 1 or more); the two dark sets hold the same two colours; a notice and the tinted card use them; every `color-mix()` has a plain colour before it; the mark in a notice and a section number say nothing to a screen reader. |
+| `modules/demo/tests/smoke/interface.test.ts` | smoke, 5 | On the built application: every page of the polish slice has a title that names the page and the application; the empty states on Describe, Choose and the operator's page say what will appear and what causes it; a signed-out visitor is told to sign in, with a link; the operator's home says what the account is for. |
+| `modules/demo/tests/browser/phone.test.ts` | browser, 2 | At 390 pixels wide no page of the slice scrolls sideways for any person of the cast or a visitor, and every page has its own title; the operator's providers table keeps its table markup and scrolls inside its own named, focusable box. |
 
-That is 32 tests in six files. The platform module owns the test of the exemption for `modules/demo/src/client.ts` (`modules/platform/tests/static/source-rules.test.ts`), and the hosting module owns the test of the flag (`modules/hosting/tests/unit/gate.test.ts`).
+That is 55 tests in ten files. The platform module owns the test of the exemption for `modules/demo/src/client.ts` (`modules/platform/tests/static/source-rules.test.ts`), and the hosting module owns the test of the flag (`modules/hosting/tests/unit/gate.test.ts`).
 
 Nothing runs `seedDemo` without a built application. The only tests of the seeder's own requests are the smoke and browser files.
 
@@ -2801,6 +2844,7 @@ The module holds ten reader files at the pinned commit: the six above that read 
 | `DEMO_ACCESS` | Only the word `open` is accepted; with it set, `DEMO_USER` and `DEMO_PASSWORD` must both be empty |
 | `APLYD_PUBLIC_HOSTS` | Comma-separated; each entry is trimmed, lower-cased and must be a host name with an optional port |
 | `APLYD_DEMO` | `config.demo` is true only for the exact word `true` |
+| `APLYD_COMMIT` | Optional. Seven to 64 hexadecimal characters, lower-cased, kept as `config.commit`; anything else is ignored (`config.commitIgnored` is true and the launcher says so) and never stops the launch. The Dockerfile sets it from a build argument, and `.do/app.yaml` fills it at run time on App Platform |
 
 `passesGate(authorization, access)` returns true for open access, false for a missing or malformed `Basic` header, and otherwise compares the SHA-256 digest of the decoded user and of the decoded password with `timingSafeEqual`. Only the first colon of the decoded value ends the user, so a password may contain colons.
 
@@ -2811,7 +2855,7 @@ The module holds ten reader files at the pinned commit: the six above that read 
 Function: `createGateway` in `modules/hosting/src/gateway.ts`. The numbers are the order of the checks.
 
 1. The handler takes the path before any `?`.
-2. If the path is exactly `/healthz` and the method is GET or HEAD, it answers before the gate. If `options.ready()` is false it answers 503 `starting`. Otherwise, if the last probe is more than `HEALTH_CACHE_MS` (2 seconds) old, `probe` sends a GET to the Worker's `/api/health` on loopback with a 2 second timeout and caches the result; the answer is 200 `ok` or 503 `application not answering`.
+2. If the path is exactly `/healthz` and the method is GET or HEAD, it answers before the gate. If `options.ready()` is false it answers 503 `starting`. Otherwise, if the last probe is more than `HEALTH_CACHE_MS` (2 seconds) old, `probe` sends a GET to the Worker's `/api/health` on loopback with a 2 second timeout and caches the result; the answer is 200 `ok` or 503 `application not answering`. When `options.commit` is given, every answer here, 503 `starting` included, gets a second line, `commit <id>`, so a live address can be matched to a commit (commit be734ba). `scripts/serve.mjs` always gives it: the value of `APLYD_COMMIT`, or `unknown`.
 3. `passesGate(req.headers.authorization, options.access)`. If false: one log line, the request body is drained, answer 401 with a `www-authenticate` header for HTTP Basic.
 4. If `options.ready()` is false: 503 with `retry-after: 5`. This comes after the gate, so a person without the password learns nothing about start-up.
 5. If a declared `content-length` is all digits and larger than `maxBodyBytes` (default `MAX_PROXY_BODY_BYTES`, 256 KiB): 413, the body is drained and not handed on.
@@ -2880,9 +2924,134 @@ The counts come from `modules/hosting/tests/baseline.json`. I did not run these 
 
 8 items, listed in [section 9.11](#911-from-section-49-hosting-scripts-and-the-documentation-readers).
 
+### 4.10 The portability module
+
+#### Purpose
+
+The portability module lets a person of a company take that company's records away as one file. It was added in slice 11c (6 October 2026). It answers the first half of BR-DATA-03 (the owner can take their data) and the access rule of BR-GOV-05 (only a person of the company has the file). The second half of BR-DATA-03, that the platform can stop serving the records, is not built: there is no way to close an account or remove the records (FR-DATA-05 in [the functional specification](../fsd/FSD.md)).
+
+It has three parts.
+
+1. **The file, as a pure function.** `buildExport` in `modules/portability/src/bundle.ts` takes the rows that the other modules' data layers have read for one company, sorts every list oldest first, copies each field by name and returns one object. The object names its format (`EXPORT_FORMAT`) and version (`EXPORT_VERSION`), says it is SYNTHETIC, holds a `README` that explains each section and what is left out (`NOT_INCLUDED`), and counts the records of each section.
+2. **The read.** `readExportInput` in `modules/portability/src/read.ts` calls the data-layer functions of the platform, factory, diagnose, procure, deliver and run modules, each with the company id of the identity. The module holds no SQL.
+3. **The route and the page.** `GET /api/companies/{id}/export` (API-30) answers the file with `content-disposition: attachment`. The page `/export` ("Take your data with you", SCR-10) shows what the file holds, counted, and a plain link to the route.
+
+The module has no table, no trigger, no migration and no data directory. It owns one operation and one page, and it writes two audit events: `company.export` and `company.export.denied`.
+
+#### Files
+
+| File | Holds | Exports |
+| --- | --- | --- |
+| `modules/portability/src/bundle.ts` | The shape of the file and the function that builds it: the format name and version, the six sections and the owner's words for each, what the file leaves out, the readme, the counts, `buildExport` (sorts and copies by name), `recordTotal` and `exportFileName` | `EXPORT_FORMAT`, `EXPORT_VERSION`, `ExportInput`, `SECTIONS`, `Section`, `SECTION_TEXT`, `NOT_INCLUDED`, `Readme`, `README`, `ExportCounts`, `ExportBundle`, `buildExport`, `recordTotal`, `exportFileName` |
+| `modules/portability/src/read.ts` | `readExportInput`: reads one company's records through the data-layer functions of the other modules, bound to the identity's company. Returns null when the identity has no company or the company row is missing | `readExportInput` |
+| `modules/portability/src/api/export.ts` | `handleCompanyExport`: the shared company check, the read, the build, one audit entry, then the file | `handleCompanyExport` |
+| `app/export/page.tsx` | The page at `/export`: signed-out notice, the operator's notice, the not-linked notice, or the counted sections and the download link | `default`, `dynamic` |
+| `app/api/companies/[id]/export/route.ts` | The route: exports `GET` only and hands the path id and nothing else to `handleCompanyExport` | `dynamic`, `GET` |
+| `modules/portability/tests/support/forbidden.ts` | The pattern of key names that must never appear in the file (a provider register, a fee, a secret, a session, an email, the audit log, a pool) and a function that lists every key of a value | `FORBIDDEN_KEY`, `keysOf` |
+| `modules/portability/tests/unit/bundle.test.ts` | Unit suite for `buildExport`, `recordTotal` and `exportFileName` | none |
+| `modules/portability/tests/integration/export-api.test.ts` | Integration suite: the route against a real local database | none |
+| `modules/portability/tests/static/scope.test.ts` | Static suite: reads the route, the handler, the reader and the page as text and holds the scope rules | none |
+| `modules/portability/tests/browser/export.test.ts` | Browser suite: the page and the download in Chromium | none |
+| `modules/portability/tests/baseline.json` | Least passing count for each of the four suites | none |
+| `modules/portability/STATUS.md` | The module's own status page | none |
+| `modules/portability/VALIDATION.md` | The module's validation record | none |
+
+Imports. `modules/portability/src/bundle.ts` imports only types, from the diagnose, deliver, factory, platform, procure and run data layers. `modules/portability/src/read.ts` imports `listAssessments` and `loadAssessment` from `modules/diagnose/src/db/assessments.ts`, `listEngagements` from `modules/deliver/src/db/engagements.ts`, `loadHistory`, `loadRevision` and `MAX_REVISIONS_PER_COMPANY` from `modules/factory/src/db/revisions.ts`, `loadOwnCompany` from `modules/platform/src/db/companies.ts`, `listRequirements` from `modules/procure/src/db/requirements.ts` and `listOutcomes` from `modules/run/src/db/outcomes.ts`. `modules/portability/src/api/export.ts` imports `authorizeCompanyRead`, `json`, `recordAudit` and the environment type from the platform module. Nothing under `src/` of another module imports from this module. Section 2.3 was measured on 5 October 2026 and does not list these imports.
+
+#### Data it reads and writes
+
+It reads through other modules; it does not query a table. Each function below binds its query to the company id it is given, and the id comes from the identity, never from the URL.
+
+| Section of the file | Read with | Table behind it |
+| --- | --- | --- |
+| `company` | `loadOwnCompany` | `companies` |
+| `factoryDescriptions` | `loadHistory`, then `loadRevision` for each revision | `factory_revisions` |
+| `assessments` (with decisions and sign-offs) | `listAssessments`, then `loadAssessment` for each | `assessments`, `assessment_events` |
+| `requirements` | `listRequirements` | `requirements`, `requirement_events` |
+| `engagements` (with milestones and events) | `listEngagements` | `engagements`, `milestones`, `engagement_events` |
+| `measurements` | `listOutcomes` for each engagement | `outcome_events` |
+
+It writes one row to `audit_events` for each export or refusal, through `recordAudit`. It reads nothing from `providers`, `provider_services`, `listing_terms`, `provider_events`, `outcome_corrections` or `audit_events`. A correction to a starting number or a review, written by the run module since migration 0015, is therefore not in the file (section 9.16, first item).
+
+#### Main flows
+
+Function: `handleCompanyExport` in `modules/portability/src/api/export.ts`. The numbers are the order of the steps.
+
+1. `authorizeCompanyRead(request, env, requestedId, "company.export.denied")`. It checks that storage is bound (503), that there is a session (401), and that the requested id is the company of the identity (404 `not_found`, with one `company.export.denied` audit entry). If it returns a response, the handler returns it and writes nothing else.
+2. `readExportInput(db, identity)`. It returns null when the identity has no company or the company row is missing; the handler then answers 404 `not_found`.
+3. `buildExport(input, now)`. Pure. The file holds `format`, `version`, `synthetic`, `tag`, `exportedAt`, `companyId`, `readme`, `counts` and the six sections.
+4. `recordAudit(..., "company.export", ...)` with the format version and the number of records (`recordTotal`), before the file is sent, so no file leaves without its entry.
+5. The answer is 200 with `content-type: application/json; charset=utf-8`, `cache-control: no-store` and `content-disposition: attachment; filename="aplyd-records-<company id>-<UTC date>.json"` (`exportFileName`).
+
+```mermaid
+flowchart TD
+  A[GET /api/companies/id/export] --> B{authorizeCompanyRead}
+  B -- no storage --> B1[503]
+  B -- no session --> B2[401]
+  B -- other company or operator --> B3[404 and company.export.denied]
+  B -- own company --> C[readExportInput]
+  C -- no company row --> C1[404 not_found]
+  C -- rows --> D[buildExport]
+  D --> E[recordAudit company.export]
+  E --> F[200 file with content-disposition attachment]
+```
+
+The page `app/export/page.tsx` follows the same reads. It resolves the identity from the cookie, shows `SignedOut` with no session, shows its own notice (`data-testid="operator-cannot-export"`) to the operator, and otherwise builds the bundle in the page to show the counts and the size. A person of a company then sees the link to the route. The page does not write an audit entry; the route does.
+
+#### Rules and the function that decides each
+
+| Rule | Decided by | Pinned by |
+| --- | --- | --- |
+| Only a person of the company has the file; any other company, or the operator, gets the answer for a company that does not exist | `authorizeCompanyRead` (platform) | `modules/portability/tests/integration/export-api.test.ts` |
+| The records are read through the identity's company, never the id in the URL | `readExportInput` | `modules/portability/tests/static/scope.test.ts` |
+| A field is in the file only if `buildExport` names it; a column added to a data layer later is not exported until it is added there | `buildExport` | `modules/portability/tests/unit/bundle.test.ts` |
+| Every list is oldest first, so the same records give the same file apart from `exportedAt` | `buildExport` | `modules/portability/tests/unit/bundle.test.ts` |
+| No key of the file is a provider register, a listing, a fee, terms, a secret, a session, an email, the audit log or a pool | `buildExport` | `modules/portability/tests/unit/bundle.test.ts` (with `FORBIDDEN_KEY`) |
+| Only the export route and the page use the module | none (a test reads the files) | `modules/portability/tests/static/scope.test.ts` |
+| The module holds no SQL and does not reach the provider register, the listing terms, the pools or the audit log | none (a test reads the files) | `modules/portability/tests/static/scope.test.ts` |
+| A member of the company may export, not only the owner | `authorizeCompanyRead` | `modules/portability/tests/integration/export-api.test.ts`. This is a decision for the sponsor; BR-GOV-05's acceptance text says "to anyone but its owner" |
+
+#### Refusals and messages
+
+| Case | Answer | Audit |
+| --- | --- | --- |
+| Storage not bound | 503, `{ "error": "storage_unavailable" }` | none |
+| No session, a broken cookie, or a session whose user is gone | 401 from `notSignedIn` | none |
+| Another company's id, an id that does not exist, or the operator | 404, `{ "error": "not_found" }` | `company.export.denied` |
+| The identity has no company row | 404, `{ "error": "not_found" }` | none from this handler |
+| Success | 200, the file | `company.export` |
+
+The route is read by a link, so a refusal is JSON, not a redirect. The page shows the owner's words from `SECTION_TEXT`, `NOT_INCLUDED` and `README`; they are also in the file, so the page and the file cannot disagree.
+
+#### Invariants
+
+1. The module reads only through the other modules' data layers, and each function takes the company id of the identity. Do not add a read that takes an id from a request.
+2. `buildExport` copies fields by name. A new column is not exported until someone adds it, and `modules/portability/tests/unit/bundle.test.ts` fails if a field of the data layer that the file does not name appears in it.
+3. The audit entry is written after the file is built and before it is sent. A change that sends first breaks "no file without its entry".
+4. The version `EXPORT_VERSION` is raised when a field is renamed, removed or changes meaning, and not when one is added. Nothing outside the repository has read version 1.
+5. Every record in the file is SYNTHETIC; `synthetic` and `tag` say so.
+6. The file is built whole in memory, and the page builds it too, to count. Nothing bounds the size.
+
+#### Tests it owns
+
+The counts are the ones in `modules/portability/tests/baseline.json`. I did not run these suites; they need a local database, and the browser suite needs a build and Chromium.
+
+| Test file | Layer | What it checks |
+| --- | --- | --- |
+| `modules/portability/tests/unit/bundle.test.ts` | unit, 10 | The format and version, the six sections and the readme, every record present, counts and total, an empty company, the stable order, no forbidden key, a field the file does not name is left out, every company id is the company's own, and the file name |
+| `modules/portability/tests/integration/export-api.test.ts` | integration, 10 | An owner's file against the database counts; nothing of another company in it; the same refusal for another company's owner whether or not the company exists, audited; a member may export and the entry names the member; the operator is refused and audited; no session writes nothing; one `company.export` entry for each export; an empty company; the same records give the same file; no storage gives 503 |
+| `modules/portability/tests/static/scope.test.ts` | static, 7 | The route exports `GET` only; the handler's first act is the shared check; the reader binds to the identity; no SQL; no provider register, listing terms, pools or audit log; no other page or route uses the module; the rules catch what they are for |
+| `modules/portability/tests/browser/export.test.ts` | browser, 3 | An owner opens the page and the link gives parseable JSON; a visitor sees the title and one Sign in link and the file is refused; the operator is told the operator cannot export |
+
+That is 30 tests in four files.
+
+#### Found while writing
+
+5 items, listed in [section 9.16](#916-from-section-410-the-portability-module).
+
 ## 5. The pages layer
 
-The directory `app/` holds one layout, three shared parts, nine pages, 23 route files and eight stylesheets. It holds no business rule. A page reads through the data layer and the pure view modules of the modules, draws HTML, and posts plain forms to the route files. A route file is a few lines that hand the request to a handler in the `src/api/` directory of a module (for example `modules/deliver/src/api/`). What each screen shows is in [the FSD](../fsd/FSD.md) (SCR-01 to SCR-09). What each operation accepts and answers is in [the API reference](API-REFERENCE.md). The visual rules are in [the interface guide](INTERFACE-GUIDE.md). This section says how the code is put together and what must not be broken when a page is changed.
+The directory `app/` holds one layout, three shared parts, ten pages, 24 route files and eight stylesheets. It holds no business rule. A page reads through the data layer and the pure view modules of the modules, draws HTML, and posts plain forms to the route files. A route file is a few lines that hand the request to a handler in the `src/api/` directory of a module (for example `modules/deliver/src/api/`). What each screen shows is in [the FSD](../fsd/FSD.md) (SCR-01 to SCR-10). What each operation accepts and answers is in [the API reference](API-REFERENCE.md). The visual rules are in [the interface guide](INTERFACE-GUIDE.md). This section says how the code is put together and what must not be broken when a page is changed.
 
 ### 5.1 How a page is built
 
@@ -2926,25 +3095,27 @@ Rules that every page follows, each checked in the code:
 - A value read from the address is never shown as typed, except the version number on `/factory` (5.3). A message comes from a fixed table, and a key from the address is looked up with `Object.hasOwn`.
 - The name of a record in the address is read through a company-scoped loader, so another company's id finds nothing. The two cases are `?a=` on `/diagnose` (`loadAssessment(db, companyId, id)`) and `?rev=` on `/factory` (`loadRevision(db, companyId, number)`).
 - There is no `error.tsx` and no custom not-found file under `app/`. The only `catch` in `app/` is in `Page` (`app/_ui/parts.tsx`), around `loadFacts`: when that read fails it writes one console line (`journey.facts_failed`) and the page opens with no strip and no next-step card. Any other error inside a page is answered as vinext answers an uncaught error (not read for this document). `/demo` calls `notFound()` when `APLYD_DEMO` is not `true`, and the framework's not-found page answers.
+- Every page except the home page and `/export` exports `metadata = { title: "<page>" }` ("Sign in", "Describe", "Decide", "Choose", "Deliver", "Measure", "Providers", "Demonstration"), and the template in `app/layout.tsx` makes the tab read "<page>: APLYD". The home page keeps the default. `/export` sets none (section 9.16). `modules/demo/tests/smoke/interface.test.ts` pins the titles of the pages it walks.
 - Pages import the pure `present*` functions of the handler files (`presentAssessment`, `presentRequirements`, `presentEngagements`, `presentOutcomes`, `presentPools`) so that a page and the JSON read operation show the same data.
 
 The one file of this subsection:
 
 | File | Holds | Exports |
 | --- | --- | --- |
-| `app/layout.tsx` | The root layout: page title and description, theme colours, the skip link, the SYNTHETIC banner with `role="note"`, the bar, the main area and the footer. It imports `app/globals.css`, so that one stylesheet is on every page | `metadata`, `viewport`, `default` |
+| `app/layout.tsx` | The root layout: the page title (the default "APLYD MSME platform" and the template `%s: APLYD`) and the description, theme colours, the skip link, the SYNTHETIC banner with `role="note"`, the bar, the main area and the footer. It imports `app/globals.css`, so that one stylesheet is on every page | `metadata`, `viewport`, `default` |
 
 The `viewport` theme colours (light `#f3f6f6`, dark `#0b1519`) are written in the file. They are the same as the `--bg` tokens of `app/globals.css`, but no test ties them (see Found while writing).
 
 ### 5.2 The shared frame and parts in `app/_ui/`
 
-The three files below are the only shared code of the pages. A page that uses them keeps what the tests find a page by (5.6).
+The four files below are the only shared code of the pages. A page that uses them keeps what the tests find a page by (5.6).
 
 | File | Holds | Exports |
 | --- | --- | --- |
 | `app/_ui/appbar.tsx` | The bar at the top of every page: the mark with the link "APLYD home", and, for a signed-in person, their initials, name and role and a "Sign out" form that posts `intent=sign-out` to `/api/session`. A visitor sees the mark only | `AppBar` |
 | `app/_ui/icons.tsx` | Seven small inline SVG icons, each `aria-hidden`, so there is no icon font and no request | `Check`, `Arrow`, `Lock`, `Layers`, `Eye`, `Coin`, `Logo` |
 | `app/_ui/parts.tsx` | The parts a page is built from. `Notice` (a message with a role, a tone and a `data-testid`), `Tag`, `Meter` (a bar with its words), `PageHead` (the eyebrow "Step n of 5", the one `h1`, the lede), `SignedOut`, `NotOwner` (takes `title` and `hasCompany`: a member of a company who is not its owner is told the page is for the owner and pointed to the home page), `Strip` (the five steps as a `nav` named "Your five steps"), `Page` (the frame). `NextUp` and the word table `SAYS` are private to the file | `Tone`, `Notice`, `Tag`, `Meter`, `PageHead`, `SignedOut`, `NotOwner`, `Strip`, `Page` |
+| `app/_ui/dates.ts` | `formatDate(iso)`: "2026-10-30" or "2026-10-30T09:15:00.000Z" becomes "30 October 2026". Text that is not an ISO date, or names a day that does not exist, comes back as it was, so a page never shows a wrong date. Used by the home, Describe, Choose and operator pages; the Decide, Deliver and Results pages still show ISO dates in places (section 9.12) | `formatDate` |
 
 How `Page` draws a page (`app/_ui/parts.tsx`):
 
@@ -3022,7 +3193,7 @@ The route files are the only place a handler is bound to an address. Each export
 | `app/api/operator/listing-terms/route.ts` | API-27 `handleTermsRead` and API-28 `handleTermsSet` | `dynamic`, `GET`, `POST` |
 | `app/api/operator/pools/route.ts` | API-29 `handlePools` | `dynamic`, `GET` |
 
-The table has 23 files and 29 methods, which agrees with the count sentence of the API reference (29 operations in 23 route files). A route file whose address has a parameter takes `context: { params: Promise<...> }` and awaits it; the parameters are the company id (`id`), `aid`, `eid`, `rid` and `pid`. Every route file passes `env as unknown as AppEnv` from `cloudflare:workers`. The file name must be route.ts, because `modules/docs/src/api.ts` (`compareApi`) and its test read exactly that name.
+The table has 24 files and 30 methods, which agrees with the count sentence of the API reference (30 operations in 24 route files). A route file whose address has a parameter takes `context: { params: Promise<...> }` and awaits it; the parameters are the company id (`id`), `aid`, `eid`, `rid` and `pid`. Every route file passes `env as unknown as AppEnv` from `cloudflare:workers`. The file name must be route.ts, because `modules/docs/src/api.ts` (`compareApi`) and its test read exactly that name.
 
 The names the form uses are not always the names the JSON uses. A handler picks one by `form ? "<form name>" : "<json name>"`. A test or a page that posts a form must use the form names.
 
@@ -3077,24 +3248,25 @@ A message names a thing that went wrong in words the owner can act on, and never
 
 ### 5.4 The pages one by one
 
-Each row names the page, what it reads and what it posts. Screen contents are in the FSD (SCR-01 to SCR-09). Every page except `/sign-in` and `/demo` resolves the identity in the same way (5.1). The four owner pages (`/factory`, `/procure`, `/deliver`, `/run`) start with the same two refusals, and `/diagnose` and `/operator` have their own forms of them.
+Each row names the page, what it reads and what it posts. Screen contents are in the FSD (SCR-01 to SCR-10). Every page except `/sign-in` and `/demo` resolves the identity in the same way (5.1). The four owner pages (`/factory`, `/procure`, `/deliver`, `/run`) start with the same two refusals, and `/diagnose` and `/operator` have their own forms of them.
 
 | File | Holds | Exports |
 | --- | --- | --- |
 | `app/page.tsx` | `/` (SCR-01), the home page. A visitor sees the hero with the "Sign in" link, "How it works" built from `STAGES`, the list of promises and "About this version". An owner sees the next step as the hero (`nextStep`), the five steps with a status word (`stageStatuses`, `stageLine`), a "Company record" card (`loadOwnCompany`) and the promises. An operator sees a hero that links to `/operator`. Any other signed-in person sees "You are signed in". Reads `loadFacts`, `loadOwnCompany`. Posts nothing | `dynamic`, `default` |
-| `app/sign-in/page.tsx` | `/sign-in` (SCR-02). Outside a synthetic environment, or without a database, it says "Sign-in is not available in this environment." Otherwise it lists the synthetic users with one `SELECT` on `users` (`is_synthetic = 1`, by display name) and a form with the select `email` (label "Synthetic user") and the button "Sign in". Reads `searchParams.refused`. Posts to `/api/session` (API-03) | `dynamic`, `default`, `metadata` |
+| `app/sign-in/page.tsx` | `/sign-in` (SCR-02). Outside a synthetic environment, or without a database, it says "Sign-in is not available in this environment." Otherwise it lists the synthetic users with one `SELECT` on `users` (`is_synthetic = 1`, by display name) and a form with the select `email` (label "Synthetic user") and the button "Sign in". Reads `searchParams.refused` and `searchParams.expired`. Posts to `/api/session` (API-03) | `dynamic`, `default`, `metadata` |
 | `app/factory/page.tsx` | `/factory` (SCR-03), Describe. One form with a fieldset for each section of the questionnaire, drawn from `SECTIONS`. Reads `loadLatest`, `loadHistory`, `loadRevision`, `progressOf`, `progressWords`, `confirmWords`. Posts to `/api/companies/<id>/factory/revisions` (API-06) | `dynamic`, `default`, `metadata` |
-| `app/diagnose/page.tsx` | `/diagnose` (SCR-04), Decide. The ranked ideas of one assessment, the decision form of each idea and the sign-off. Reads `listAssessments`, `loadAssessment`, `loadLatestAssessmentId`, `loadLatest(db, id, "confirmed")`, `presentAssessment`, `POINTS`, `MAX_ITEMS` and the helpers of `modules/diagnose/src/progress.ts`. Posts to API-08, API-10 and API-11 | `dynamic`, `default` |
+| `app/diagnose/page.tsx` | `/diagnose` (SCR-04), Decide. The ranked ideas of one assessment, the decision form of each idea and the sign-off. Reads `listAssessments`, `loadAssessment`, `loadLatestAssessmentId`, `loadLatest(db, id, "confirmed")`, `presentAssessment`, `POINTS`, `MAX_ITEMS` and the helpers of `modules/diagnose/src/progress.ts`. Posts to API-08, API-10 and API-11 | `dynamic`, `default`, `metadata` |
 | `app/procure/page.tsx` | `/procure` (SCR-05), Choose. For each accepted idea of the newest signed-off assessment: the requirement form, the pool, the listed providers and the choice. Reads `listAssessments`, `loadAssessment`, `presentAssessment`, `presentRequirements`, `presentEngagements` and the view functions of `modules/procure/src/view.ts`. Posts to API-13, API-14 and API-15 | `dynamic`, `default`, `metadata` |
-| `app/deliver/page.tsx` | `/deliver` (SCR-06), Deliver. For each engagement: the milestones, the plan, the event forms and the history. Reads `presentEngagements` and the functions of `modules/deliver/src/summary.ts`. Posts to API-18 and API-19 | `dynamic`, `default` |
-| `app/run/page.tsx` | `/run` (SCR-07), Measure. For each engagement: the expected result, the starting number and three reviews. Reads `listEngagements`, `presentOutcomes` and the functions of `modules/run/src/view.ts`. Posts to API-21 | `dynamic`, `default` |
+| `app/deliver/page.tsx` | `/deliver` (SCR-06), Deliver. For each engagement: the milestones, the plan, the event forms and the history. Reads `presentEngagements` and the functions of `modules/deliver/src/summary.ts`. Posts to API-18 and API-19 | `dynamic`, `default`, `metadata` |
+| `app/run/page.tsx` | `/run` (SCR-07), Measure. For each engagement: the expected result, the starting number and three reviews. Reads `listEngagements`, `presentOutcomes` and the functions of `modules/run/src/view.ts`. Posts to API-21 | `dynamic`, `default`, `metadata` |
 | `app/operator/page.tsx` | `/operator` (SCR-08), the operator's page. Providers, the single listing fee and its history, the pools. Reads `currentTerms`, `listAllProviders`, `listTermsHistory`, `presentPools`, `operatorSummary`, `distinctListedFees`, `serviceGroups`, `LIBRARY`. Posts to API-24, API-25, API-26 and API-28 | `dynamic`, `default`, `metadata` |
 | `app/demo/page.tsx` | `/demo` (SCR-09), the presenter's script. It answers `notFound()` unless the binding `APLYD_DEMO` equals `"true"`. It reads `DEMO_COMPANIES`, `OPERATOR`, `WALKED_COMPANY`, `WITNESS_COMPANY` and `DOES_NOT_SHOW`, `RESET_NOTE`, `STEPS`. It reads no database and checks no identity. Posts nothing | `dynamic`, `default`, `metadata` |
+| `app/export/page.tsx` | `/export` (SCR-10), "Take your data with you". Reads `readExportInput` and `buildExport` to count what the file holds, and shows the link to `/api/companies/<id>/export` (API-30). Posts nothing | `dynamic`, `default` |
 
 #### Home and sign-in
 
 - `/` draws a different `h1` for each kind of visitor: "APLYD MSME platform" for a visitor, the next step's title for an owner, "Keep the list of providers" for an operator and "You are signed in" for anyone else. The page's own `Promises` card has `aria-label="What you can rely on"`, and `CompanyCard` has `aria-label="Company record"`.
-- `/sign-in` has its own markup, not `Page`. The refusal key is `refused=1`, which draws one fixed alert, "That user was not found." There is no other key.
+- `/sign-in` has its own markup, not `Page`. The refusal key is `refused=1`, which draws one fixed alert, "That user was not found." The key `expired=1` draws one more alert (`data-testid="expired"`): "Your session has ended. Sign in again; what you typed was not saved." (MSG-199). The platform redirects a form post that has no valid session there (`notSignedIn`, section 4.1).
 - The select of the sign-in form lists each synthetic user as "<display name> (<role>)". The browser tests rely on this and on the label text (5.6).
 
 #### Describe
@@ -3149,6 +3321,12 @@ Each row names the page, what it reads and what it posts. Screen contents are in
 - It calls `notFound()` when the binding `APLYD_DEMO` is not the string `true`. It checks no identity, so on the demonstration host the access gate of section 4.9 is the only protection (the script lists companies and how to sign in, all synthetic).
 - The page uses `role="note"` for its warning notice. Test ids: `cast-<id>`, `step-<n>`.
 
+#### Export
+
+- `/export` has its own page head with no step number. A visitor sees `SignedOut` (one link named "Sign in"); the operator sees a card with `data-testid="operator-cannot-export"`; a signed-in person with no company sees `NotOwner`; a person of a company sees what each section of the file holds, counted (the same words as `SECTION_TEXT`), the file's size, a link "Download your records" that is a plain link and needs no script, and, in two `details` blocks, what the file leaves out and how it is laid out.
+- The page builds the whole file to count it (section 4.10, invariant 6).
+- The page is not walked by `modules/quality/` and sets no title (section 9.16).
+
 ### 5.5 Design tokens and CSS
 
 The visual rules, the colour table and the parts are in [the interface guide](INTERFACE-GUIDE.md). This subsection says where they live in the code and what holds them.
@@ -3172,6 +3350,9 @@ How the CSS is wired and kept:
 4. A dark colour set is chosen in two ways: by the system (`prefers-color-scheme: dark` unless the root carries `data-theme="light"`) and by the root attribute `data-theme="dark"`. Nothing in the code sets `data-theme`; it exists for a future switch (the interface guide says a language switch and a bottom bar are not built).
 5. `modules/journey/tests/unit/contrast.test.ts` reads `app/globals.css`, takes the six-digit hexadecimal tokens of the three blocks and measures the pairs in its hand-written lists `TEXT` and `EDGE`: 4.5 to 1 for text and 3 to 1 for the edge of a control.
 
+6. Two tokens, `--muted-tint` (secondary text) and `--edge-tint` (the edge of a control), exist in the light set and in both dark sets, for text and edges inside `.notice` and `.card.tint`, where the ground is tinted. Every `color-mix()` in `app/globals.css` has a plain colour for the same property before it, so a browser that cannot mix still shows a colour. The mark in a notice and the number on a section of the description have empty alternative text. `modules/demo/tests/unit/ui-contrast.test.ts` measures the two tokens in all three sets and reads the style sheets for the fallback and the alternative-text rule.
+7. A table that may be wider than a phone is put in `.table-wrap` (`app/globals.css`): the box scrolls sideways, is focusable so it can be scrolled with a keyboard, and the page does not scroll. The operator's providers table (`.op-table`, `min-width: 36rem` in `app/operator/operator.css`) is the one use; on a phone a hint says the table scrolls.
+
 The classes the markup uses (`card`, `tint`, `notice`, `tag`, `meter`, `strip`, `page-head`, `options`, `field-row`, `primary`, `small`, `sticky-actions`) are defined in `app/globals.css`; the interface guide's section "Parts" says how a page uses them.
 
 ### 5.6 What the pages must keep for the tests
@@ -3182,7 +3363,7 @@ The browser and smoke tests find things by what a person sees, and the static te
 | --- | --- |
 | The text of the one `h1`, and exactly one `h1` for each page | the browser tests of each stage (`getByRole("heading", { level: 1 })`); `PageHead` draws it |
 | One link named "Sign in" on a visitor's page, and no link whose name contains another page's link name ("Delivery", "Results", "What you need", "What to do about it", "Describe your factory") | `modules/journey/tests/unit/progress.test.ts` for the step labels and the next step's button words; `SignedOut` |
-| The page title "APLYD MSME platform" on every page | `modules/platform/tests/browser/pages.test.ts`; `metadata` in `app/layout.tsx` |
+| The page title: "APLYD MSME platform" on the home page and "<page>: APLYD" on the others (not `/export`) | `modules/platform/tests/browser/pages.test.ts` for the home page and the sign-in page; `modules/demo/tests/smoke/interface.test.ts` for the others it walks; `metadata` in `app/layout.tsx` and each page |
 | Exactly one SYNTHETIC banner with `role="note"` on `/` and `/sign-in`, above the content, inside the first screen, with the two sentences | `modules/platform/tests/browser/pages.test.ts` (`assertSyntheticBannerOnScreen`) |
 | The label "Synthetic user", the option text "<display name> (<role>)" and the button "Sign in" | `modules/platform/tests/browser/pages.test.ts`; `signInAsOwner` in `modules/platform/tests/support/ui.ts` |
 | Each `data-testid` and each notice's `role` listed in 5.4 | the browser and smoke tests of the stage; 7.4 names the ids that no test mentions |
@@ -3200,7 +3381,7 @@ Two limits of the safety net. First, the tests find a page by text, so a reworde
 
 #### Found while writing
 
-10 items, listed in [section 9.12](#912-from-section-56-what-the-pages-must-keep-for-the-tests).
+11 items, listed in [section 9.12](#912-from-section-56-what-the-pages-must-keep-for-the-tests).
 
 ## 6. Build, bundling and runtime
 
@@ -3305,7 +3486,7 @@ The check looks at the name and the table of each trigger, not its body. The com
 
 ### 6.3 Migrations
 
-The database has one schema, made by 15 SQL files in order. The tables and columns are in [the data dictionary](DATA-DICTIONARY.md); this subsection says how the files are made, ordered, applied and checked.
+The database has one schema, made by 16 SQL files in order. The tables and columns are in [the data dictionary](DATA-DICTIONARY.md); this subsection says how the files are made, ordered, applied and checked.
 
 | File | Holds | Exports |
 | --- | --- | --- |
@@ -3317,7 +3498,7 @@ The database has one schema, made by 15 SQL files in order. The tables and colum
 | `modules/factory/db/seed-synthetic.sql` | One confirmed factory revision for the first synthetic company | none |
 | `scripts/local-db.mjs` | Makes the local development database from the migrations and the seed with Wrangler (`pnpm db:local`) | none |
 
-The 15 files in `drizzle/` follow one pattern for each module: a file of tables made by `drizzle-kit generate` from the module's schema file, then a hand-written file of triggers made with `--custom`, because a schema file cannot declare a trigger (already recorded in the data dictionary, section 9 item 2).
+The 16 files in `drizzle/` follow one pattern for each module: a file of tables made by `drizzle-kit generate` from the module's schema file, then a hand-written file of triggers made with `--custom`, because a schema file cannot declare a trigger (already recorded in the data dictionary, section 9 item 2).
 
 | Order | Files | What they hold |
 | --- | --- | --- |
@@ -3326,7 +3507,7 @@ The 15 files in `drizzle/` follow one pattern for each module: a file of tables 
 | Decide | `drizzle/0005_diagnose_assessments.sql`, `drizzle/0006_diagnose_guards.sql`, `drizzle/0007_diagnose_review_fixes.sql` | Tables `assessments` and `assessment_events`, their ten guards, and the review fixes of 0007 (three new triggers; none is dropped) |
 | Choose | `drizzle/0008_procure_tables.sql`, `drizzle/0009_procure_guards.sql` | Tables `listing_terms`, `provider_events`, `provider_services`, `providers`, `requirement_events`, `requirements` and their triggers |
 | Deliver | `drizzle/0010_deliver_tables.sql`, `drizzle/0011_deliver_guards.sql` | Tables `engagement_events`, `engagements`, `milestones` and their triggers |
-| Measure | `drizzle/0012_run_tables.sql`, `drizzle/0013_run_guards.sql` | The table `outcome_events` and its triggers |
+| Measure | `drizzle/0012_run_tables.sql`, `drizzle/0013_run_guards.sql`, `drizzle/0015_run_corrections.sql` | The table `outcome_events` and its triggers; then (0015, after the review fixes) the table `outcome_corrections`, its five triggers and two triggers on `outcome_events` that refuse a starting number on a closed engagement or before the plan is agreed |
 | Review fixes | `drizzle/0014_review_fixes.sql` | Triggers for rules that the application kept and the database did not (two triggers dropped and made again) |
 
 How a database is made, step by step (the same on every path):
@@ -3383,6 +3564,7 @@ Names only; values are never written in the repository (`.env.example` holds nam
 | `DEMO_ACCESS` | `parseConfig`; only the value `open` is accepted | the host, optionally | with a user and a password the gate is on; `open` together with a user or a password stops the launch |
 | `APLYD_PUBLIC_HOSTS` | `parseConfig`, a comma-separated list of host names with an optional port | the host, optionally | none; only the host the browser sent counts as the site's own |
 | `APLYD_DEMO` | `parseConfig` (the value `true`); `scripts/serve.mjs`; `app/demo/page.tsx` | the host, optionally | no demonstration data and `/demo` is not found |
+| `APLYD_COMMIT` | `parseConfig` (7 to 64 hexadecimal characters); `scripts/serve.mjs`, which passes it to the gateway | the Dockerfile from a build argument; `.do/app.yaml` at run time | `/healthz` says `commit unknown`; a value that is not a commit id is ignored and the launcher says so |
 | `DB` | every data layer, as the binding `env.DB` | `vite.config.ts` (a placeholder local database) for a build; Miniflare in `scripts/serve.mjs` and in the tests | no database: see 6.2 |
 | `APLYD_CHROMIUM_PATH` | `modules/platform/tests/support/browser.ts` (`CHROMIUM_ENV`) | a developer or the CI job, optionally | the browser layer looks for the preinstalled browser, then for Google Chrome; a path that names a missing file is an error |
 | `APLYD_BROWSER_DEBUG` | `modules/platform/tests/support/browser.ts` | a developer | no Worker output is printed on failure |
@@ -3420,22 +3602,24 @@ A test is a file modules/<module>/tests/<layer>/<name>.test.ts, run by `node --t
 
 The limits are `TIMEOUT_MIN` in `scripts/test.mjs`. There is no `test:browser` script in `package.json`: the browser layer runs inside `pnpm test` (which is `node scripts/test.mjs pr --guard`) or by `node scripts/test.mjs browser`.
 
-The suites on the pinned commit, counted by `node scripts/test.mjs --list` (95 suites; `--check-catalogue` prints "Test catalogue clean: 95 suites in 5 layers."):
+The suites on the pinned commit, counted by `node scripts/test.mjs --list` (118 suites on 6 October 2026; `--check-catalogue` prints "Test catalogue clean: 118 suites in 5 layers."):
 
 | Module | static | unit | integration | smoke | browser |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `platform` | 3 | 8 | 2 | 1 | 4 |
+| `platform` | 3 | 9 | 2 | 2 | 5 |
 | `factory` | 1 | 2 | 1 | 1 | 1 |
-| `diagnose` | 2 | 5 | 1 | 1 | 1 |
+| `diagnose` | 2 | 7 | 1 | 1 | 2 |
 | `procure` | 2 | 3 | 1 | 1 | 1 |
-| `deliver` | 1 | 3 | 1 | 1 | 1 |
+| `deliver` | 1 | 4 | 1 | 1 | 1 |
 | `run` | 1 | 2 | 1 | 1 | 1 |
-| `journey` | 0 | 2 | 1 | 0 | 1 |
-| `demo` | 1 | 3 | 0 | 1 | 1 |
+| `journey` | 0 | 4 | 1 | 0 | 1 |
+| `demo` | 1 | 5 | 0 | 2 | 2 |
 | `hosting` | 1 | 1 | 1 | 1 | 0 |
+| `portability` | 1 | 1 | 1 | 0 | 1 |
+| `quality` | 0 | 1 | 0 | 0 | 5 |
 | `docs` | 11 | 10 | 0 | 0 | 0 |
 | command suites (no module) | 5 | 0 | 0 | 0 | 0 |
-| Total | 28 | 39 | 9 | 8 | 11 |
+| Total | 29 | 49 | 10 | 10 | 20 |
 
 The five command suites are `static/typecheck` (`tsc --noEmit`), `static/documentation` (`scripts/check-documentation.mjs`), `static/traceability` (`scripts/check-traceability.mjs`), `static/test-docs` (`scripts/check-test-docs.mjs`) and `static/migrations` (`drizzle-kit check`). They are listed in `COMMAND_SUITES` and have no baseline.
 
@@ -3460,18 +3644,20 @@ The ten baseline files:
 
 | File | Holds | Exports |
 | --- | --- | --- |
-| `modules/platform/tests/baseline.json` | Least passing count for each of the 18 suites of the platform module (recorded counts sum to 119) | none |
-| `modules/factory/tests/baseline.json` | The same for 6 suites (sum 76) | none |
-| `modules/diagnose/tests/baseline.json` | The same for 10 suites (sum 89) | none |
-| `modules/procure/tests/baseline.json` | The same for 8 suites (sum 77) | none |
-| `modules/deliver/tests/baseline.json` | The same for 7 suites (sum 70) | none |
-| `modules/run/tests/baseline.json` | The same for 6 suites (sum 63) | none |
-| `modules/journey/tests/baseline.json` | The same for 4 suites (sum 52) | none |
-| `modules/demo/tests/baseline.json` | The same for 6 suites (sum 32) | none |
-| `modules/hosting/tests/baseline.json` | The same for 4 suites (sum 43) | none |
+| `modules/platform/tests/baseline.json` | Least passing count for each of the 21 suites of the platform module (recorded counts sum to 134) | none |
+| `modules/factory/tests/baseline.json` | The same for 6 suites (sum 77) | none |
+| `modules/diagnose/tests/baseline.json` | The same for 13 suites (sum 119) | none |
+| `modules/procure/tests/baseline.json` | The same for 8 suites (sum 79) | none |
+| `modules/deliver/tests/baseline.json` | The same for 8 suites (sum 75) | none |
+| `modules/run/tests/baseline.json` | The same for 6 suites (sum 73) | none |
+| `modules/journey/tests/baseline.json` | The same for 6 suites (sum 84) | none |
+| `modules/demo/tests/baseline.json` | The same for 10 suites (sum 55) | none |
+| `modules/hosting/tests/baseline.json` | The same for 4 suites (sum 48) | none |
 | `modules/docs/tests/baseline.json` | The same for 21 suites (sum 254) | none |
+| `modules/portability/tests/baseline.json` | The same for 4 suites (sum 30) | none |
+| `modules/quality/tests/baseline.json` | The same for 6 suites (sum 30) | none |
 
-The sums are the numbers written in the files on 5 October 2026, read by a script; they are recorded counts and not the result of a run. All ten files carry the date 2026-10-05.
+The sums are the numbers written in the files on 6 October 2026, read by a script; they are recorded counts and not the result of a run. Eleven of the twelve files carry the date 2026-10-05; the hosting file carries 2026-10-06.
 
 How CI uses it. The workflow `engineering-checks` (`.github/workflows/ci.yml`) runs `node scripts/test.mjs --check-catalogue`, installs with the lockfile, runs `pnpm build`, then `node scripts/test.mjs pr --guard`, and uploads `reports/summary.json`. It is skipped for a push or pull request that changes only Markdown files or files under `docs/`. The workflow `documentation-checks` (`.github/workflows/docs.yml`) runs on every pull request and runs three of the command suites' scripts (4.9). So a pull request that changes only Markdown or `docs/` does not run the documentation-sync suites of `modules/docs/tests/static/`; they run in `engineering-checks` only when something else changes.
 
@@ -3633,13 +3819,13 @@ An endpoint has four parts: a route file that binds an address to a handler, the
 Applied migrations are never edited (6.3). A table is a new migration file, a new section of the data dictionary with several cross-references, and edits to hand-kept lists in tests. The steps are in the order in which the failures appear.
 
 1. Declare the table in the `src/db/schema.ts` of the owning module with `sqliteTable("name", {...})` from `drizzle-orm/sqlite-core`. Keep that call shape: `tableOwners` in `modules/docs/src/dictionary.ts` finds the owner of a table by the text `sqliteTable("name"` in a file with this exact name. A company table has `company_id` as a text column that references `companies`; a table that hangs from another company table uses a composite foreign key of the parent's id and the company id, as `outcome_events` does.
-2. Generate the migration with `pnpm db:generate`. It writes an SQL file, a snapshot in `drizzle/meta/` and an entry in `drizzle/meta/_journal.json`; the next file is numbered 0015. Commit all three. Held by `modules/platform/tests/unit/migrations.test.ts` (the journal and the SQL files agree) and by the command suite `static/migrations` (`drizzle-kit check`).
+2. Generate the migration with `pnpm db:generate`. It writes an SQL file, a snapshot in `drizzle/meta/` and an entry in `drizzle/meta/_journal.json`; the next file is numbered 0016. Commit all three. Held by `modules/platform/tests/unit/migrations.test.ts` (the journal and the SQL files agree) and by the command suite `static/migrations` (`drizzle-kit check`).
 3. Write the guards in a second file made with `pnpm db:generate --custom --name <name>`, with `--> statement-breakpoint` between statements. A table that is append-only has three triggers named `<table>_no_update` (BEFORE UPDATE), `<table>_no_delete` (BEFORE DELETE) and `<table>_no_replace` (BEFORE INSERT, refusing a row whose id or any unique key already exists). The `no_replace` trigger must name every unique key of the table as `NEW.<column>` (and the condition of a partial index), because `INSERT OR REPLACE` deletes the other row without running delete triggers; held by `modules/platform/tests/integration/append-only-keys.test.ts`, which reads the keys from the migrated database. Rule triggers are named with the table's name and an underscore first (`<table>_<rule>`) and are all BEFORE triggers. Write each as `CREATE TRIGGER name BEFORE ... ON table` at the start of a line, without `IF NOT EXISTS`: three readers match that shape (`modules/platform/tests/unit/guards.test.ts`, `migrationIndex` in `modules/docs/src/dictionary.ts`, and the count check of `modules/docs/tests/static/dictionary-sync.test.ts`), and a trigger written another way is not seen by them. A migration that drops a trigger must create it again in the same file (held by the third test of `modules/platform/tests/unit/guards.test.ts`).
 4. List the triggers in `modules/platform/src/db/guards.ts`: an entry of `APPEND_ONLY_TABLES` for an append-only table and the rule triggers in `RULE_TRIGGERS`. `modules/platform/tests/unit/guards.test.ts` compares the lists with the triggers the migrations leave in both directions, and `handleHealth` (`modules/platform/src/api/health.ts`) answers `degraded` when a listed trigger is missing. A table that is not append-only and has no rule trigger is not listed.
 5. Write the data layer in the module's `src/db/` and add the table to the hand-kept list of the module's static scope test: `TABLES` in `modules/diagnose/tests/static/scope-rules.test.ts`, `DELIVER_TABLES` in `modules/deliver/tests/static/rules.test.ts`, `COMPANY_TABLES` or `REGISTRY_TABLES` in `modules/procure/tests/static/rules.test.ts`, the table name inside the tests of `modules/factory/tests/static/scope-rules.test.ts` and `modules/run/tests/static/rules.test.ts`. The platform module has no such list. No test notices a table that is on none of them (see Found while writing).
 6. If a handler must tell a rule trigger's refusal from other errors, its data function catches the error and matches the trigger's message text with a regular expression (in `modules/deliver/src/db/engagements.ts` the text is `String(error)` and the pattern `/needs a listed provider/`; six data-layer files in the five modules factory, diagnose, procure, deliver and run do this). Changing a message later means changing the regular expression, the message column of the data dictionary, and the error-code index of the API reference; the integration tests are the only thing that ties the first to the second.
 7. A synthetic row for the local database goes in the `db/seed-synthetic.sql` of the module (`seedFiles` in `modules/platform/src/db/migrate.ts` picks that file name up; a seed is split on a semicolon at the end of a line).
-8. Update the pinned figures: the last test of `modules/docs/tests/static/dictionary-sync.test.ts` asserts 16 tables, 15 migrations and 91 triggers, and must be given the new numbers. These are the figures of 5 October 2026; the test's comment says that because the document's own counts are already held to the database, this assertion fails only when both have moved.
+8. Update the pinned figures: the last test of `modules/docs/tests/static/dictionary-sync.test.ts` asserts 17 tables, 16 migrations and 98 triggers, and must be given the new numbers. These are the figures of 6 October 2026; the test's comment says that because the document's own counts are already held to the database, this assertion fails only when both have moved.
 9. DATA-DICTIONARY.md, all held by `dictionary-sync` unless marked. (a) A section `### <table>` under section 3 with the five lines `- Purpose:`, `- Owner module:` (equal to the module whose schema declares it), `- Scope:`, `- Append-only:` (yes or no first; yes only if the three triggers exist) and `- Created in: migration NNNN` (the first migration that has `CREATE TABLE` for it), then the column table with the nine headings Column, Type, Null, Default, Key, Meaning, Allowed values and limits, Written by, Enforced in: one row per column in the table's order, the name in one code span, an upper-case SQLite type, `yes` or `no` for Null, a default of `none` or one code span, a key of `none` or items `PK` and `FK table(column, ...)` joined with "; ", and no empty text cell. (b) The index table (Index, Columns, Unique, Condition, Purpose) for every index made with `CREATE INDEX`, with a partial index's condition as it follows `WHERE`, with quotes and table prefixes removed (`indexCondition`). (c) A `### Triggers on <table>` section under section 4 with the six headings Trigger, Event ("BEFORE INSERT"), Migration (four digits), Module, Rule, Message (the exact text raised, in one code span). (d) The counts table of 1.1 (Migrations, Tables, Columns, Indexes made with CREATE INDEX, Triggers, the two trigger kinds, Tables that are append-only), the family row of 1.4 (every table in exactly one family, with its owner module), and the count by migration table of section 4 (one row per migration with created and dropped). (e) The ER diagrams of section 2: every foreign key is drawn in some diagram (`parent ||--o{ child : "label"`, with `|o` when the key column is nullable), and every table has its columns listed, in order, with type and `PK` or `FK`, in some diagram. (f) A new limit that a constant enforces goes in the limits table of section 8 as a row with a plain-digit value and a code span `path CONSTANT`; a new event table needs a row in 5.5, and the list of event tables inside `eventKinds` of the test is hand-kept. (g) Not held: the counts written in prose (the opening paragraph, 1.5 and 4), the same counts in HLD (5.4, AD-05 and the durable-hosting paragraph), FSD RULE-09 and the privacy document.
 10. Names in prose. Any code span that starts with a table's name and an underscore, or `table.column` with an existing table, must be a real index, trigger, check or column (`unknownReferences`), so a name written in a document before it exists fails.
 11. If the table is written by an endpoint, do 8.3 and 8.6. The migration, the identity code and the scope rule are protected paths: the pull request carries `needs-human-review`. Nothing in the repository applies migrations to a hosted database (6.3), so the hosted step is outside this recipe.
@@ -3676,7 +3862,7 @@ An audit entry is a row of `audit_events` (append-only) with an event name, a ti
 
 ## 9. Discrepancies and technical debt
 
-This section collects what was found while the other sections were written: places where the code does something a document does not say, where two documents disagree, and hazards and debt in the code. Each item is shown once, here. The section it came from ends with a pointer to its list. There are 120 items in 15 lists. The lists of 1.4 found none. Nothing in the code was changed to resolve any of them. Where an item says a document was corrected, it gives the date. A difference already recorded in HLD 12, in the data dictionary section 9, in the API reference section 6 or in the FSD section 12.1 is cited, not repeated. Where one of these items has since been corrected in code, the item says so and gives the commit.
+This section collects what was found while the other sections were written: places where the code does something a document does not say, where two documents disagree, and hazards and debt in the code. Each item is shown once, here. The section it came from ends with a pointer to its list. There are 126 items in 16 lists. The lists of 1.4 found none. Nothing in the code was changed to resolve any of them. Where an item says a document was corrected, it gives the date. A difference already recorded in HLD 12, in the data dictionary section 9, in the API reference section 6 or in the FSD section 12.1 is cited, not repeated. Where one of these items has since been corrected in code, the item says so and gives the commit.
 
 An item is a discrepancy or a hazard; none of them is a finding in the sense of [the findings register](../FINDINGS.md) until someone enters it there. The register's own entries are cited by identifier where they cover the same ground.
 
@@ -3749,14 +3935,14 @@ An item is a discrepancy or a hazard; none of them is a finding in the sense of 
 
 ### 9.8 From section 4.6: The run module
 
-- **A baseline is offered for an engagement that was closed before anything was accepted.** `presentOutcomes` sets `canRecordBaseline` to true when there is no baseline and no acceptance. It does not test for a `closed` event, and the trigger `outcome_events_baseline_before_acceptance` does not either. In the deliver module a close is final (`engagement_events_closed_is_final`), so no acceptance can follow and no review can ever open. The Results page still draws the baseline form with the tag "Your turn", `resultsSummary` still says "Write down your starting number before the first milestone is accepted.", and `firstTurn` still points at it. `presentOutcomes` does not test for an agreed plan either. The journey rule `record_baseline` now tests both: `canRecordBaseline` in `modules/journey/src/progress.ts` needs an agreed plan and an open engagement, so for an engagement with no agreed plan, or one closed before anything was accepted, the home page does not ask for a number and the Results page does (section 4.7; already recorded in FSD 12.1 item 27). FSD UC-RUN-01 says "no milestone accepted yet" and is silent on a closed engagement. Read from the code; I probed `resultsSummary` and `firstTurn` with a hand-made input, and did not run the page. Risk: an owner who closed an engagement early is asked for a number that nothing can use.
+- **Resolved by commit a717271 (slice 11b, 6 October 2026); the text below is what was found on 5 October 2026.** **A baseline is offered for an engagement that was closed before anything was accepted.** `presentOutcomes` sets `canRecordBaseline` to true when there is no baseline and no acceptance. It does not test for a `closed` event, and the trigger `outcome_events_baseline_before_acceptance` does not either. In the deliver module a close is final (`engagement_events_closed_is_final`), so no acceptance can follow and no review can ever open. The Results page still draws the baseline form with the tag "Your turn", `resultsSummary` still says "Write down your starting number before the first milestone is accepted.", and `firstTurn` still points at it. `presentOutcomes` does not test for an agreed plan either. The journey rule `record_baseline` now tests both: `canRecordBaseline` in `modules/journey/src/progress.ts` needs an agreed plan and an open engagement, so for an engagement with no agreed plan, or one closed before anything was accepted, the home page does not ask for a number and the Results page does (section 4.7; already recorded in FSD 12.1 item 27). FSD UC-RUN-01 says "no milestone accepted yet" and is silent on a closed engagement. Read from the code; I probed `resultsSummary` and `firstTurn` with a hand-made input, and did not run the page. Risk: an owner who closed an engagement early is asked for a number that nothing can use. Since a717271 `baselineBlock` in `modules/run/src/state.ts` decides, `presentOutcomes` sets `canRecordBaseline` from it, `handleOutcomeRecord` refuses with `baseline_closed` or `baseline_no_plan`, and the triggers `outcome_events_baseline_not_after_close` and `outcome_events_baseline_needs_an_agreed_plan` (migration 0015) refuse the same for any writer. Not shown fixed on the built application by this document: the integration and browser tests of the run module were not run for it.
 - **"The latest review" is worked out in two places.** `presentOutcomes` finds it with an inline `[...reviews].reverse().find(...)` to give `changeSinceBaseline`; `latestRecorded` in `modules/run/src/view.ts` does the same and the page calls it for the figures. Today they agree. No mutation list targets `modules/run/src/view.ts` (FND-175 records that the slice 10c page had no mutation checks), so a change to one is not caught by a mutation of the other. Risk: the tiles and the change could disagree after a one-sided edit.
 - **Triggers without a refusal key.** `append` maps five messages and throws any other error. `outcome_events_value_is_whole` and the CHECKs `outcome_events_value`, `outcome_events_shape` and `outcome_events_note` have no key. The handler is stricter than each (`readValue` gives only integers from 0 to `MAX_VALUE`, the review number is 1 to 3, a note is counted in UTF-16 units), so the page cannot reach them. Risk: raising `MAX_VALUE` or `MAX_NOTE_LENGTH` without a new migration would turn a refusal into a 500. The same pattern is in section 4.5.
 - **Already recorded elsewhere.** The OQ-13 citation (DATA-DICTIONARY 9 item 1, API-REFERENCE 6 item 2); a review after the engagement is closed (FSD 12.1 item 8, [FND-177](../FINDINGS.md)); `julianday` in the database against milliseconds in the page (FSD 12.1 item 20, [FND-178](../FINDINGS.md)); the owner's word is unchecked, the invented range, the assumed day counts, the due trigger trusting the application's clock, the unit left to the owner, and that first accepted is final ([FND-155](../FINDINGS.md) to [FND-160](../FINDINGS.md)); the next idea ignoring prerequisites and cost, and the harness `exec` ([FND-161](../FINDINGS.md), [FND-162](../FINDINGS.md)); the page's reads for each engagement ([FND-163](../FINDINGS.md)); the `reviewNo` and `value` types ([FND-084](../FINDINGS.md), [FND-164](../FINDINGS.md)); UTC dates ([FND-165](../FINDINGS.md)); the NUL gap in the note CHECK ([FND-039](../FINDINGS.md)); no mutation checks for the page and `view.ts` ([FND-175](../FINDINGS.md)); a due review seen only through a dated insert ([FND-176](../FINDINGS.md)); a member told "not linked to a company" ([FND-059](../FINDINGS.md), [FND-140](../FINDINGS.md)); JSON for refusals before the form is read ([FND-050](../FINDINGS.md)); the loss of the starting number on the first acceptance ([FND-183](../FINDINGS.md)).
 
 ### 9.9 From section 4.7: The journey module
 
-- **The Results page and the home page disagree about the starting number.** `presentOutcomes` in `modules/run/src/api/outcomes.ts` still sets `canRecordBaseline` to `baselineRow === null && firstAcceptedAt === null`. It does not look at `closed` or at an agreed plan. `canRecordBaseline` in `modules/journey/src/progress.ts` needs both. For an engagement with no agreed plan, or one closed before anything was accepted, `/run` still draws the starting-number form with the tag "Your turn" (`app/run/page.tsx`, `firstTurn` and `resultsSummary` in `modules/run/src/view.ts`), while the home page does not ask. I ran `nextStep` on hand-made facts for a closed engagement with an agreed plan, no number and nothing accepted: it returned `caught_up`, and all five stages were `done`. I did not run the pages. Already recorded in FSD 12.1 item 27 ([FND-253](../FINDINGS.md)); section 4.6 has the Results side.
+- **Resolved by commit a717271 (slice 11b, 6 October 2026); the text below is what was found on 5 October 2026.** **The Results page and the home page disagree about the starting number.** `presentOutcomes` in `modules/run/src/api/outcomes.ts` still sets `canRecordBaseline` to `baselineRow === null && firstAcceptedAt === null`. It does not look at `closed` or at an agreed plan. `canRecordBaseline` in `modules/journey/src/progress.ts` needs both. For an engagement with no agreed plan, or one closed before anything was accepted, `/run` still draws the starting-number form with the tag "Your turn" (`app/run/page.tsx`, `firstTurn` and `resultsSummary` in `modules/run/src/view.ts`), while the home page does not ask. I ran `nextStep` on hand-made facts for a closed engagement with an agreed plan, no number and nothing accepted: it returned `caught_up`, and all five stages were `done`. I did not run the pages. Already recorded in FSD 12.1 item 27 ([FND-253](../FINDINGS.md)); section 4.6 has the Results side. Since a717271 `baselineBlock` in `modules/run/src/state.ts` decides, `presentOutcomes` sets `canRecordBaseline` from it, `handleOutcomeRecord` refuses with `baseline_closed` or `baseline_no_plan`, and the triggers `outcome_events_baseline_not_after_close` and `outcome_events_baseline_needs_an_agreed_plan` (migration 0015) refuse the same for any writer. The Results page and the home page now use the same facts: an agreed plan, an open engagement, nothing recorded and nothing accepted. FND-253 is closed in the register with this commit. Not shown fixed on the built application by this document.
 - **No test guards the order of rules 9, 10, 11 and 12.** The header of `modules/journey/tests/unit/progress.test.ts` says each rule is tried on the facts of the rule before it, "so a reordering of the rules fails here". In a scratch copy outside the repository I swapped two neighbouring blocks at a time and ran the unit file (36 tests). Swapping rules 1 and 2, 2 and 3, rule 3 and the block of rules 4 to 6 (four failures), that block and rule 7, 7 and 8, 8 and 9, 15 and 16, 16 and 17, 17 and 18, and 18 and 19 each failed one test or more. Swapping 9 and 10, 10 and 11, 11 and 12, 12 and the pair 13 and 14, and the pair 13 and 14 and 15 left all 36 passing. The swaps of 12 with 13 and 14, and of 13 and 14 with 15, change nothing, because no facts fire both rules. The swaps of 9 and 10, 10 and 11, and 11 and 12 each change the answer for facts no test builds: two engagements, one with a review open and one with no agreed plan (9 and 10); one with no agreed plan and one that can still take a starting number (10 and 11); an engagement that can take a starting number and a requirement with a listed provider and none chosen (11 and 12). An edit that reorders these four rules is not caught. FSD FR-UX-20 records the same split.
 - **While a plan is under way the home page says nothing needs the owner, whatever else is open.** Rule 16 (`keep_going`) is above rule 17 and rule 18. An owner with one agreed plan, and accepted ideas not yet asked for or a request still waiting for a listing, gets "Work is under way", "Nothing needs you today", and no stage marked "your turn"; `ask_for_more` shows only once every engagement is closed. The unit test asserts the order against `waiting_for_listing`; for `ask_for_more` it follows from the guarded order of rules 16, 17 and 18. I ran `nextStep` on hand-made facts for this case and did not run the pages. The FSD records the order; it does not say this effect. It may be intended.
 - **The strip and the home page have no word for a stage that has begun and is not the owner's turn.** There is no value between `current` and `done`. While `keep_going` fires, Deliver and Measure are `todo`, which the strip says to a screen reader as ", not started" and the home page tags "Not yet", under a line such as "1 of 2 milestones accepted." After an engagement is closed with one review recorded and the next not due, the step is `caught_up` and Measure is `todo` while its line says "1 review recorded". The unit and integration tests assert these values (`deliver: "todo", run: "todo"`). I probed `stageStatuses` and `stageLine` on hand-made facts. Not in FSD 12.1.
@@ -3803,6 +3989,7 @@ An item is a discrepancy or a hazard; none of them is a finding in the sense of 
 - `app/sign-in/page.tsx` runs its own `SELECT` on `users`, the only SQL in `app/`. The static scope tests of the modules list tables of their own module, so nothing holds this query to a rule. It is correct today (synthetic users only); a change to the `users` table must remember this file.
 - `modules/journey/tests/unit/contrast.test.ts` reads only six-digit hexadecimal tokens and measures the pairs of two hand-written lists. A token written another way, a pair added to a page's CSS and not to `TEXT` or `EDGE`, and the `color-mix` hover state of `button.turn` are not measured.
 - `app/demo/page.tsx` draws a second element with `role="note"` beside the layout banner. The banner test counts `role="note"` elements and is run on `/` and `/sign-in` only; it would fail on `/demo`.
+- **The Decide, Deliver and Results pages show dates as ISO text, and the other pages show them in words.** `formatDate` (`app/_ui/dates.ts`) is used by `app/page.tsx`, `app/factory/page.tsx`, `app/procure/page.tsx` and `app/operator/page.tsx`. `app/diagnose/page.tsx`, `app/deliver/page.tsx` and `app/run/page.tsx` still print `slice(0, 10)` ("2026-10-30") for a date, and for the day a review opens. The interface guide says a date is written in words. Risk: an owner sees two date forms in one journey.
 
 ### 9.13 From section 6.5: Configuration names
 
@@ -3844,3 +4031,11 @@ An item is a discrepancy or a hazard; none of them is a finding in the sense of 
 - No static test requires a route file to call `authorizeCompanyRead`, `authorizeCompanyWrite`, `authorizeOperator` or `authorizeSignedIn`: the tests that mention them are in `modules/docs/`, and the API test only needs an entry in the reference for each route. The scope tests (`modules/diagnose/tests/static/scope-rules.test.ts` and the others) hold the queries, not the handlers. Risk: a handler that takes a company id from the address and passes it to a data function that binds it would pass every static test while skipping the scope rule; only the hand-written integration and smoke tests of each module would catch it, and a new route has none until someone writes them (8.3 step 8). This is a reading of the tests and was not demonstrated. The hand-kept table lists of the scope tests (7 Found) mean the same for a new table.
 - `modules/platform/src/db/guards.ts` is the platform module's file and lists the triggers of every module, while AGENTS.md says an agent does not edit another module's files and sends cross-module changes through the owner. Every new table with a trigger in any module therefore needs an edit to a platform file (8.4 step 4), and a pull request that touches migrations is a protected path. Risk: a table added by the owner of one module cannot be completed without a second module's owner.
 - `app/factory/page.tsx` (`Question` draws the tag "Needed to confirm" for each key of `REQUIRED_TO_CONFIRM`; `Meter` with `data-testid="answered"` and `progressWords` show how many questions are answered) against FSD 12.1 item 19, the "Gaps." paragraph of FSD SCR-03 and WIREFRAMES, which say that the five questions needed to confirm are not marked and that the page has no progress indication. The code marks them and counts. The FSD item is recorded, but as a gap that the code no longer has. Risk: the FSD describes a page that is not the page, and the gap reads as open work.
+
+### 9.16 From section 4.10: The portability module
+
+- **The export does not hold the corrections to a starting number or a review.** `readExportInput` in `modules/portability/src/read.ts` calls `listOutcomes` and not `listCorrections` (`modules/run/src/db/outcomes.ts`), so the rows of `outcome_corrections` (migration 0015) are not in the file. A person who corrects a number and then downloads the file gets the number as first recorded, and the readme does not say a correction exists. The same file also leaves out the note written with a withdrawal (the procure data layer does not return it) and the names of people. Recorded as FSD 12.1 item 42.
+- **The page `/export` has no title of its own.** `app/export/page.tsx` exports `default` and `dynamic` but not `metadata`, so its browser tab reads "APLYD MSME platform". The other pages set `%s: APLYD` through the template in `app/layout.tsx`. `PAGES` in `modules/quality/tests/support/matrix.ts` does not list `/export`, so no phone, accessibility, slow-connection or no-script measurement walks it. Recorded as FSD 12.1 item 43.
+- **A member of the company can export, and the requirement says "anyone but its owner".** `authorizeCompanyRead` lets any person of the company read, and the integration test pins that a member gets the file. BR-GOV-05's acceptance text excludes everyone but the owner. Whether a member counts is for the sponsor to decide; the module's STATUS lists it as a known limit.
+- **The whole file is built in memory, and the page builds it to count.** `readExportInput` reads each revision, each assessment and each engagement's measurements one by one after the lists, so a company at the limit of 500 revisions makes more than 500 reads for each view of the page or download. Nothing bounds the size. The date in the file name is the UTC date, so a file made between midnight and 05:30 IST carries the day before. Not measured.
+- **Section 2.3 does not list the imports of this module.** The scan ran on 5 October 2026, before the module existed. `modules/portability/src/read.ts` imports from six other modules and `app/export/page.tsx` imports from this one. Nothing else imports from it, which `modules/portability/tests/static/scope.test.ts` pins.
