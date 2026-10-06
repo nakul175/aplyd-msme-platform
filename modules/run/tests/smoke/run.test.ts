@@ -55,7 +55,7 @@ test("set-up: a provider is listed, the owner signs off an assessment, makes a r
   assert.equal((await form(op, "/api/operator/listing-terms", [["feeInr", String(FEE)], ["note", "SYNTHETIC test value, not a proposal"]])).status, 303);
   assert.equal((await form(op, "/api/operator/providers", [["name", "Alpha Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", KIND], ["cluster", CLUSTER]])).status, 303);
   const providerId = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string }[] }).providers[0].id;
-  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location"), "/operator?listed=1");
+  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location")?.split("#")[0], "/operator?listed=1");
 
   const a = await signIn("owner-a@synthetic.invalid");
   const made = await form(a, `/api/companies/${A}/assessments`);

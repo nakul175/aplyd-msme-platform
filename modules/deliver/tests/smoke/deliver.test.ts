@@ -61,7 +61,7 @@ test("set-up: the operator sets a fee and lists a provider; an owner signs off a
   assert.equal((await form(op, "/api/operator/listing-terms", [["feeInr", String(FEE)], ["note", "SYNTHETIC test value, not a proposal"]])).status, 303);
   assert.equal((await form(op, "/api/operator/providers", [["name", "Alpha Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", KIND], ["cluster", CLUSTER]])).status, 303);
   providerId = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string }[] }).providers[0].id;
-  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location"), "/operator?listed=1");
+  assert.equal((await form(op, `/api/operator/providers/${providerId}/list`)).headers.get("location")?.split("#")[0], "/operator?listed=1");
 
   const a = await signIn("owner-a@synthetic.invalid");
   const made = await form(a, `/api/companies/${A}/assessments`);
@@ -276,7 +276,7 @@ test("at the delivery cap the page stops offering a delivery and says why: the m
   const op = await signIn("operator@synthetic.invalid");
   assert.equal((await form(op, "/api/operator/providers", [["name", "Beta Works"], ["summary", "SYNTHETIC test provider"], ["opportunity", secondIdea], ["cluster", CLUSTER]])).status, 303);
   const beta = ((await getJson(op, "/api/operator/providers")) as { providers: { id: string; name: string }[] }).providers.find((p) => p.name === "Beta Works")!.id;
-  assert.equal((await form(op, `/api/operator/providers/${beta}/list`)).headers.get("location"), "/operator?listed=1");
+  assert.equal((await form(op, `/api/operator/providers/${beta}/list`)).headers.get("location")?.split("#")[0], "/operator?listed=1");
   assert.equal((await form(a, `/api/companies/${A}/requirements`, [["assessment", assessmentId], ["opportunity", secondIdea], ["cluster", CLUSTER]])).status, 303);
   const requirements = ((await getJson(a, `/api/companies/${A}/requirements`)) as { requirements: { id: string; opportunityId: string }[] }).requirements;
   const second = requirements.find((r) => r.opportunityId === secondIdea)!.id;
